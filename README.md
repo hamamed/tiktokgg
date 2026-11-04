@@ -66,7 +66,7 @@ The installer runs the server on `127.0.0.1` (a free port in 3200-3299) and adds
 
 **Gifts:** the dashboard shows every TikTok gift with its real image. Tap a gift to choose what it does in the game. Press **Load TikTok gifts** while you're connected, or enter any account that is LIVE right now. On the VPS the installer also copies the gift list and images that `koydam-tiktok` has already downloaded (`/opt/koydam-tiktok/data`).
 
-Rules live in the server's memory, so press **Apply Rules** again after the service restarts.
+Rules are saved on the server (`DATA_DIR/rules.json`, on the VPS `/var/lib/tiktokgg/rules.json`), so they survive restarts and updates. In the **Games** panel each action card shows its gifts. Use **+ Gift** to add one, and × to remove it. Mapped gift tiles also have a trash button, and **Clear all** removes every rule. Press **Apply Rules** to send changes.
 
 ### Lite setup on your own PC
 Run the server yourself:

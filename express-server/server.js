@@ -111,12 +111,13 @@ const MSG = Object.freeze({
 const STATUS = Object.freeze({ CONNECTED: 'CONNECTED', DISCONNECTED: 'DISCONNECTED', ERROR: 'ERROR' });
 
 // ============================================================================
-// 4. RULE STORE — dynamic in-memory gift → action mapping
+// 4. RULE STORE — dynamic gift → action mapping (kept in memory, saved to DATA_DIR/rules.json)
 //    Shape: { "Rose": { "action": "SPAWN_OBSTACLE", "value": 1 }, "*": {...fallback} }
 //    Lookups are case-insensitive. "*" (optional) matches any gift without its own rule.
 // ============================================================================
 const RuleStore = (() => {
-  let rules = {}; // starts empty; the dashboard sends UPDATE_RULES
+  let rules = {}; // loaded from DATA_DIR/rules.json at boot; the dashboard sends UPDATE_RULES
+  const FILE = path.join(CONFIG.dataDir, 'rules.json');
   let index = new Map(); // lowercase name -> { name, action, value }
 
   const ACTION_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
@@ -141,6 +142,17 @@ const RuleStore = (() => {
     return out;
   }
 
+  function save() {
+    try {
+      fs.mkdirSync(CONFIG.dataDir, { recursive: true });
+      const tmp = `${FILE}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(rules, null, 2));
+      fs.renameSync(tmp, FILE);
+    } catch (err) {
+      log.warn(`Could not save rules: ${err.message}`);
+    }
+  }
+
   function rebuildIndex() {
     index = new Map(Object.entries(rules).map(([name, r]) => [name.toLowerCase(), { name, ...r }]));
   }
@@ -156,7 +168,19 @@ const RuleStore = (() => {
       }
       rules = next;
       rebuildIndex();
+      save();
       return rules;
+    },
+    /** Restore the last saved rules so a restart or update never wipes the setup. */
+    load() {
+      try {
+        rules = validate(JSON.parse(fs.readFileSync(FILE, 'utf8')));
+        for (const k of Object.keys(rules)) if (rules[k] === null) delete rules[k];
+        rebuildIndex();
+        log.info(`Rules loaded from ${FILE}: ${Object.keys(rules).join(', ') || '(none)'}`);
+      } catch (err) {
+        if (err.code !== 'ENOENT') log.warn(`Could not load ${FILE}: ${err.message}`);
+      }
     },
     match(giftName) {
       return index.get(String(giftName).toLowerCase()) ?? index.get('*') ?? null;
@@ -967,6 +991,7 @@ app.use((err, _req, res, _next) => {
 // ============================================================================
 // 13. BOOT + PROCESS SAFETY + GRACEFUL SHUTDOWN
 // ============================================================================
+RuleStore.load();
 GiftCatalog.load();
 GiftCatalog.onChange((gifts) => Hub.broadcast(MSG.GIFTS, { gifts }));
 

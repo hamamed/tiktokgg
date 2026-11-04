@@ -155,6 +155,9 @@
           <button class="rounded-lg px-3 py-1.5" :class="giftTab === 'all' ? 'bg-white/10 text-white' : 'text-slate-400'" @click="giftTab = 'all'">All <span class="text-slate-500">{{ allGifts.length }}</span></button>
           <button class="rounded-lg px-3 py-1.5" :class="giftTab === 'mapped' ? 'bg-white/10 text-white' : 'text-slate-400'" @click="giftTab = 'mapped'">Mapped <span class="text-slate-500">{{ mappedCount }}</span></button>
         </div>
+        <button v-if="mappedCount" class="btn btn-ghost !px-3 !py-1.5 text-xs text-red-300 hover:!bg-red-500/15" @click="clearAllRules" title="Remove every gift rule">
+          <lc-icon name="trash-2" :size="14"></lc-icon> Clear all
+        </button>
         <label class="relative">
           <span class="sr-only">Sort gifts</span>
           <select v-model="giftSort" class="field !w-auto !py-1.5 pr-8 text-xs">
@@ -178,7 +181,9 @@
       <!-- gift grid -->
       <div class="max-h-[600px] overflow-y-auto pr-1">
         <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-5">
-          <li v-for="g in visibleGifts" :key="g.key">
+          <li v-for="g in visibleGifts" :key="g.key" class="relative">
+            <button v-if="g.rule" class="absolute left-1.5 top-1.5 z-10 grid h-6 w-6 place-items-center rounded-full bg-slate-900/90 text-slate-400 ring-1 ring-white/15 hover:bg-red-500/30 hover:text-red-200"
+                    @click.stop="removeRule(g.name)" :aria-label="'Remove the rule for ' + g.name" title="Remove rule"><lc-icon name="trash-2" :size="12"></lc-icon></button>
             <button class="group relative flex w-full flex-col items-center gap-1 rounded-xl border px-1.5 pb-2 pt-3 text-center transition hover:-translate-y-0.5 active:scale-95"
                     :class="[g.rule ? 'border-tt-cyan/35 bg-tt-cyan/[.06]' : 'border-white/5 bg-slate-950/50 hover:border-white/20', menu.gift?.key === g.key ? 'ring-2 ring-tt-red' : '']"
                     :aria-label="g.name + (g.rule ? ', mapped to ' + g.rule.action : ', no action')"
@@ -312,12 +317,39 @@
             <p class="mt-1 text-sm text-slate-400">{{ game.description }}</p>
           </div>
 
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="label">Which gift does what</span>
+            <div class="flex items-center gap-2">
+              <span v-if="dirty" class="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-400/30"><lc-icon name="circle-dot" :size="12"></lc-icon> unsaved</span>
+              <button class="btn btn-primary !px-3 !py-1.5 text-xs" :class="fx.apply" :disabled="!dirty || socketState !== 'open'" @click="applyRules"><lc-icon name="send" :size="14"></lc-icon> Apply Rules</button>
+            </div>
+          </div>
           <div class="grid gap-2 sm:grid-cols-2">
-            <div v-for="e in game.effects" :key="e.action" class="flex items-start gap-3 rounded-xl border border-white/5 bg-slate-950/50 p-3">
-              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/5" :class="actionLook(e.action).color"><lc-icon :name="actionLook(e.action).icon" :size="18"></lc-icon></span>
-              <div class="min-w-0">
-                <div class="font-mono text-xs font-bold text-slate-200">{{ e.action }}</div>
-                <div class="text-xs text-slate-400">{{ e.text }}</div>
+            <div v-for="e in game.effects" :key="e.action" class="flex flex-col gap-2 rounded-xl border p-3 transition"
+                 :class="picker.action === e.action ? 'border-tt-red/60 bg-tt-red/[.06]' : 'border-white/5 bg-slate-950/50'">
+              <div class="flex items-start gap-2.5">
+                <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/5" :class="actionLook(e.action).color"><lc-icon :name="actionLook(e.action).icon" :size="16"></lc-icon></span>
+                <div class="min-w-0 flex-1">
+                  <div class="text-sm font-bold">{{ actionLook(e.action).label }} <span class="font-mono text-[10px] font-normal text-slate-500">{{ e.action }}</span></div>
+                  <div class="text-xs text-slate-400">{{ e.text }}</div>
+                </div>
+                <button class="btn btn-ghost shrink-0 !px-2.5 !py-1 text-xs" @click="openPicker(e.action, $event)" :aria-label="'Add a gift to ' + actionLook(e.action).label">
+                  <lc-icon name="plus" :size="13"></lc-icon> Gift
+                </button>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <span v-for="m in rulesByAction[e.action]" :key="m.gift.key" class="inline-flex items-center rounded-lg border border-white/10 bg-white/5 py-0.5 pl-1 pr-0.5">
+                  <button class="inline-flex items-center gap-1.5 rounded-md px-0.5 hover:text-white" @click="openMenu(m.gift, $event)" :title="'Change ' + m.gift.name">
+                    <img v-if="m.gift.image" :src="imgSrc(m.gift.image)" alt="" class="h-7 w-7 object-contain" />
+                    <span v-else class="grid h-7 w-7 place-items-center" :class="giftLook(m.gift.name).color"><lc-icon :name="giftLook(m.gift.name).icon" :size="16"></lc-icon></span>
+                    <span class="max-w-[110px] truncate text-xs font-semibold">{{ m.gift.name }}</span>
+                    <span class="rounded bg-black/30 px-1 text-[10px] tabular-nums text-slate-300">{{ m.rule.value }}</span>
+                  </button>
+                  <button class="ml-0.5 grid h-6 w-6 place-items-center rounded-md text-slate-500 hover:bg-red-500/20 hover:text-red-300" @click="removeRule(m.gift.name)" :aria-label="'Remove ' + m.gift.name + ' from ' + actionLook(e.action).label" title="Remove">
+                    <lc-icon name="x" :size="13"></lc-icon>
+                  </button>
+                </span>
+                <span v-if="!rulesByAction[e.action]?.length" class="py-1 text-[11px] text-slate-500">No gift yet. Tap "+ Gift".</span>
               </div>
             </div>
           </div>
@@ -394,12 +426,49 @@
           <button class="grid h-8 w-8 place-items-center text-slate-300 hover:text-white" @click="stepValue(menu.gift, 1)" aria-label="More"><lc-icon name="plus" :size="14"></lc-icon></button>
         </div>
         <span class="text-[11px] text-slate-500">× combo</span>
-        <button class="btn btn-primary ml-auto !px-3 !py-1.5 text-xs" :class="fx.menuTest" :disabled="socketState !== 'open'" @click="testInGame(menu.gift)">
+        <button class="btn btn-ghost ml-auto !px-3 !py-1.5 text-xs text-red-300 hover:!bg-red-500/15" @click="removeRule(menu.gift.name); closeMenu()"><lc-icon name="trash-2" :size="14"></lc-icon> Remove</button>
+        <button class="btn btn-primary !px-3 !py-1.5 text-xs" :class="fx.menuTest" :disabled="socketState !== 'open'" @click="testInGame(menu.gift)">
           <lc-icon name="play" :size="14"></lc-icon> Test in game
         </button>
       </div>
     </div>
   </transition>
+  <!-- gift picker: choose which gifts trigger one action -->
+  <div v-if="picker.action" class="fixed inset-0 z-40" @click="closePicker"></div>
+  <div v-if="picker.action" class="fixed z-50 flex max-h-[min(540px,85vh)] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-900/95 shadow-2xl shadow-black/60 backdrop-blur"
+       :style="picker.style" role="dialog" aria-modal="true" :aria-label="'Gifts for ' + actionLook(picker.action).label">
+    <div class="flex items-center gap-3 border-b border-white/10 p-3">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/5" :class="actionLook(picker.action).color"><lc-icon :name="actionLook(picker.action).icon" :size="20"></lc-icon></span>
+      <div class="min-w-0 flex-1">
+        <div class="truncate font-bold">Gifts for {{ actionLook(picker.action).label }}</div>
+        <div class="text-xs text-slate-400">Tap a gift to add it. Tap again to remove it.</div>
+      </div>
+      <button class="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white" @click="closePicker" aria-label="Close"><lc-icon name="x" :size="16"></lc-icon></button>
+    </div>
+    <div class="p-2">
+      <label class="relative block">
+        <span class="sr-only">Search gifts</span>
+        <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500"><lc-icon name="search" :size="14"></lc-icon></span>
+        <input v-model.trim="picker.search" class="field !py-1.5 pl-8 text-sm" placeholder="Search gifts" autocomplete="off" />
+      </label>
+    </div>
+    <ul class="grid grid-cols-3 gap-1.5 overflow-y-auto px-2 pb-2 sm:grid-cols-4">
+      <li v-for="g in pickerGifts" :key="g.key">
+        <button class="relative flex w-full flex-col items-center gap-0.5 rounded-xl border px-1 pb-1.5 pt-2 text-center transition hover:border-white/25 active:scale-95"
+                :class="g.rule?.action === picker.action ? 'border-emerald-400/60 bg-emerald-400/10' : 'border-white/5 bg-slate-950/50'"
+                :aria-pressed="g.rule?.action === picker.action" @click="togglePick(g)">
+          <lc-icon v-if="g.rule?.action === picker.action" name="circle-check" :size="15" class="absolute right-1 top-1 text-emerald-400"></lc-icon>
+          <img v-if="g.image" :src="imgSrc(g.image)" alt="" loading="lazy" class="h-10 w-10 object-contain" />
+          <span v-else class="grid h-10 w-10 place-items-center" :class="giftLook(g.name).color"><lc-icon :name="giftLook(g.name).icon" :size="20"></lc-icon></span>
+          <span class="w-full truncate text-[11px] font-semibold">{{ g.name }}</span>
+          <span class="flex items-center gap-0.5 text-[10px] text-slate-400"><lc-icon name="gem" :size="9" class="text-tt-cyan"></lc-icon>{{ g.diamonds != null ? fmt(g.diamonds) : '?' }}</span>
+          <span v-if="g.rule && g.rule.action !== picker.action" class="max-w-full truncate text-[9px] font-semibold" :class="actionLook(g.rule.action).color">now: {{ actionLook(g.rule.action).label }}</span>
+        </button>
+      </li>
+      <li v-if="!pickerGifts.length" class="col-span-full py-6 text-center text-sm text-slate-500">No gift matches.</li>
+    </ul>
+  </div>
+
   <!-- toasts -->
   <div class="pointer-events-none fixed bottom-4 left-1/2 z-50 flex w-[min(92vw,420px)] -translate-x-1/2 flex-col gap-2" aria-live="polite">
     <transition-group enter-from-class="opacity-0 translate-y-2" enter-active-class="transition duration-200" leave-to-class="opacity-0" leave-active-class="transition duration-300">
@@ -756,6 +825,14 @@ const app = createApp({
     function syncServerRules(rules) {
       serverRules.value = rules || {};
       rulesSyncedAt.value = Date.now();
+      // A server that comes back with no rules (fresh install, old version restarted) must never wipe the
+      // streamer's setup: keep the local rules and flag them so one "Apply Rules" puts them back.
+      if (!Object.keys(serverRules.value).length && Object.keys(draft.value).length) {
+        if (!dirty.value) addLog('SYS', '<span class="text-amber-300">the server has no rules</span>: press Apply Rules to send yours', true);
+        dirty.value = true;
+        persist();
+        return;
+      }
       // Never overwrite unsaved local edits (or the first-run presets); "Revert" loads the server copy.
       if (!dirty.value) loadFromServer();
     }
@@ -827,20 +904,72 @@ const app = createApp({
     const exactMatch = computed(() => allGifts.value.some((g) => g.name.toLowerCase() === giftSearch.value.toLowerCase()));
     const menuRule = computed(() => (menu.gift ? ruleFor(menu.gift.name) : null));
 
-    function openMenu(g, ev) {
-      if (menu.gift?.key === g.key) return closeMenu();
-      menu.gift = g;
-      const W = 340, vw = innerWidth, vh = innerHeight;
-      if (vw < 640) { menu.style = { left: '8px', right: '8px', bottom: '8px' }; return; }
-      const r = ev.currentTarget.getBoundingClientRect();
+    /** Popover position next to the element that opened it (bottom sheet on phones). */
+    function placeNear(el, W = 340, H = 560) {
+      const vw = innerWidth, vh = innerHeight;
+      if (vw < 640) return { left: '8px', right: '8px', bottom: '8px' };
+      const r = el.getBoundingClientRect();
       let left = r.right + 10;
       if (left + W > vw - 8) left = r.left - W - 10;
       if (left < 8) left = Math.min(vw - W - 8, Math.max(8, r.left));
-      const top = Math.max(8, Math.min(r.top - 20, vh - Math.min(560, vh * 0.85) - 8));
-      menu.style = { left: left + 'px', top: top + 'px', width: W + 'px' };
+      const top = Math.max(8, Math.min(r.top - 20, vh - Math.min(H, vh * 0.85) - 8));
+      return { left: left + 'px', top: top + 'px', width: W + 'px' };
+    }
+    function openMenu(g, ev) {
+      if (menu.gift?.key === g.key) return closeMenu();
+      closePicker();
+      menu.gift = g;
+      menu.style = placeNear(ev.currentTarget);
       nextTick(() => document.querySelector('[role=dialog] button')?.focus());
     }
     const closeMenu = () => { menu.gift = null; };
+
+    /* Per-action gift picker (Games panel) */
+    const picker = reactive({ action: null, style: {}, search: '' });
+    function openPicker(action, ev) {
+      if (picker.action === action) return closePicker();
+      closeMenu();
+      picker.action = action;
+      picker.search = '';
+      picker.style = placeNear(ev.currentTarget, 400, 540);
+      nextTick(() => document.querySelector('[role=dialog] input')?.focus());
+    }
+    function closePicker() { picker.action = null; }
+    const pickerGifts = computed(() => {
+      const q = picker.search.toLowerCase();
+      const d = (g) => (g.diamonds == null ? Infinity : g.diamonds);
+      return allGifts.value
+        .filter((g) => !q || g.name.toLowerCase().includes(q))
+        .sort((a, b) => (b.rule?.action === picker.action) - (a.rule?.action === picker.action) || d(a) - d(b))
+        .slice(0, 120);
+    });
+    function togglePick(g) {
+      if (g.rule?.action === picker.action) removeRule(g.name);
+      else setGiftAction(g, picker.action);
+    }
+    /** Mapped gifts grouped by action, for the Games panel cards. */
+    const rulesByAction = computed(() => {
+      const out = Object.fromEntries(ACTIONS.map((a) => [a.id, []]));
+      for (const g of allGifts.value) if (g.rule) (out[g.rule.action] ??= []).push({ gift: g, rule: g.rule });
+      for (const list of Object.values(out)) list.sort((a, b) => (a.gift.diamonds ?? Infinity) - (b.gift.diamonds ?? Infinity));
+      return out;
+    });
+
+    function removeRule(name) {
+      const r = ruleFor(name);
+      if (!r) return;
+      const next = { ...draft.value };
+      delete next[r.key];
+      draft.value = next;
+      touch();
+      toast(`${name}: rule removed (press Apply Rules)`);
+    }
+    function clearAllRules() {
+      if (!confirm(`Remove all ${mappedCount.value} gift rules? Press Apply Rules afterwards to clear them on the server too.`)) return;
+      draft.value = {};
+      closeMenu();
+      touch();
+    }
 
     function setGiftAction(g, action) {
       const existing = ruleFor(g.name);
@@ -875,7 +1004,7 @@ const app = createApp({
         await act('fetch', 'FETCH_GIFTS', { username: fetchUser.value }, (r) => `${r.count} gifts loaded from TikTok`);
       } catch { /* toast shown */ }
     }
-    addEventListener('keydown', (e) => e.key === 'Escape' && closeMenu());
+    addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMenu(); closePicker(); } });
 
     /* ------------------------------------------------------------------
      * Commands
@@ -954,6 +1083,7 @@ const app = createApp({
       serverRules, dirty, rulesSyncedAt, applyRules, loadFromServer, fmt,
       catalog, allGifts, filteredGifts, visibleGifts, mappedCount, exactMatch, giftSearch, giftTab, giftSort, giftLimit, fetchUser, fetchGifts,
       menu, menuRule, openMenu, closeMenu, setGiftAction, setGiftValue, stepValue, testInGame, customGift, imgSrc,
+      picker, pickerGifts, openPicker, closePicker, togglePick, rulesByAction, removeRule, clearAllRules,
       custom, fx, busy, toasts, fireTest, fireCustom, connectTikTok, disconnectTikTok,
       visibleLog, filters, toggleFilter, clearLog, logBox, autoScroll, onLogScroll, scrollToBottom,
       game, previewOn, previewKey, gameUrl, selectGame, copyGameUrl, showLegend, onLegendToggle,
