@@ -180,7 +180,7 @@
       </form>
 
       <!-- gift grid -->
-      <div class="max-h-[600px] overflow-y-auto pr-1">
+      <div class="min-h-[420px] max-h-[70vh] flex-1 overflow-y-auto overscroll-contain pr-1 lg:max-h-none lg:basis-0">
         <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-5">
           <li v-for="g in visibleGifts" :key="g.key" class="relative">
             <button v-if="g.rule" class="absolute left-1.5 top-1.5 z-10 grid h-6 w-6 place-items-center rounded-full bg-slate-900/90 text-slate-400 ring-1 ring-white/15 hover:bg-red-500/30 hover:text-red-200"
