@@ -33,7 +33,7 @@ tiktokGame/
 │   ├── web/index.html          playable demo game "Lane Rush" (served at /demo)
 │   └── unity/                  TikTokGameListener.cs + TrainGameExample.cs
 ├── express-server/         single-file Express + ws trigger server (server.js), a simpler alternative to server/
-├── web-dashboard/          single-file Vue 3 + Tailwind control panel (index.html), served by express-server
+├── web-dashboard/          Vue 3 + Tailwind control panel (index.html) and the Gift Runner game (game.html), served by express-server
 └── deploy/                 install.sh / update.sh for the VPS (tiktokgg.koydam.com)
 ```
 
@@ -58,6 +58,7 @@ curl -fsSL https://raw.githubusercontent.com/hamamed/tiktokgg/main/deploy/instal
 The installer runs the server on `127.0.0.1` (a free port in 3200-3299) and adds **one** nginx/Apache/Caddy site for the domain, with HTTPS from Let's Encrypt. It doesn't touch your other sites. At the end it prints an **access token** and a link `https://tiktokgg.koydam.com/?token=…`. Open that link once and the browser remembers the token.
 
 * Game clients connect to `wss://tiktokgg.koydam.com/ws?token=…`
+* The built-in game **Gift Runner** is at `https://tiktokgg.koydam.com/game.html?token=…`. Copy the link from the dashboard's **Games** panel and add it to OBS as a Browser Source (1080×1920)
 * Update: `sudo bash /opt/tiktokgg/deploy/update.sh`
 * Logs: `journalctl -u tiktokgg -f`
 * New token: `sudo NEW_TOKEN=1 bash /opt/tiktokgg/deploy/install.sh`
