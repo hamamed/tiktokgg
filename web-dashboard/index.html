@@ -90,9 +90,9 @@
       <form class="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3" @submit.prevent="saveServerUrl">
         <span class="label">Control server</span>
         <input v-model.trim="serverUrlDraft" class="field max-w-sm font-mono" placeholder="ws://localhost:8080" />
-        <input v-model.trim="tokenDraft" class="field max-w-[180px] font-mono" placeholder="WS_TOKEN (optional)" type="password" autocomplete="off" />
+        <input v-model.trim="tokenDraft" class="field max-w-[180px] font-mono" placeholder="Access token" type="password" autocomplete="off" />
         <button class="btn btn-ghost">Save &amp; reconnect</button>
-        <span class="text-xs text-slate-500">Run <code class="text-slate-300">node server.js</code> on the streaming PC. Chrome, Edge and Firefox can reach <code>ws://localhost</code> from this page.</span>
+        <span class="text-xs text-slate-500">The access token is printed by the server installer. To use a server on this PC instead, enter <code class="text-slate-300">ws://localhost:8080</code>.</span>
       </form>
     </div>
     <div v-if="tiktok.error && badge.key !== 'live'" class="border-t border-red-500/20 bg-red-500/10">
@@ -326,7 +326,17 @@ createApp({
     /* ------------------------------------------------------------------
      * State
      * ---------------------------------------------------------------- */
-    const serverUrl = ref(store.get('tt.server', 'ws://localhost:8080'));
+    // Opened from the hosted site (https://tiktokgg.koydam.com) → talk to that same server over wss://host/ws.
+    // Opened from disk or localhost → the server on this PC.
+    const hosted = /^https?:$/.test(location.protocol) && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    const DEFAULT_SERVER = hosted ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws` : 'ws://localhost:8080';
+    // A link like https://tiktokgg.koydam.com/?token=XYZ saves the access token, then drops it from the address bar.
+    const urlToken = new URLSearchParams(location.search).get('token');
+    if (urlToken) {
+      store.set('tt.token', urlToken);
+      history.replaceState(null, '', location.pathname);
+    }
+    const serverUrl = ref(store.get('tt.server', DEFAULT_SERVER));
     const token = ref(store.get('tt.token', ''));
     const serverUrlDraft = ref(serverUrl.value);
     const tokenDraft = ref(token.value);
@@ -444,7 +454,7 @@ createApp({
         for (const p of pending.values()) { clearTimeout(p.timer); p.reject(new Error('Lost connection to server')); }
         pending.clear();
         if (wasOpen) addLog('SYS', 'control server disconnected, retrying…', true);
-        if (ev.code === 4401) { addLog('ERR', 'unauthorized: set the WS_TOKEN in ⚙ server settings'); showServer.value = true; return; }
+        if (ev.code === 4401) { addLog('ERR', 'access token missing or wrong: enter it in ⚙ server settings'); socketState.value = 'closed'; showServer.value = true; return; }
         retryTimer = setTimeout(openSocket, Math.min(10000, 600 * 2 ** retry++));
       };
     }
@@ -586,7 +596,7 @@ createApp({
       (r) => (r?.matched === false ? `${g.name}: no live rule (press Apply Rules)` : `${g.name} → ${r.action}`)).catch(() => {});
 
     function saveServerUrl() {
-      serverUrl.value = serverUrlDraft.value || 'ws://localhost:8080';
+      serverUrl.value = serverUrlDraft.value || DEFAULT_SERVER;
       token.value = tokenDraft.value;
       store.set('tt.server', serverUrl.value);
       store.set('tt.token', token.value);

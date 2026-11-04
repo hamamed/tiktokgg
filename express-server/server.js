@@ -35,6 +35,8 @@
 'use strict';
 
 const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
 const crypto = require('node:crypto');
 const express = require('express');
 const { WebSocketServer, WebSocket } = require('ws');
@@ -48,6 +50,8 @@ const CONFIG = Object.freeze({
   wsPaths: ['/', '/ws'], // the dashboard connects to ws://localhost:8080 (either path works)
   // Optional shared secret: clients connect with ws://host:8080/ws?token=XYZ
   wsToken: process.env.WS_TOKEN || '',
+  // Folder with the control panel (web-dashboard/index.html), served at "/". Missing folder = API only.
+  dashboardDir: path.resolve(process.env.DASHBOARD_DIR || path.join(__dirname, '..', 'web-dashboard')),
   // Optional browser Origin allowlist, e.g. "https://tiktokgg.koydam.com,http://localhost:5500".
   // Stops random websites a streamer visits from talking to their local server. Empty = allow all.
   allowedOrigins: (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
@@ -715,8 +719,18 @@ function snapshot() {
 const app = express();
 app.disable('x-powered-by');
 app.get('/health', (_req, res) => res.json({ ok: true, uptime: process.uptime(), tiktok: TikTok.status().status }));
-app.get('/api/state', (_req, res) => res.json(snapshot()));
-app.get('/', (_req, res) => res.type('text').send(`TikTok trigger server — WebSocket at ws://<host>:${CONFIG.port}`));
+// Read-only state; requires the same token as the WebSocket when WS_TOKEN is set.
+app.get('/api/state', (req, res) => {
+  const given = req.query.token || req.get('x-access-token') || '';
+  if (CONFIG.wsToken && !safeEqual(given, CONFIG.wsToken)) return res.status(401).json({ error: 'token required' });
+  res.json(snapshot());
+});
+// The control panel itself (so one process serves https://tiktokgg.koydam.com behind nginx).
+if (fs.existsSync(path.join(CONFIG.dashboardDir, 'index.html'))) {
+  app.use(express.static(CONFIG.dashboardDir, { index: 'index.html', maxAge: '5m' }));
+} else {
+  app.get('/', (_req, res) => res.type('text').send(`TikTok trigger server — WebSocket at ws://<host>:${CONFIG.port}`));
+}
 app.use((err, _req, res, _next) => {
   log.error(`HTTP error: ${err.message}`);
   res.status(500).json({ error: 'Internal error' });

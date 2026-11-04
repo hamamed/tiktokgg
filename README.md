@@ -33,19 +33,40 @@ tiktokGame/
 │   ├── web/index.html          playable demo game "Lane Rush" (served at /demo)
 │   └── unity/                  TikTokGameListener.cs + TrainGameExample.cs
 ├── express-server/         single-file Express + ws trigger server (server.js), a simpler alternative to server/
-└── web-dashboard/          single-file Vue 3 + Tailwind control panel (index.html), published to tiktokgg.koydam.com
+├── web-dashboard/          single-file Vue 3 + Tailwind control panel (index.html), served by express-server
+└── deploy/                 install.sh / update.sh for the VPS (tiktokgg.koydam.com)
 ```
 
 There are two ways to run it:
 
 | | Server | Dashboard | Protocol |
 |---|---|---|---|
-| **Lite** | `express-server/server.js` | `web-dashboard/index.html` (hosted at https://tiktokgg.koydam.com) | `CONNECT_TIKTOK`, `UPDATE_RULES`, `TEST_TRIGGER` → `GAME_EVENT` |
+| **Lite** | `express-server/server.js` | `web-dashboard/index.html` (served by the server; live at https://tiktokgg.koydam.com) | `CONNECT_TIKTOK`, `UPDATE_RULES`, `TEST_TRIGGER` → `GAME_EVENT` |
 | **Full** | `server/` | `dashboard/` (React, served by the server) | `schema/PROTOCOL.md` |
 
-### Lite setup (hosted dashboard)
+### Lite setup on a VPS (https://tiktokgg.koydam.com)
 
-On the streaming PC, start the server:
+The VPS runs `express-server/server.js` as the `tiktokgg` service. It serves the dashboard at `/`, the WebSocket at `/ws`, and connects to TikTok itself, just like the `tiktok.koydam.com` panel.
+
+1. At your DNS host, add **one A record**: `tiktokgg → 46.224.86.198`. Delete any CNAME to `github.io`.
+2. On the VPS (as root):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hamamed/tiktokgg/main/deploy/install.sh | sudo DOMAIN=tiktokgg.koydam.com EMAIL=admin@koydam.com bash
+```
+
+The installer runs the server on `127.0.0.1` (a free port in 3200-3299) and adds **one** nginx/Apache/Caddy site for the domain, with HTTPS from Let's Encrypt. It doesn't touch your other sites. At the end it prints an **access token** and a link `https://tiktokgg.koydam.com/?token=…`. Open that link once and the browser remembers the token.
+
+* Game clients connect to `wss://tiktokgg.koydam.com/ws?token=…`
+* Update: `sudo bash /opt/tiktokgg/deploy/update.sh`
+* Logs: `journalctl -u tiktokgg -f`
+* New token: `sudo NEW_TOKEN=1 bash /opt/tiktokgg/deploy/install.sh`
+* Settings (port, token, allowed origins) are in `/etc/tiktokgg/env`
+
+Rules live in the server's memory, so press **Apply Rules** again after the service restarts.
+
+### Lite setup on your own PC
+Run the server yourself:
 
 ```bash
 cd express-server
@@ -56,15 +77,10 @@ npm install
 ```
 
 ```bash
-ALLOWED_ORIGINS=https://tiktokgg.koydam.com npm start
+npm start
 ```
 
-Then open https://tiktokgg.koydam.com. It connects to `ws://localhost:8080` (you can change this under ⚙ next to "server"). Chrome, Edge and Firefox let an HTTPS page talk to `ws://localhost`; Safari doesn't, so use one of the others or open `web-dashboard/index.html` from disk. `ALLOWED_ORIGINS` stops other websites you visit from controlling your local server.
-
-### Deploying the dashboard
-`.github/workflows/pages.yml` publishes `web-dashboard/` to GitHub Pages on every push to `main` that changes it. One-time setup:
-1. Repo **Settings → Pages → Source: GitHub Actions**. Set **Custom domain** to `tiktokgg.koydam.com` and tick **Enforce HTTPS** once the certificate is ready.
-2. At your DNS host for koydam.com, add `CNAME  tiktokgg  →  <github-user>.github.io`.
+Then open `http://localhost:8080`. The server serves the same dashboard and connects automatically.
 
 ## Quick start
 
