@@ -1,0 +1,4 @@
+node_modules/
+dashboard/dist/
+server/data/*.json
+.env

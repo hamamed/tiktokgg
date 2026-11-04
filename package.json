@@ -1,0 +1,15 @@
+{
+  "name": "tiktokgame",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Self-hosted control platform for interactive TikTok LIVE games",
+  "workspaces": ["server", "dashboard"],
+  "scripts": {
+    "server": "npm --workspace server run start",
+    "server:dev": "npm --workspace server run dev",
+    "dashboard": "npm --workspace dashboard run dev",
+    "build": "npm --workspace dashboard run build",
+    "start": "npm run build && npm run server",
+    "test": "npm --workspace server test"
+  }
+}

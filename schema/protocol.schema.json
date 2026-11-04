@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tiktokgame.local/schema/protocol.schema.json",
+  "title": "TikTok Game Control Protocol v1",
+  "description": "Every WebSocket frame is an Envelope. Validate `payload` with the $defs entry matching `type`.",
+  "$ref": "#/$defs/Envelope",
+
+  "$defs": {
+    "Envelope": {
+      "type": "object",
+      "required": ["v", "type", "id", "ts", "payload"],
+      "properties": {
+        "v": { "const": 1, "description": "Protocol version" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "hello", "welcome", "ack", "error",
+            "game.action", "game.settings", "game.ack", "game.state",
+            "state.snapshot", "state.request", "tiktok.status", "tiktok.event",
+            "rules.updated", "rules.upsert", "rules.delete", "rules.import",
+            "settings.updated", "settings.patch", "gifts.updated", "clients.updated",
+            "actions.updated", "action.dispatched", "log", "tiktok.connect", "tiktok.disconnect",
+            "test.action", "test.event"
+          ]
+        },
+        "id": { "type": "string", "description": "Unique frame id (UUID). Clients may send any unique string." },
+        "ts": { "type": "integer", "description": "Unix epoch milliseconds" },
+        "replyTo": { "type": "string", "description": "id of the frame this ack/error answers" },
+        "payload": { "type": "object" }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "hello" } } }, "then": { "properties": { "payload": { "$ref": "#/$defs/Hello" } } } },
+        { "if": { "properties": { "type": { "const": "game.action" } } }, "then": { "properties": { "payload": { "$ref": "#/$defs/GameAction" } } } },
+        { "if": { "properties": { "type": { "const": "game.settings" } } }, "then": { "properties": { "payload": { "$ref": "#/$defs/GameSettings" } } } },
+        { "if": { "properties": { "type": { "const": "game.ack" } } }, "then": { "properties": { "payload": { "$ref": "#/$defs/GameAck" } } } },
+        { "if": { "properties": { "type": { "const": "game.state" } } }, "then": { "properties": { "payload": { "$ref": "#/$defs/GameState" } } } }
+      ]
+    },
+
+    "Hello": {
+      "description": "First frame a client must send (within 10 s).",
+      "type": "object",
+      "required": ["role"],
+      "properties": {
+        "role": { "enum": ["game", "dashboard"] },
+        "name": { "type": "string", "maxLength": 60, "examples": ["Train Runner (Unity)"] },
+        "actions": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,64}$" },
+          "description": "Action names this game understands. Shown in the dashboard's action picker — no server-side hardcoding."
+        },
+        "meta": { "type": "object", "description": "Free-form (engine, version, scene…)" }
+      }
+    },
+
+    "GameAction": {
+      "description": "Server -> game. 'Do this thing N times.'",
+      "type": "object",
+      "required": ["actionId", "action", "count", "params", "settings", "source"],
+      "properties": {
+        "actionId": { "type": "string", "description": "UUID; echo it in game.ack" },
+        "action": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,64}$", "examples": ["spawn_train", "speed_boost"] },
+        "count": { "type": "integer", "minimum": 1, "description": "Already multiplied & capped by the rule (units × multiplier, ≤ maxCount)" },
+        "params": { "type": "object", "description": "Free-form JSON configured per rule in the dashboard" },
+        "settings": { "$ref": "#/$defs/GameSettings", "description": "Settings snapshot at dispatch time" },
+        "source": { "$ref": "#/$defs/ActionSource" }
+      }
+    },
+
+    "ActionSource": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["gift", "chat", "like", "follow", "share", "member", "subscribe", "manual"] },
+        "ruleId": { "type": "string" },
+        "ruleName": { "type": "string" },
+        "eventId": { "type": "string" },
+        "simulated": { "type": "boolean", "description": "true when fired from the dashboard Test panel" },
+        "units": { "type": "integer", "description": "Raw trigger units before multiplier" },
+        "user": { "$ref": "#/$defs/User" },
+        "gift": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "diamonds": { "type": "number" },
+            "image": { "type": ["string", "null"] },
+            "repeatCount": { "type": "integer", "description": "Streak total so far" },
+            "phase": { "enum": ["single", "progress", "end"], "description": "'end' == repeatEnd === true" }
+          }
+        },
+        "comment": { "type": "string" },
+        "likeCount": { "type": "integer" }
+      }
+    },
+
+    "User": {
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "uniqueId": { "type": "string", "description": "@handle" },
+        "nickname": { "type": "string" },
+        "avatar": { "type": ["string", "null"], "format": "uri" }
+      }
+    },
+
+    "GameSettings": {
+      "description": "Live tuning values. Always contains the defaults below; the dashboard may add custom keys.",
+      "type": "object",
+      "required": ["paused", "difficulty", "speedMultiplier"],
+      "properties": {
+        "paused": { "type": "boolean" },
+        "difficulty": { "type": "number" },
+        "speedMultiplier": { "type": "number" },
+        "obstacleDensity": { "type": "number" },
+        "spawnRateMultiplier": { "type": "number" }
+      },
+      "additionalProperties": { "type": ["number", "boolean", "string"] }
+    },
+
+    "GameAck": {
+      "description": "Game -> server (optional). Shown in the dashboard dispatch log.",
+      "type": "object",
+      "required": ["actionId", "status"],
+      "properties": {
+        "actionId": { "type": "string" },
+        "status": { "enum": ["ok", "ignored", "error"] },
+        "message": { "type": "string" }
+      }
+    },
+
+    "GameState": {
+      "description": "Game -> server (optional). Any JSON; forwarded verbatim to dashboards (score, lives, level…).",
+      "type": "object"
+    }
+  }
+}

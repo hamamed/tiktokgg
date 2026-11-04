@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lane Rush Demo</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #07080c; color: #e7eaf3; font-family: system-ui, sans-serif; overflow: hidden; }
+    canvas { display: block; margin: 0 auto; height: 100vh; aspect-ratio: 9 / 16; max-width: 100vw; background: #10131c; }
+    #hud { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 14px; font-weight: 700; text-shadow: 0 2px 4px #000; pointer-events: none; }
+    #conn { position: fixed; top: 10px; right: 12px; font-size: 12px; padding: 3px 8px; border-radius: 99px; background: #222; }
+    #conn.open { background: #12402c; color: #3ddc97; }
+    #feed { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; width: min(92vw, 420px); display: flex; flex-direction: column-reverse; gap: 6px; pointer-events: none; }
+    .pop { background: rgba(20, 24, 33, 0.9); border-left: 4px solid #fe2c55; padding: 6px 10px; border-radius: 8px; font-size: 14px; animation: in .2s ease-out; }
+    @keyframes in { from { opacity: 0; transform: translateY(8px); } }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="540" height="960"></canvas>
+  <div id="hud"><span id="score">0</span><span id="lives">❤❤❤</span><span id="mods"></span></div>
+  <div id="conn">offline</div>
+  <div id="feed"></div>
+
+<script type="module">
+import { TikTokGameListener } from './GameListener.js';
+
+// ---------------------------------------------------------------- game state
+const cvs = document.getElementById('c');
+const ctx = cvs.getContext('2d');
+const W = cvs.width, H = cvs.height, LANES = 4, LANE_W = W / LANES;
+const state = {
+  score: 0, lives: 3, playerLane: 1, shield: 0, boost: 0, slow: 0,
+  obstacles: [],              // { lane, y, h, kind, speed, color }
+  settings: { difficulty: 1, speedMultiplier: 1, obstacleDensity: 1, spawnRateMultiplier: 1, paused: false },
+};
+const baseSpeed = () => 260 * state.settings.speedMultiplier * (state.boost > 0 ? 1.6 : 1) * (state.slow > 0 ? 0.45 : 1);
+
+// ---------------------------------------------------------------- action handlers
+// Each handler receives the full game.action payload: { action, count, params, settings, source }.
+const actions = {
+  spawn_train({ count, params }) {
+    for (let i = 0; i < Math.min(count, 50); i++) {
+      const lane = params.lane === 'random' || params.lane == null ? (Math.random() * LANES) | 0 : Math.max(0, Math.min(LANES - 1, params.lane));
+      state.obstacles.push({ lane, y: -160 - i * 220, h: 160 + 30 * (params.cars ?? 3), kind: 'train', speed: 1.3, color: params.color ?? '#fe2c55' });
+    }
+  },
+  add_obstacles({ count, params }) {
+    const n = Math.round(count * state.settings.obstacleDensity * state.settings.difficulty);
+    for (let i = 0; i < Math.min(n, 80); i++) {
+      state.obstacles.push({ lane: (Math.random() * LANES) | 0, y: -60 - Math.random() * 700, h: 50, kind: 'block', speed: 1, color: params.color ?? '#ffb547' });
+    }
+  },
+  speed_boost({ count, params }) { state.boost += (params.seconds ?? 3) * count; },
+  slow_motion({ count, params }) { state.slow += (params.seconds ?? 3) * count; },
+  shield({ count, params }) { state.shield += (params.seconds ?? 5) * count; },
+  clear_obstacles() { state.obstacles = []; },
+  add_score({ count, params }) { state.score += (params.points ?? 10) * count; },
+  heal({ count }) { state.lives = Math.min(9, state.lives + count); },
+};
+
+// ---------------------------------------------------------------- TikTok listener
+const conn = document.getElementById('conn');
+const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
+const token = new URLSearchParams(location.search).get('token') ?? '';
+const listener = new TikTokGameListener({ url: wsUrl, token, name: 'Lane Rush (web demo)', meta: { engine: 'canvas' } });
+
+for (const [name, fn] of Object.entries(actions)) {
+  listener.on(name, (a) => {
+    fn(a);
+    popup(a);
+  });
+}
+listener.onAny((a) => { if (!actions[a.action]) popup(a, '(not handled)'); });
+listener.onSettings((s) => (state.settings = { ...state.settings, ...s }));
+listener.onStatus((s) => { conn.textContent = s; conn.className = s; });
+listener.connect();
+setInterval(() => listener.sendState({ score: Math.floor(state.score), lives: state.lives, obstacles: state.obstacles.length }), 2000);
+
+function popup(a, suffix = '') {
+  const el = document.createElement('div');
+  el.className = 'pop';
+  const who = a.source?.user?.nickname ?? 'Host';
+  const what = a.source?.gift ? `${a.source.gift.name} ×${a.source.gift.repeatCount}` : a.source?.comment ?? a.source?.kind ?? '';
+  el.textContent = `${who} · ${what} → ${a.action} ×${a.count} ${suffix}`;
+  const feed = document.getElementById('feed');
+  feed.prepend(el);
+  setTimeout(() => el.remove(), 4000);
+  while (feed.children.length > 6) feed.lastChild.remove();
+}
+
+// ---------------------------------------------------------------- input (keys / tap)
+addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft' || e.key === 'a') state.playerLane = Math.max(0, state.playerLane - 1);
+  if (e.key === 'ArrowRight' || e.key === 'd') state.playerLane = Math.min(LANES - 1, state.playerLane + 1);
+});
+cvs.addEventListener('pointerdown', (e) => {
+  const r = cvs.getBoundingClientRect();
+  state.playerLane = Math.min(LANES - 1, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * LANES)));
+});
+
+// ---------------------------------------------------------------- loop
+let last = performance.now(), ambient = 0;
+function tick(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (!state.settings.paused && state.lives > 0) update(dt);
+  draw();
+  requestAnimationFrame(tick);
+}
+function update(dt) {
+  state.score += dt * 10 * state.settings.speedMultiplier;
+  for (const k of ['boost', 'slow', 'shield']) state[k] = Math.max(0, state[k] - dt);
+
+  // ambient obstacles scale with difficulty and density
+  ambient += dt * 0.6 * state.settings.difficulty * state.settings.obstacleDensity * state.settings.spawnRateMultiplier;
+  while (ambient >= 1) { ambient--; actions.add_obstacles({ count: 1, params: {} }); }
+
+  const py = H - 140, ph = 80;
+  for (const o of state.obstacles) {
+    o.y += baseSpeed() * o.speed * dt;
+    if (!o.hit && o.lane === state.playerLane && o.y + o.h > py && o.y < py + ph) {
+      o.hit = true;
+      if (state.shield <= 0) state.lives--;
+    }
+  }
+  state.obstacles = state.obstacles.filter((o) => o.y < H + 40 && !(o.hit && state.shield > 0));
+  if (state.lives <= 0) setTimeout(() => Object.assign(state, { lives: 3, score: 0, obstacles: [] }), 2500);
+}
+function draw() {
+  ctx.fillStyle = '#10131c';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#1f2433';
+  ctx.setLineDash([24, 24]);
+  for (let i = 1; i < LANES; i++) { ctx.beginPath(); ctx.moveTo(i * LANE_W, 0); ctx.lineTo(i * LANE_W, H); ctx.stroke(); }
+  ctx.setLineDash([]);
+
+  for (const o of state.obstacles) {
+    ctx.fillStyle = o.hit ? '#444' : o.color;
+    ctx.fillRect(o.lane * LANE_W + 14, o.y, LANE_W - 28, o.h);
+    if (o.kind === 'train') {
+      ctx.fillStyle = '#0008';
+      for (let y = o.y + 20; y < o.y + o.h - 20; y += 50) ctx.fillRect(o.lane * LANE_W + 26, y, LANE_W - 52, 22);
+    }
+  }
+  const px = state.playerLane * LANE_W + LANE_W / 2, py = H - 140;
+  if (state.shield > 0) { ctx.strokeStyle = '#25f4ee'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(px, py + 40, 62, 0, 7); ctx.stroke(); }
+  ctx.fillStyle = '#25f4ee';
+  ctx.fillRect(px - 30, py, 60, 80);
+
+  if (state.lives <= 0) { ctx.fillStyle = '#fff'; ctx.font = 'bold 48px system-ui'; ctx.textAlign = 'center'; ctx.fillText('CRASHED!', W / 2, H / 2); }
+  if (state.settings.paused) { ctx.fillStyle = '#fff'; ctx.font = 'bold 36px system-ui'; ctx.textAlign = 'center'; ctx.fillText('PAUSED', W / 2, H / 2 - 60); }
+
+  document.getElementById('score').textContent = `⭐ ${Math.floor(state.score)}`;
+  document.getElementById('lives').textContent = '❤'.repeat(Math.max(0, state.lives)) || '💀';
+  document.getElementById('mods').textContent =
+    `${state.boost > 0 ? '⚡' : ''}${state.slow > 0 ? '🐢' : ''}${state.shield > 0 ? '🛡' : ''} ×${state.settings.speedMultiplier.toFixed(2)}`;
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

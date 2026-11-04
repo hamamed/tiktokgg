@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>TikTok LIVE Game Control</title>
+  <meta name="description" content="Control panel for TikTok LIVE interactive games: connect, map gifts to game actions, watch live events and test triggers." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>" />
+
+  <!-- Tailwind CSS v4 (browser build) + Vue 3 — both from CDN, pinned versions -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+
+  <style type="text/tailwindcss">
+    @theme {
+      --color-tt-red: #fe2c55;
+      --color-tt-cyan: #25f4ee;
+      --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    }
+    @layer components {
+      .card { @apply rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-xl shadow-black/30 backdrop-blur sm:p-5; }
+      .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition duration-150 select-none active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tt-cyan; }
+      .btn-primary { @apply bg-tt-red text-white shadow-lg shadow-tt-red/25 hover:brightness-110; }
+      .btn-ghost { @apply border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10; }
+      .field { @apply w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-tt-cyan/60 focus:outline-none focus:ring-2 focus:ring-tt-cyan/20; }
+      .label { @apply text-[11px] font-semibold uppercase tracking-wider text-slate-400; }
+    }
+  </style>
+  <style>
+    [v-cloak] { display: none; }
+    body { background: radial-gradient(1200px 600px at 10% -10%, rgba(254,44,85,.12), transparent 60%), radial-gradient(900px 500px at 110% 10%, rgba(37,244,238,.08), transparent 60%), #020617; }
+    @keyframes flash-ok  { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,.9); } 100% { box-shadow: 0 0 0 14px rgba(52,211,153,0); } }
+    @keyframes flash-err { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-5px); } 40%,80% { transform: translateX(5px); } }
+    .fx-ok  { animation: flash-ok .6s ease-out; }
+    .fx-err { animation: flash-err .4s ease-in-out; }
+    .log::-webkit-scrollbar { width: 8px; } .log::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 8px; }
+    input[type=number]::-webkit-inner-spin-button { opacity: .4; }
+  </style>
+</head>
+
+<body class="h-full text-slate-100 antialiased">
+<div id="app" v-cloak class="min-h-full">
+
+  <!-- ===================================================================== -->
+  <!-- 1. CONNECTION BAR                                                     -->
+  <!-- ===================================================================== -->
+  <header class="sticky top-0 z-30 border-b border-white/10 bg-slate-950/85 backdrop-blur">
+    <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
+      <div class="flex items-center gap-3 pr-2">
+        <div class="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-tt-red to-fuchsia-600 text-xl shadow-lg shadow-tt-red/30">🎮</div>
+        <div class="leading-tight">
+          <h1 class="text-base font-bold">LIVE Game Control</h1>
+          <button class="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-200" @click="showServer = !showServer" :title="'Control server: ' + serverUrl">
+            <span class="h-1.5 w-1.5 rounded-full" :class="socketDot"></span>
+            server {{ socketLabel }} ⚙
+          </button>
+        </div>
+      </div>
+
+      <form class="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-nowrap" @submit.prevent="connectTikTok">
+        <label class="relative min-w-0 flex-1 sm:max-w-xs">
+          <span class="sr-only">TikTok username</span>
+          <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500">@</span>
+          <input v-model.trim="username" class="field pl-7" placeholder="tiktok_username" autocomplete="off" spellcheck="false" :disabled="badge.key === 'connecting'" />
+        </label>
+        <button type="submit" class="btn btn-primary" :class="fx.connect" :disabled="!username || socketState !== 'open' || badge.key === 'connecting'">
+          <svg v-if="badge.key === 'connecting'" class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity=".25" stroke-width="4"/><path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="4"/></svg>
+          {{ tiktok.status === 'CONNECTED' ? 'Reconnect' : 'Connect' }}
+        </button>
+        <button type="button" class="btn btn-ghost" :class="fx.disconnect" :disabled="socketState !== 'open' || (tiktok.status !== 'CONNECTED' && !tiktok.reconnecting && !pendingConnect)" @click="disconnectTikTok">
+          Disconnect
+        </button>
+      </form>
+
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ring-1" :class="badge.cls" role="status" aria-live="polite">
+          <span class="relative flex h-2.5 w-2.5">
+            <span v-if="badge.key !== 'offline'" class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" :class="badge.dot"></span>
+            <span class="relative inline-flex h-2.5 w-2.5 rounded-full" :class="badge.dot"></span>
+          </span>
+          {{ badge.text }}
+        </span>
+        <span v-if="tiktok.status === 'CONNECTED' && tiktok.username" class="hidden text-sm text-slate-400 md:inline">@{{ tiktok.username }}</span>
+      </div>
+    </div>
+
+    <!-- server URL settings -->
+    <div v-if="showServer" class="border-t border-white/10 bg-slate-950/95">
+      <form class="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3" @submit.prevent="saveServerUrl">
+        <span class="label">Control server</span>
+        <input v-model.trim="serverUrlDraft" class="field max-w-sm font-mono" placeholder="ws://localhost:8080" />
+        <input v-model.trim="tokenDraft" class="field max-w-[180px] font-mono" placeholder="WS_TOKEN (optional)" type="password" autocomplete="off" />
+        <button class="btn btn-ghost">Save &amp; reconnect</button>
+        <span class="text-xs text-slate-500">Run <code class="text-slate-300">node server.js</code> on the streaming PC. Chrome, Edge and Firefox can reach <code>ws://localhost</code> from this page.</span>
+      </form>
+    </div>
+    <div v-if="tiktok.error && badge.key !== 'live'" class="border-t border-red-500/20 bg-red-500/10">
+      <p class="mx-auto max-w-7xl px-4 py-2 text-xs text-red-300">⚠ {{ tiktok.error }}</p>
+    </div>
+  </header>
+
+  <main class="mx-auto grid max-w-7xl gap-5 px-4 py-5 lg:grid-cols-[1.35fr_1fr]">
+
+    <!-- ===================================================================== -->
+    <!-- 3a. ANALYTICS COUNTERS                                                -->
+    <!-- ===================================================================== -->
+    <section class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:col-span-2" aria-label="Stream metrics">
+      <div v-for="m in metrics" :key="m.label" class="card !p-4">
+        <div class="flex items-center justify-between">
+          <span class="label">{{ m.label }}</span>
+          <span class="text-lg" aria-hidden="true">{{ m.icon }}</span>
+        </div>
+        <div class="mt-2 text-2xl font-extrabold tabular-nums sm:text-3xl" :class="m.color">{{ m.value }}</div>
+        <div class="mt-0.5 text-[11px] text-slate-500">{{ m.sub }}</div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- 2. GIFT RULE CONFIGURATOR                                             -->
+    <!-- ===================================================================== -->
+    <section class="card flex flex-col gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-bold">Gift → Action Rules</h2>
+          <p class="text-xs text-slate-400">Map each gift to a game action. Value × combo count is sent to the game.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span v-if="dirty" class="rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-400/30">● unsaved</span>
+          <span v-else-if="rulesSyncedAt" class="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 ring-1 ring-emerald-400/20">✓ live on server</span>
+          <button class="btn btn-ghost !px-3" :disabled="!dirty || !serverRules" @click="loadFromServer" title="Discard local changes">Revert</button>
+          <button class="btn btn-primary" :class="fx.apply" :disabled="socketState !== 'open'" @click="applyRules">
+            <svg v-if="busy.apply" class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity=".25" stroke-width="4"/><path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="4"/></svg>
+            Apply Rules
+          </button>
+        </div>
+      </div>
+
+      <ul class="grid gap-3 sm:grid-cols-2">
+        <li v-for="(g, i) in gifts" :key="g.key"
+            class="group relative rounded-xl border p-3 transition"
+            :class="g.enabled && g.action ? 'border-tt-cyan/25 bg-slate-950/60' : 'border-white/5 bg-slate-950/30 opacity-70'">
+          <div class="flex items-center gap-3">
+            <div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/5 text-2xl" aria-hidden="true">{{ g.icon }}</div>
+            <div class="min-w-0 flex-1">
+              <input v-if="g.custom" v-model.trim="g.name" @input="touch" class="field !py-1 font-semibold" placeholder="Exact gift name" />
+              <div v-else class="truncate font-semibold" :title="'Matches TikTok gift name “' + g.name + '”'">{{ g.label || g.name }}</div>
+              <div class="text-[11px] text-slate-400">💎 {{ g.diamonds ?? '?' }} <span v-if="g.label && g.label !== g.name" class="text-slate-500">· “{{ g.name }}”</span></div>
+            </div>
+            <label class="relative inline-flex cursor-pointer items-center" :title="g.enabled ? 'Enabled' : 'Disabled'">
+              <input type="checkbox" class="peer sr-only" v-model="g.enabled" @change="touch" />
+              <span class="h-5 w-9 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500"></span>
+              <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
+            </label>
+          </div>
+
+          <div class="mt-3 grid grid-cols-[1fr_92px] gap-2">
+            <label class="flex flex-col gap-1">
+              <span class="label">Action</span>
+              <select v-model="g.action" @change="touch" class="field !py-1.5" :disabled="!g.enabled">
+                <option value="">— none —</option>
+                <option v-for="a in ACTIONS" :key="a.id" :value="a.id">{{ a.icon }} {{ a.id }}</option>
+              </select>
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="label truncate" :title="valueHint(g.action)">{{ valueHint(g.action) }}</span>
+              <input type="number" step="0.1" min="0" v-model.number="g.value" @input="touch" class="field !py-1.5 tabular-nums" :disabled="!g.enabled || !g.action" />
+            </label>
+          </div>
+
+          <div class="mt-2 flex items-center justify-between">
+            <button class="text-[11px] font-semibold text-tt-cyan/80 hover:text-tt-cyan disabled:opacity-40" :class="fx['gift' + g.key]" :disabled="socketState !== 'open' || !g.name" @click="testGift(g)" title="Simulate this gift through the rules that are live on the server">
+              ▶ simulate gift
+            </button>
+            <button v-if="g.custom" class="text-[11px] text-slate-500 hover:text-red-400" @click="removeGift(i)">remove</button>
+          </div>
+        </li>
+
+        <li>
+          <button class="flex h-full min-h-[148px] w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/15 text-slate-400 transition hover:border-tt-cyan/40 hover:text-tt-cyan active:scale-[.98]" @click="addGift">
+            <span class="text-2xl">＋</span><span class="text-sm font-semibold">Add another gift</span>
+          </button>
+        </li>
+      </ul>
+    </section>
+
+    <div class="flex flex-col gap-5">
+      <!-- ===================================================================== -->
+      <!-- 4. MANUAL TEST PANEL                                                  -->
+      <!-- ===================================================================== -->
+      <section class="card">
+        <div class="mb-3 flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold">Test Triggers</h2>
+            <p class="text-xs text-slate-400">Fire actions straight at the game. No stream needed.</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <button v-for="t in TESTS" :key="t.id"
+                  class="btn relative flex-col !gap-1 !py-3 ring-1 ring-white/10 hover:ring-white/25"
+                  :class="[t.bg, fx['test' + t.id]]"
+                  :disabled="socketState !== 'open'"
+                  @click="fireTest(t)">
+            <span class="text-2xl leading-none">{{ t.icon }}</span>
+            <span>{{ t.label }}</span>
+            <span class="font-mono text-[10px] font-normal opacity-70">{{ t.action }} · {{ t.value }}</span>
+            <span v-if="busy['test' + t.id]" class="absolute right-2 top-2 h-2 w-2 animate-ping rounded-full bg-white"></span>
+          </button>
+        </div>
+
+        <form class="mt-3 flex flex-wrap items-end gap-2 border-t border-white/10 pt-3" @submit.prevent="fireCustom">
+          <label class="flex min-w-[150px] flex-1 flex-col gap-1">
+            <span class="label">Custom action</span>
+            <select v-model="custom.action" class="field !py-1.5">
+              <option v-for="a in ACTIONS" :key="a.id" :value="a.id">{{ a.icon }} {{ a.id }}</option>
+            </select>
+          </label>
+          <label class="flex w-24 flex-col gap-1">
+            <span class="label">Value</span>
+            <input type="number" step="0.1" v-model.number="custom.value" class="field !py-1.5" />
+          </label>
+          <button class="btn btn-ghost" :class="fx.custom" :disabled="socketState !== 'open'">⚡ Fire</button>
+        </form>
+      </section>
+
+      <!-- ===================================================================== -->
+      <!-- 3b. LIVE EVENT LOG (terminal)                                         -->
+      <!-- ===================================================================== -->
+      <section class="card relative flex min-h-[380px] flex-1 flex-col !p-0">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
+          <div class="flex items-center gap-2">
+            <span class="flex gap-1.5" aria-hidden="true"><i class="h-3 w-3 rounded-full bg-red-500/80"></i><i class="h-3 w-3 rounded-full bg-amber-400/80"></i><i class="h-3 w-3 rounded-full bg-emerald-500/80"></i></span>
+            <h2 class="ml-2 font-mono text-sm font-bold text-slate-300">live-events.log</h2>
+          </div>
+          <div class="flex items-center gap-1">
+            <button v-for="f in LOG_FILTERS" :key="f" @click="toggleFilter(f)"
+                    class="rounded-md px-2 py-0.5 font-mono text-[10px] font-bold transition"
+                    :class="filters[f] ? TAG_STYLE[f] : 'text-slate-600 line-through'">{{ f }}</button>
+            <button class="ml-1 rounded-md px-2 py-0.5 text-[11px] text-slate-400 hover:bg-white/5 hover:text-white" @click="clearLog">clear</button>
+          </div>
+        </div>
+        <div ref="logBox" class="log h-[420px] flex-1 overflow-y-auto bg-black/60 px-4 py-3 font-mono text-[12.5px] leading-relaxed" @scroll="onLogScroll">
+          <p v-if="!visibleLog.length" class="text-slate-600">$ waiting for events… <span class="animate-pulse">▋</span></p>
+          <p v-for="l in visibleLog" :key="l.id" class="whitespace-pre-wrap break-words">
+            <span class="text-slate-600">{{ l.time }}</span>
+            <span class="mx-1.5 font-bold" :class="TAG_COLOR[l.tag]">[{{ l.tag }}]</span>
+            <span :class="l.dim ? 'text-slate-400' : 'text-slate-200'" v-html="l.html"></span>
+          </p>
+        </div>
+        <button v-if="!autoScroll" class="absolute bottom-4 right-6 rounded-full bg-tt-cyan px-3 py-1 text-xs font-bold text-slate-900 shadow-lg" @click="scrollToBottom(true)">↓ live</button>
+      </section>
+    </div>
+  </main>
+
+  <footer class="mx-auto max-w-7xl px-4 pb-6 text-center text-[11px] text-slate-600">
+    Sends <code>CONNECT_TIKTOK</code> · <code>UPDATE_RULES</code> · <code>TEST_TRIGGER</code> to {{ serverUrl }}
+  </footer>
+
+  <!-- toasts -->
+  <div class="pointer-events-none fixed bottom-4 left-1/2 z-50 flex w-[min(92vw,420px)] -translate-x-1/2 flex-col gap-2" aria-live="polite">
+    <transition-group enter-from-class="opacity-0 translate-y-2" enter-active-class="transition duration-200" leave-to-class="opacity-0" leave-active-class="transition duration-300">
+      <div v-for="t in toasts" :key="t.id" class="pointer-events-auto rounded-xl border px-4 py-2.5 text-sm shadow-2xl backdrop-blur"
+           :class="t.kind === 'error' ? 'border-red-500/40 bg-red-950/90 text-red-100' : 'border-emerald-500/30 bg-emerald-950/90 text-emerald-100'">
+        {{ t.kind === 'error' ? '✕' : '✓' }} {{ t.text }}
+      </div>
+    </transition-group>
+  </div>
+</div>
+
+<script>
+/* ===========================================================================
+ * Configuration: actions, preset gifts, quick tests
+ * ======================================================================== */
+const ACTIONS = [
+  { id: 'SPAWN_OBSTACLE',   icon: '🚧', hint: 'Obstacle count' },
+  { id: 'SPEED_BOOST',      icon: '⚡', hint: 'Speed ×' },
+  { id: 'SPEED_SLOW',       icon: '🐢', hint: 'Speed ×' },
+  { id: 'SCREEN_SPLATTER',  icon: '🟤', hint: 'Seconds' },
+  { id: 'REVERSE_CONTROLS', icon: '🔄', hint: 'Seconds' },
+  { id: 'BOSS_ATTACK',      icon: '👹', hint: 'Boss level' },
+  { id: 'HEAL_PLAYER',      icon: '💚', hint: 'HP' },
+];
+
+// `name` must match TikTok's gift name exactly (case-insensitive on the server).
+const PRESET_GIFTS = [
+  { name: 'Rose',           icon: '🌹', diamonds: 1,     action: 'SPAWN_OBSTACLE',   value: 1 },
+  { name: 'Ice Cream Cone', icon: '🍦', diamonds: 1,     action: 'SPEED_SLOW',       value: 0.8, label: 'Ice Cream' },
+  { name: 'Finger Heart',   icon: '🫰', diamonds: 5,     action: 'HEAL_PLAYER',      value: 10 },
+  { name: 'Doughnut',       icon: '🍩', diamonds: 30,    action: 'SCREEN_SPLATTER',  value: 3 },
+  { name: 'Galaxy',         icon: '🌌', diamonds: 1000,  action: 'REVERSE_CONTROLS', value: 10 },
+  { name: 'Universe',       icon: '🪐', diamonds: 34999, action: 'BOSS_ATTACK',      value: 1 },
+];
+
+const TESTS = [
+  { id: 'train',   icon: '🚂', label: 'Test Train',      action: 'SPAWN_OBSTACLE',   value: 3,   bg: 'bg-rose-500/15 hover:bg-rose-500/25' },
+  { id: 'speed',   icon: '⚡', label: 'Test Speed Up',   action: 'SPEED_BOOST',      value: 1.5, bg: 'bg-amber-500/15 hover:bg-amber-500/25' },
+  { id: 'slow',    icon: '🐢', label: 'Test Slow Down',  action: 'SPEED_SLOW',       value: 0.5, bg: 'bg-sky-500/15 hover:bg-sky-500/25' },
+  { id: 'mud',     icon: '🟤', label: 'Test Mud Splatter', action: 'SCREEN_SPLATTER', value: 3,  bg: 'bg-orange-900/40 hover:bg-orange-900/60' },
+  { id: 'reverse', icon: '🔄', label: 'Test Reverse',    action: 'REVERSE_CONTROLS', value: 5,   bg: 'bg-violet-500/15 hover:bg-violet-500/25' },
+  { id: 'boss',    icon: '👹', label: 'Test Boss',       action: 'BOSS_ATTACK',      value: 1,   bg: 'bg-red-600/20 hover:bg-red-600/30' },
+  { id: 'heal',    icon: '💚', label: 'Test Heal',       action: 'HEAL_PLAYER',      value: 25,  bg: 'bg-emerald-500/15 hover:bg-emerald-500/25' },
+];
+
+const LOG_FILTERS = ['GIFT', 'GAME', 'TEST', 'LIKE', 'SYS'];
+const TAG_COLOR = { GIFT: 'text-tt-red', GAME: 'text-tt-cyan', TEST: 'text-amber-300', LIKE: 'text-pink-300', SYS: 'text-slate-400', ERR: 'text-red-400' };
+const TAG_STYLE = { GIFT: 'bg-tt-red/15 text-tt-red', GAME: 'bg-tt-cyan/10 text-tt-cyan', TEST: 'bg-amber-400/10 text-amber-300', LIKE: 'bg-pink-400/10 text-pink-300', SYS: 'bg-white/5 text-slate-300' };
+const MAX_LOG = 500;
+
+/* ===========================================================================
+ * Small helpers
+ * ======================================================================== */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } },
+};
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (n) => Number(n || 0).toLocaleString();
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random());
+const giftKey = () => 'g' + Math.random().toString(36).slice(2, 9);
+const iconFor = (name) => PRESET_GIFTS.find((p) => p.name.toLowerCase() === String(name).toLowerCase())?.icon ?? '🎁';
+
+const { createApp, reactive, ref, computed, nextTick, onMounted } = Vue;
+
+createApp({
+  setup() {
+    /* ------------------------------------------------------------------
+     * State
+     * ---------------------------------------------------------------- */
+    const serverUrl = ref(store.get('tt.server', 'ws://localhost:8080'));
+    const token = ref(store.get('tt.token', ''));
+    const serverUrlDraft = ref(serverUrl.value);
+    const tokenDraft = ref(token.value);
+    const showServer = ref(false);
+
+    const socketState = ref('connecting'); // connecting | open | closed
+    const username = ref(store.get('tt.username', ''));
+    const pendingConnect = ref(false);
+    const tiktok = reactive({ status: 'DISCONNECTED', username: null, error: null, reconnecting: false, attempt: 0 });
+    const stats = reactive({ diamonds: 0, viewers: 0, likes: 0, gifts: 0, triggers: 0 });
+
+    const gifts = ref(store.get('tt.gifts', null) ?? PRESET_GIFTS.map((g) => ({ ...g, key: giftKey(), enabled: true, custom: false })));
+    const serverRules = ref(null);
+    const dirty = ref(store.get('tt.dirty', true));
+    const rulesSyncedAt = ref(null);
+
+    const custom = reactive({ action: 'SPAWN_OBSTACLE', value: 1 });
+    const fx = reactive({}); // per-button feedback animation class
+    const busy = reactive({});
+    const toasts = ref([]);
+
+    const log = ref([]);
+    const filters = reactive(Object.fromEntries(LOG_FILTERS.map((f) => [f, true])));
+    const logBox = ref(null);
+    const autoScroll = ref(true);
+
+    /* ------------------------------------------------------------------
+     * Feedback: toasts + button flash
+     * ---------------------------------------------------------------- */
+    function toast(text, kind = 'ok') {
+      const id = uid();
+      toasts.value = [...toasts.value.slice(-2), { id, text, kind }]; // keep at most 3 on screen
+      setTimeout(() => (toasts.value = toasts.value.filter((t) => t.id !== id)), kind === 'error' ? 5000 : 2200);
+    }
+    function flash(key, ok) {
+      fx[key] = '';
+      requestAnimationFrame(() => { fx[key] = ok ? 'fx-ok' : 'fx-err'; setTimeout(() => (fx[key] = ''), 650); });
+    }
+    /** Send a command, animate its button, toast the result. */
+    async function act(key, type, payload, okText) {
+      busy[key] = true;
+      try {
+        const res = await send(type, payload);
+        flash(key, true);
+        if (okText) toast(typeof okText === 'function' ? okText(res) : okText);
+        return res;
+      } catch (err) {
+        flash(key, false);
+        toast(err.message, 'error');
+        throw err;
+      } finally {
+        busy[key] = false;
+      }
+    }
+
+    /* ------------------------------------------------------------------
+     * Terminal log
+     * ---------------------------------------------------------------- */
+    function addLog(tag, html, dim = false) {
+      const time = new Date().toLocaleTimeString([], { hour12: false });
+      log.value.push({ id: uid(), tag, html, dim, time });
+      if (log.value.length > MAX_LOG) log.value.splice(0, log.value.length - MAX_LOG);
+      if (autoScroll.value) nextTick(scrollToBottom);
+    }
+    const visibleLog = computed(() => log.value.filter((l) => filters[l.tag] ?? true));
+    function scrollToBottom(force) {
+      const el = logBox.value;
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+      if (force === true) autoScroll.value = true;
+    }
+    function onLogScroll() {
+      const el = logBox.value;
+      autoScroll.value = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    }
+    const toggleFilter = (f) => (filters[f] = !filters[f]);
+    const clearLog = () => (log.value = []);
+
+    /* ------------------------------------------------------------------
+     * WebSocket client with auto-reconnect + request/ACK promises
+     * ---------------------------------------------------------------- */
+    let ws = null, retry = 0, retryTimer = null;
+    const pending = new Map();
+
+    function openSocket() {
+      clearTimeout(retryTimer);
+      try { ws?.close(); } catch {}
+      socketState.value = 'connecting';
+      const url = token.value ? `${serverUrl.value}${serverUrl.value.includes('?') ? '&' : '?'}token=${encodeURIComponent(token.value)}&role=dashboard`
+                              : `${serverUrl.value}${serverUrl.value.includes('?') ? '&' : '?'}role=dashboard`;
+      let sock;
+      try { sock = new WebSocket(url); } catch (e) { socketState.value = 'closed'; addLog('ERR', esc(e.message)); return; }
+      ws = sock;
+
+      sock.onopen = () => {
+        if (ws !== sock) return;
+        retry = 0;
+        socketState.value = 'open';
+        addLog('SYS', `connected to control server <b>${esc(serverUrl.value)}</b>`);
+      };
+      sock.onmessage = (ev) => {
+        if (ws !== sock) return;
+        let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+        if (msg.requestId && pending.has(msg.requestId)) {
+          const p = pending.get(msg.requestId); pending.delete(msg.requestId); clearTimeout(p.timer);
+          return msg.type === 'ERROR' ? p.reject(new Error(msg.payload?.error || 'Request failed')) : p.resolve(msg.payload?.result);
+        }
+        handleServerMessage(msg);
+      };
+      sock.onclose = (ev) => {
+        if (ws !== sock) return;
+        const wasOpen = socketState.value === 'open';
+        socketState.value = 'closed';
+        pendingConnect.value = false;
+        for (const p of pending.values()) { clearTimeout(p.timer); p.reject(new Error('Lost connection to server')); }
+        pending.clear();
+        if (wasOpen) addLog('SYS', 'control server disconnected, retrying…', true);
+        if (ev.code === 4401) { addLog('ERR', 'unauthorized: set the WS_TOKEN in ⚙ server settings'); showServer.value = true; return; }
+        retryTimer = setTimeout(openSocket, Math.min(10000, 600 * 2 ** retry++));
+      };
+    }
+
+    function send(type, payload = {}, timeoutMs = 30000) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject(new Error('Control server offline: start server.js'));
+      const id = uid();
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${type} timed out`)); }, timeoutMs);
+        pending.set(id, { resolve, reject, timer });
+        ws.send(JSON.stringify({ type, payload, id }));
+      });
+    }
+
+    /* ------------------------------------------------------------------
+     * Inbound server messages
+     * ---------------------------------------------------------------- */
+    function handleServerMessage({ type, payload: p = {} }) {
+      switch (type) {
+        case 'STATE':
+          setStatus(p.status, true);
+          if (p.likes) stats.likes = Math.max(p.likes.totalLikes, p.likes.streamTotalLikes);
+          if (p.viewerCount != null) stats.viewers = p.viewerCount;
+          syncServerRules(p.rules);
+          break;
+        case 'STATUS':
+          setStatus(p);
+          break;
+        case 'RULES_UPDATED':
+          syncServerRules(p.rules);
+          break;
+        case 'GIFT_RECEIVED': {
+          stats.gifts += p.repeatCount;
+          if (!p.simulated) stats.diamonds += p.totalDiamonds;
+          const tag = p.simulated ? 'TEST' : 'GIFT';
+          const arrow = p.action ? ` <span class="text-slate-500">-&gt;</span> <span class="text-tt-cyan">${esc(p.action)}</span> <span class="text-slate-500">(${esc(p.value)})</span>`
+                                 : ' <span class="text-slate-500">(no rule)</span>';
+          const timeout = p.reason === 'streak_timeout' ? ' <span class="text-amber-400">[streak timeout]</span>' : '';
+          addLog(tag, `<span class="text-emerald-300">@${esc(p.user)}</span> sent <b>${esc(p.giftName)}</b>${p.repeatCount > 1 ? ` <span class="text-tt-red">x${p.repeatCount}</span>` : ''} <span class="text-slate-500">💎${fmt(p.totalDiamonds)}</span>${arrow}${timeout}`, !p.action);
+          break;
+        }
+        case 'GAME_EVENT':
+          stats.triggers++;
+          // Gift-driven events are already logged via GIFT_RECEIVED; log direct test actions here.
+          if (p.reason === 'test' && !p.matchedRule) addLog('TEST', `<span class="text-tt-cyan">${esc(p.action)}</span> value=<b>${esc(p.value)}</b> <span class="text-slate-500">(manual trigger)</span>`);
+          break;
+        case 'LIKES_UPDATE':
+          stats.likes = Math.max(p.totalLikes, p.streamTotalLikes);
+          if (p.lastUser) addLog('LIKE', `<span class="text-emerald-300">@${esc(p.lastUser)}</span> +${fmt(p.lastCount)} likes <span class="text-slate-500">(total ${fmt(stats.likes)})</span>`, true);
+          break;
+        case 'VIEWERS_UPDATE':
+          stats.viewers = p.viewerCount;
+          break;
+      }
+    }
+
+    function setStatus(s, silent = false) {
+      if (!s) return;
+      const prev = tiktok.status;
+      Object.assign(tiktok, s);
+      // The server broadcasts an interim DISCONNECTED status while a connect is in flight,
+      // so only a final outcome clears the yellow "Connecting…" badge.
+      if (s.status === 'CONNECTED' || s.status === 'ERROR') pendingConnect.value = false;
+      if (silent || prev === s.status && !s.reconnecting) return;
+      if (s.status === 'CONNECTED') addLog('SYS', `<span class="text-emerald-400">● LIVE</span> connected to @${esc(s.username)} (room ${esc(s.roomId)})`);
+      else if (s.reconnecting) addLog('SYS', `<span class="text-amber-300">reconnecting</span> to @${esc(s.username)} (attempt ${s.attempt})…`);
+      else if (s.status === 'ERROR') addLog('ERR', esc(s.error));
+      else addLog('SYS', `TikTok disconnected${s.error ? ': ' + esc(s.error) : ''}`);
+    }
+
+    /* ------------------------------------------------------------------
+     * Rules: local draft <-> server mapping {"Rose": {action, value}}
+     * ---------------------------------------------------------------- */
+    function syncServerRules(rules) {
+      serverRules.value = rules || {};
+      rulesSyncedAt.value = Date.now();
+      // Never overwrite unsaved local edits (or the first-run presets); "Revert" loads the server copy.
+      if (!dirty.value) loadFromServer();
+    }
+
+    /** Make the cards reflect the server's live mapping (adds cards for unknown gifts). */
+    function loadFromServer() {
+      const rules = serverRules.value || {};
+      const lower = Object.fromEntries(Object.entries(rules).map(([k, v]) => [k.toLowerCase(), { name: k, ...v }]));
+      for (const g of gifts.value) {
+        const r = lower[g.name.toLowerCase()];
+        if (r) { g.action = r.action; g.value = r.value; g.enabled = true; delete lower[g.name.toLowerCase()]; }
+        else { g.enabled = false; }
+      }
+      for (const r of Object.values(lower)) {
+        gifts.value.push({ key: giftKey(), name: r.name, icon: iconFor(r.name), diamonds: null, action: r.action, value: r.value, enabled: true, custom: true });
+      }
+      dirty.value = false;
+      persist();
+    }
+
+    function buildRules() {
+      const out = {};
+      for (const g of gifts.value) {
+        if (!g.enabled || !g.action || !g.name) continue;
+        out[g.name] = { action: g.action, value: Number.isFinite(g.value) ? g.value : 1 };
+      }
+      return out;
+    }
+
+    async function applyRules() {
+      const rules = buildRules();
+      try {
+        await act('apply', 'UPDATE_RULES', { rules, mode: 'replace' }, `${Object.keys(rules).length} rules live`);
+        dirty.value = false;
+        persist();
+        addLog('SYS', `rules applied: ${Object.entries(rules).map(([k, v]) => `${esc(k)}→${esc(v.action)}(${esc(v.value)})`).join(', ') || '(none)'}`);
+      } catch { /* toast shown */ }
+    }
+
+    const touch = () => { dirty.value = true; persist(); };
+    const persist = () => { store.set('tt.gifts', gifts.value); store.set('tt.dirty', dirty.value); };
+    const addGift = () => { gifts.value.push({ key: giftKey(), name: '', icon: '🎁', diamonds: null, action: 'SPAWN_OBSTACLE', value: 1, enabled: true, custom: true }); touch(); };
+    const removeGift = (i) => { gifts.value.splice(i, 1); touch(); };
+    const valueHint = (id) => ACTIONS.find((a) => a.id === id)?.hint ?? 'Value';
+
+    /* ------------------------------------------------------------------
+     * Commands
+     * ---------------------------------------------------------------- */
+    async function connectTikTok() {
+      store.set('tt.username', username.value);
+      pendingConnect.value = true;
+      addLog('SYS', `connecting to @${esc(username.value.replace(/^@/, ''))}…`);
+      try { await act('connect', 'CONNECT_TIKTOK', { username: username.value }, (s) => `Live: @${s?.username ?? username.value}`); }
+      catch { pendingConnect.value = false; }
+    }
+    async function disconnectTikTok() {
+      try { await act('disconnect', 'DISCONNECT_TIKTOK', {}, 'Disconnected'); } catch {}
+      pendingConnect.value = false;
+    }
+    const fireTest = (t) => act('test' + t.id, 'TEST_TRIGGER', { action: t.action, value: t.value, user: 'dashboard' }, `${t.label} sent`).catch(() => {});
+    const fireCustom = () => act('custom', 'TEST_TRIGGER', { action: custom.action, value: custom.value, user: 'dashboard' }, `${custom.action} sent`).catch(() => {});
+    const testGift = (g) => act('gift' + g.key, 'TEST_TRIGGER', { giftName: g.name, repeatCount: 1, diamondCount: g.diamonds ?? 1, user: 'tester' },
+      (r) => (r?.matched === false ? `${g.name}: no live rule (press Apply Rules)` : `${g.name} → ${r.action}`)).catch(() => {});
+
+    function saveServerUrl() {
+      serverUrl.value = serverUrlDraft.value || 'ws://localhost:8080';
+      token.value = tokenDraft.value;
+      store.set('tt.server', serverUrl.value);
+      store.set('tt.token', token.value);
+      showServer.value = false;
+      retry = 0;
+      openSocket();
+    }
+
+    /* ------------------------------------------------------------------
+     * Derived UI
+     * ---------------------------------------------------------------- */
+    const badge = computed(() => {
+      if (tiktok.status === 'CONNECTED') return { key: 'live', text: 'LIVE', cls: 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/40', dot: 'bg-emerald-400' };
+      if (pendingConnect.value || tiktok.reconnecting) return { key: 'connecting', text: tiktok.reconnecting ? `Reconnecting (${tiktok.attempt})` : 'Connecting…', cls: 'bg-amber-500/15 text-amber-300 ring-amber-400/40', dot: 'bg-amber-400' };
+      return { key: 'offline', text: tiktok.status === 'ERROR' ? 'Error' : 'Offline', cls: 'bg-red-500/15 text-red-300 ring-red-400/40', dot: 'bg-red-500' };
+    });
+    const socketLabel = computed(() => ({ open: 'online', connecting: 'connecting…', closed: 'offline' })[socketState.value]);
+    const socketDot = computed(() => ({ open: 'bg-emerald-400', connecting: 'bg-amber-400 animate-pulse', closed: 'bg-red-500' })[socketState.value]);
+    const metrics = computed(() => [
+      { label: 'Total Diamonds', icon: '💎', value: fmt(stats.diamonds), sub: `${fmt(stats.gifts)} gifts received`, color: 'text-tt-cyan' },
+      { label: 'Active Viewers', icon: '👁', value: fmt(stats.viewers), sub: tiktok.status === 'CONNECTED' ? 'watching now' : 'not live', color: 'text-white' },
+      { label: 'Total Likes', icon: '❤️', value: fmt(stats.likes), sub: 'this stream', color: 'text-tt-red' },
+      { label: 'Triggers Fired', icon: '🎯', value: fmt(stats.triggers), sub: 'actions sent to game', color: 'text-amber-300' },
+    ]);
+
+    onMounted(() => {
+      addLog('SYS', 'dashboard ready', true);
+      openSocket();
+    });
+
+    return {
+      ACTIONS, TESTS, LOG_FILTERS, TAG_COLOR, TAG_STYLE,
+      serverUrl, serverUrlDraft, tokenDraft, showServer, saveServerUrl,
+      socketState, socketLabel, socketDot, username, tiktok, pendingConnect, badge, metrics,
+      gifts, serverRules, dirty, rulesSyncedAt, touch, addGift, removeGift, valueHint, applyRules, loadFromServer,
+      custom, fx, busy, toasts, fireTest, fireCustom, testGift, connectTikTok, disconnectTikTok,
+      visibleLog, filters, toggleFilter, clearLog, logBox, autoScroll, onLogScroll, scrollToBottom,
+    };
+  },
+}).mount('#app');
+</script>
+</body>
+</html>
