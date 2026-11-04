@@ -322,6 +322,19 @@
             </div>
           </div>
 
+          <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-slate-950/60 p-3">
+            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/5 text-tt-red"><lc-icon name="list" :size="18"></lc-icon></span>
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-semibold">Show the gift list on stream</span>
+              <span class="block text-xs text-slate-400">A small "Send a gift" list in the top right of the game, so viewers can see what each gift does. It updates by itself when you apply rules, and the gift's row glows when someone sends it.</span>
+            </span>
+            <span class="relative inline-flex items-center">
+              <input type="checkbox" class="peer sr-only" v-model="showLegend" @change="onLegendToggle" />
+              <span class="h-5 w-9 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500"></span>
+              <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
+            </span>
+          </label>
+
           <div class="flex flex-col gap-2 rounded-xl border border-white/10 bg-slate-950/60 p-3">
             <span class="label">OBS Browser Source URL</span>
             <div class="flex flex-wrap gap-2">
@@ -563,6 +576,7 @@ const app = createApp({
     const game = ref(GAMES.find((g) => g.id === store.get('tt.game', '')) ?? GAMES[0]);
     const previewOn = ref(store.get('tt.preview', true));
     const previewKey = ref(0);
+    const showLegend = ref(store.get('tt.legend', true));
 
     /* ------------------------------------------------------------------
      * Feedback: toasts + button flash
@@ -900,9 +914,11 @@ const app = createApp({
       u.search = '';
       if (serverUrl.value !== DEFAULT_SERVER || !hosted) u.searchParams.set('server', serverUrl.value);
       if (token.value) u.searchParams.set('token', token.value);
+      if (!showLegend.value) u.searchParams.set('legend', '0');
       if (preview) u.searchParams.set('preview', '1');
       return u.toString();
     }
+    function onLegendToggle() { store.set('tt.legend', showLegend.value); previewKey.value++; }
     function selectGame(gm) { game.value = gm; store.set('tt.game', gm.id); previewKey.value++; }
     async function copyGameUrl() {
       try { await navigator.clipboard.writeText(gameUrl(game.value, false)); flash('copy', true); toast('Game link copied'); }
@@ -940,7 +956,7 @@ const app = createApp({
       menu, menuRule, openMenu, closeMenu, setGiftAction, setGiftValue, stepValue, testInGame, customGift, imgSrc,
       custom, fx, busy, toasts, fireTest, fireCustom, connectTikTok, disconnectTikTok,
       visibleLog, filters, toggleFilter, clearLog, logBox, autoScroll, onLogScroll, scrollToBottom,
-      game, previewOn, previewKey, gameUrl, selectGame, copyGameUrl,
+      game, previewOn, previewKey, gameUrl, selectGame, copyGameUrl, showLegend, onLegendToggle,
     };
   },
 });

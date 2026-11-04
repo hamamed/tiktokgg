@@ -58,7 +58,7 @@ curl -fsSL https://raw.githubusercontent.com/hamamed/tiktokgg/main/deploy/instal
 The installer runs the server on `127.0.0.1` (a free port in 3200-3299) and adds **one** nginx/Apache/Caddy site for the domain, with HTTPS from Let's Encrypt. It doesn't touch your other sites. At the end it prints an **access token** and a link `https://tiktokgg.koydam.com/?token=…`. Open that link once and the browser remembers the token.
 
 * Game clients connect to `wss://tiktokgg.koydam.com/ws?token=…`
-* The built-in game **Gift Runner** is at `https://tiktokgg.koydam.com/game.html?token=…`. Copy the link from the dashboard's **Games** panel and add it to OBS as a Browser Source (1080×1920)
+* The built-in game **Gift Runner** is at `https://tiktokgg.koydam.com/game.html?token=…`. Copy the link from the dashboard's **Games** panel and add it to OBS as a Browser Source (1080×1920). The game shows viewers a small **Send a gift** list in the top right (each mapped gift with its image, price and effect). It updates when you apply rules, and the row glows when that gift arrives. Turn it off in the Games panel, or add `&legend=0` to the link
 * Update: `sudo bash /opt/tiktokgg/deploy/update.sh`
 * Logs: `journalctl -u tiktokgg -f`
 * New token: `sudo NEW_TOKEN=1 bash /opt/tiktokgg/deploy/install.sh`

@@ -25,19 +25,39 @@
     .hp { width: 9em; }
     .hpbar { height: .6em; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: .35em; }
     .hpfill { height: 100%; width: 100%; background: linear-gradient(90deg, #22c55e, #a3e635); transition: width .25s, background .25s; }
-    .effects { position: absolute; left: 3.5%; right: 3.5%; top: 12%; display: flex; flex-wrap: wrap; gap: .4em; pointer-events: none; font-size: clamp(10px, 2vh, 19px); }
+    .leftcol { position: absolute; left: 3.5%; top: 12%; width: 55%; display: flex; flex-direction: column; gap: .5em; pointer-events: none; }
+    body.nolegend .leftcol { width: 70%; }
+    .effects { display: flex; flex-wrap: wrap; gap: .4em; font-size: clamp(10px, 2vh, 19px); }
     .fx { display: flex; align-items: center; gap: .45em; padding: .35em .7em; border-radius: 99px; font-weight: 700; background: rgba(8,10,20,.75); border: 1px solid rgba(255,255,255,.1); }
     .fx b { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 600; }
 
     /* gift alerts */
-    .alerts { position: absolute; right: 3.5%; top: 23%; width: 70%; display: flex; flex-direction: column; gap: .5em; align-items: flex-end; pointer-events: none; font-size: clamp(10px, 2.1vh, 20px); }
+    .alerts { display: flex; flex-direction: column; gap: .5em; align-items: flex-start; font-size: clamp(10px, 2.1vh, 20px); }
     .alert { display: flex; align-items: center; gap: .6em; padding: .55em .8em; border-radius: 14px; background: rgba(8,10,20,.82); border: 1px solid rgba(255,255,255,.1); border-left: 4px solid var(--red); max-width: 100%; animation: pop .25s ease-out; }
     .alert.out { animation: fade .4s ease-in forwards; }
     .alert .ic { display: grid; place-items: center; width: 2.1em; height: 2.1em; border-radius: 10px; background: rgba(255,255,255,.06); font-size: 1.1em; flex: none; }
     .alert .who { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .alert .what { color: var(--muted); font-size: .8em; display: flex; align-items: center; gap: .3em; white-space: nowrap; }
-    @keyframes pop { from { opacity: 0; transform: translateX(20px) scale(.96); } }
-    @keyframes fade { to { opacity: 0; transform: translateX(20px); } }
+    @keyframes pop { from { opacity: 0; transform: translateX(-20px) scale(.96); } }
+
+    /* "Send a gift" list for viewers: top-right, under the HP panel */
+    .legend { position: absolute; right: 3.5%; top: 12%; width: 37%; pointer-events: none; font-size: clamp(9px, 1.75vh, 17px);
+              background: rgba(8,10,20,.78); border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: .55em .5em .45em; backdrop-filter: blur(6px); }
+    .legend[hidden], body.nolegend .legend { display: none; }
+    .legend h3 { margin: 0 0 .35em; padding: 0 .3em; display: flex; align-items: center; gap: .35em; font-size: .78em; letter-spacing: .06em; text-transform: uppercase; color: var(--red); }
+    .legend ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .2em; transition: opacity .35s; }
+    .legend ul.fading { opacity: 0; }
+    .legend li { display: grid; grid-template-columns: 2em 1fr; align-items: center; gap: .45em; padding: .25em .3em; border-radius: 9px; transition: background .3s, box-shadow .3s; }
+    .legend li.hit { background: rgba(254,44,85,.25); box-shadow: 0 0 0 1px rgba(254,44,85,.7), 0 0 18px rgba(254,44,85,.45); }
+    .legend .gimg { width: 2em; height: 2em; display: grid; place-items: center; }
+    .legend .gimg img { width: 100%; height: 100%; object-fit: contain; }
+    .legend .gname { font-weight: 800; font-size: .86em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: .3em; }
+    .legend .gname small { color: var(--muted); font-weight: 600; font-size: .85em; display: inline-flex; align-items: center; gap: .1em; flex: none; }
+    .legend .gact { font-size: .78em; font-weight: 700; display: flex; align-items: center; gap: .3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .legend .dots { display: flex; justify-content: center; gap: .3em; margin-top: .35em; }
+    .legend .dots i { width: .4em; height: .4em; border-radius: 50%; background: rgba(255,255,255,.25); }
+    .legend .dots i.on { background: var(--red); }
+    @keyframes fade { to { opacity: 0; transform: translateX(-20px); } }
 
     /* banners */
     .banner { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; font-size: clamp(14px, 3vh, 30px); }
@@ -72,8 +92,15 @@
         <div class="sub" style="margin-top:.35em">Best <span id="best">0</span></div>
       </div>
     </div>
-    <div class="effects" id="effects"></div>
-    <div class="alerts" id="alerts"></div>
+    <div class="leftcol">
+      <div class="effects" id="effects"></div>
+      <div class="alerts" id="alerts"></div>
+    </div>
+    <aside class="legend" id="legend" hidden aria-label="What each gift does">
+      <h3><span data-icon="gift"></span>Send a gift</h3>
+      <ul id="legendList"></ul>
+      <div class="dots" id="legendDots"></div>
+    </aside>
     <div class="banner" id="banner"></div>
 
     <div class="conn"><span class="dot" id="dot"></span><span id="connText">connecting…</span></div>
@@ -91,6 +118,7 @@
  * URL options:  ?token=XYZ        access token (also read from the dashboard's saved token)
  *               ?server=wss://…   control server (default: same host /ws, or ws://localhost:8080 locally)
  *               ?obs=1            hide on-screen buttons      ?preview=1  dashboard preview mode
+ *               ?legend=0         hide the "Send a gift" list (top right)
  * ======================================================================== */
 
 // ---------- icons (Lucide) ----------
@@ -125,6 +153,7 @@ const HTTP_BASE = SERVER.replace(/^ws(s?):/, 'http$1:').replace(/\/ws\/?$/, '').
 const imgSrc = (u) => (!u ? '' : u.startsWith('/') ? HTTP_BASE + u : u);
 if (qs.get('obs') === '1') document.body.classList.add('obs');
 if (qs.get('preview') === '1') document.body.classList.add('preview');
+if (qs.get('legend') === '0') document.body.classList.add('nolegend');
 
 // ---------- canvas & world ----------
 const cvs = document.getElementById('game');
@@ -200,7 +229,65 @@ const ACTIONS = {
 function handleGameEvent(ev) {
   const fn = ACTIONS[ev.action];
   showAlert(ev, !!fn);
+  flashLegend(ev.matchedRule);
   if (fn) fn(ev);
+}
+
+// ---------- "Send a gift" list (built from the server's live rules + gift catalogue) ----------
+const LEGEND = { rules: {}, gifts: [], page: 0, pages: 1, timer: null };
+const PER_PAGE = 7;
+const SHORT = { SPAWN_OBSTACLE: 'Barriers', SPEED_BOOST: 'Speed up', SPEED_SLOW: 'Slow down', SCREEN_SPLATTER: 'Mud', REVERSE_CONTROLS: 'Reverse', BOSS_ATTACK: 'Boss', HEAL_PLAYER: 'Heal' };
+
+function legendRows() {
+  const byName = new Map(LEGEND.gifts.map((g) => [g.name.toLowerCase(), g]));
+  return Object.entries(LEGEND.rules)
+    .filter(([, r]) => r && ACTION_LOOK[r.action])
+    .map(([name, r]) => {
+      const g = byName.get(name.toLowerCase());
+      return { key: name.toLowerCase(), name: name === '*' ? 'Any other gift' : g?.name ?? name, diamonds: name === '*' ? Infinity : g?.diamonds ?? Infinity, image: g?.image, rule: r };
+    })
+    .sort((a, b) => a.diamonds - b.diamonds || a.name.localeCompare(b.name));
+}
+
+function renderLegend() {
+  const rows = legendRows();
+  const box = $('legend');
+  box.hidden = !rows.length;
+  LEGEND.pages = Math.max(1, Math.ceil(rows.length / PER_PAGE));
+  LEGEND.page %= LEGEND.pages;
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  $('legendList').innerHTML = rows.slice(LEGEND.page * PER_PAGE, LEGEND.page * PER_PAGE + PER_PAGE).map((r) => {
+    const look = ACTION_LOOK[r.rule.action];
+    const pic = r.image ? `<img src="${esc(imgSrc(r.image))}" alt="">` : icon(GIFT_ICON[r.key] ?? 'gift');
+    const price = Number.isFinite(r.diamonds) ? `<small>${icon('gem')}${r.diamonds.toLocaleString()}</small>` : '';
+    return `<li data-key="${esc(r.key)}"><span class="gimg">${pic}</span><span style="min-width:0">
+      <span class="gname"><span style="overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>${price}</span>
+      <span class="gact" style="color:${look.color}">${icon(look.icon)}${SHORT[r.rule.action] ?? look.label}</span></span></li>`;
+  }).join('');
+  $('legendDots').innerHTML = LEGEND.pages > 1 ? Array.from({ length: LEGEND.pages }, (_, i) => `<i class="${i === LEGEND.page ? 'on' : ''}"></i>`).join('') : '';
+  // More rules than fit: flip pages every 6 s.
+  clearInterval(LEGEND.timer);
+  if (LEGEND.pages > 1) {
+    LEGEND.timer = setInterval(() => {
+      const ul = $('legendList');
+      ul.classList.add('fading');
+      setTimeout(() => { LEGEND.page = (LEGEND.page + 1) % LEGEND.pages; renderLegend(); $('legendList').classList.remove('fading'); }, 350);
+    }, 6000);
+  }
+}
+
+/** Glow the row of the gift that just fired (jumps to its page if needed). */
+function flashLegend(ruleName) {
+  if (!ruleName) return;
+  const key = String(ruleName).toLowerCase();
+  const idx = legendRows().findIndex((r) => r.key === key);
+  if (idx < 0) return;
+  const page = Math.floor(idx / PER_PAGE);
+  if (page !== LEGEND.page) { LEGEND.page = page; renderLegend(); }
+  const li = [...$('legendList').children].find((el) => el.dataset.key === key);
+  if (!li) return;
+  li.classList.remove('hit'); void li.offsetWidth; li.classList.add('hit');
+  setTimeout(() => li.classList.remove('hit'), 1400);
 }
 
 // ---------- world helpers ----------
@@ -507,7 +594,11 @@ function connect() {
   ws.onopen = () => { retry = 0; setConn(true, 'live · waiting for gifts'); };
   ws.onmessage = (m) => {
     let msg; try { msg = JSON.parse(m.data); } catch { return; }
-    if (msg.type === 'GAME_EVENT' && msg.payload) handleGameEvent(msg.payload);
+    const p = msg.payload || {};
+    if (msg.type === 'GAME_EVENT') handleGameEvent(p);
+    else if (msg.type === 'STATE') { LEGEND.rules = p.rules || {}; LEGEND.gifts = p.gifts || []; renderLegend(); }
+    else if (msg.type === 'RULES_UPDATED') { LEGEND.rules = p.rules || {}; renderLegend(); }
+    else if (msg.type === 'GIFTS') { LEGEND.gifts = p.gifts || []; renderLegend(); }
   };
   ws.onclose = (e) => {
     if (e.code === 4401) { setConn(false, 'access token missing: add ?token=… to the URL'); return; }
