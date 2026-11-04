@@ -120,6 +120,9 @@ const readStore = (k) => { try { return JSON.parse(localStorage.getItem(k)); } c
 const hosted = /^https?:$/.test(location.protocol) && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 const SERVER = qs.get('server') || readStore('tt.server') || (hosted ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws` : 'ws://localhost:8080');
 const TOKEN = qs.get('token') || readStore('tt.token') || '';
+// Gift images are served by the control server (/gift-img/<id>.png); turn ws(s)://host/ws into http(s)://host.
+const HTTP_BASE = SERVER.replace(/^ws(s?):/, 'http$1:').replace(/\/ws\/?$/, '').replace(/\/$/, '');
+const imgSrc = (u) => (!u ? '' : u.startsWith('/') ? HTTP_BASE + u : u);
 if (qs.get('obs') === '1') document.body.classList.add('obs');
 if (qs.get('preview') === '1') document.body.classList.add('preview');
 
@@ -458,7 +461,8 @@ function showAlert(ev, handled) {
   el.style.borderLeftColor = look.color;
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const what = ev.giftId === 'test' && !ev.matchedRule ? 'test trigger' : `${esc(ev.giftName)}${ev.repeatCount > 1 ? ' ×' + ev.repeatCount : ''}`;
-  el.innerHTML = `<div class="ic" style="color:${look.color}">${icon(giftIcon)}</div>
+  const pic = ev.giftImage ? `<img src="${esc(imgSrc(ev.giftImage))}" alt="" style="width:1.7em;height:1.7em;object-fit:contain">` : icon(giftIcon);
+  el.innerHTML = `<div class="ic" style="color:${look.color}">${pic}</div>
     <div style="min-width:0"><div class="who">@${esc(ev.user)}</div>
     <div class="what">${what} <span style="color:${look.color};display:inline-flex;align-items:center;gap:.25em">${icon('arrow-right')} ${icon(look.icon)} ${esc(look.label)}${handled ? '' : ' (unknown)'}</span></div></div>`;
   const box = $('alerts');

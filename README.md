@@ -64,6 +64,8 @@ The installer runs the server on `127.0.0.1` (a free port in 3200-3299) and adds
 * New token: `sudo NEW_TOKEN=1 bash /opt/tiktokgg/deploy/install.sh`
 * Settings (port, token, allowed origins) are in `/etc/tiktokgg/env`
 
+**Gifts:** the dashboard shows every TikTok gift with its real image. Tap a gift to choose what it does in the game. Press **Load TikTok gifts** while you're connected, or enter any account that is LIVE right now. On the VPS the installer also copies the gift list and images that `koydam-tiktok` has already downloaded (`/opt/koydam-tiktok/data`).
+
 Rules live in the server's memory, so press **Apply Rules** again after the service restarts.
 
 ### Lite setup on your own PC

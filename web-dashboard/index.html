@@ -130,7 +130,7 @@
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="flex items-center gap-2 text-lg font-bold"><lc-icon name="gift" :size="18" class="text-tt-red"></lc-icon> Gift → Action Rules</h2>
-          <p class="text-xs text-slate-400">Map each gift to a game action. Value × combo count is sent to the game.</p>
+          <p class="text-xs text-slate-400">Tap a gift to choose what it does in the game. Value × combo count is sent to the game.</p>
         </div>
         <div class="flex items-center gap-2">
           <span v-if="dirty" class="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-400/30"><lc-icon name="circle-dot" :size="12"></lc-icon> unsaved</span>
@@ -144,62 +144,71 @@
         </div>
       </div>
 
-      <ul class="grid gap-3 sm:grid-cols-2">
-        <li v-for="(g, i) in gifts" :key="g.key"
-            class="group relative rounded-xl border p-3 transition"
-            :class="g.enabled && g.action ? 'border-tt-cyan/25 bg-slate-950/60' : 'border-white/5 bg-slate-950/30 opacity-70'">
-          <div class="flex items-center gap-3">
-            <div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/5" :class="giftLook(g.name).color">
-              <lc-icon :name="giftLook(g.name).icon" :size="22"></lc-icon>
-            </div>
-            <div class="min-w-0 flex-1">
-              <input v-if="g.custom" v-model.trim="g.name" @input="touch" class="field !py-1 font-semibold" placeholder="Exact gift name" />
-              <div v-else class="truncate font-semibold" :title="'Matches TikTok gift name “' + g.name + '”'">{{ g.label || g.name }}</div>
-              <div class="flex items-center gap-1 text-[11px] text-slate-400">
-                <lc-icon name="gem" :size="11" class="text-tt-cyan"></lc-icon> {{ g.diamonds ?? '?' }}
-                <span v-if="g.label && g.label !== g.name" class="text-slate-500">· “{{ g.name }}”</span>
-              </div>
-            </div>
-            <label class="relative inline-flex cursor-pointer items-center" :title="g.enabled ? 'Enabled' : 'Disabled'">
-              <input type="checkbox" class="peer sr-only" v-model="g.enabled" @change="touch" />
-              <span class="h-5 w-9 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500"></span>
-              <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
-            </label>
-          </div>
+      <!-- toolbar: search, filters, load gifts from TikTok -->
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="relative min-w-[160px] flex-1">
+          <span class="sr-only">Search gifts</span>
+          <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500"><lc-icon name="search" :size="15"></lc-icon></span>
+          <input v-model.trim="giftSearch" class="field pl-9" placeholder="Search gifts" autocomplete="off" />
+        </label>
+        <div class="inline-flex rounded-xl border border-white/10 bg-slate-950/70 p-0.5 text-xs font-semibold">
+          <button class="rounded-lg px-3 py-1.5" :class="giftTab === 'all' ? 'bg-white/10 text-white' : 'text-slate-400'" @click="giftTab = 'all'">All <span class="text-slate-500">{{ allGifts.length }}</span></button>
+          <button class="rounded-lg px-3 py-1.5" :class="giftTab === 'mapped' ? 'bg-white/10 text-white' : 'text-slate-400'" @click="giftTab = 'mapped'">Mapped <span class="text-slate-500">{{ mappedCount }}</span></button>
+        </div>
+        <label class="relative">
+          <span class="sr-only">Sort gifts</span>
+          <select v-model="giftSort" class="field !w-auto !py-1.5 pr-8 text-xs">
+            <option value="asc">Cheapest first</option>
+            <option value="desc">Most expensive first</option>
+            <option value="name">A → Z</option>
+          </select>
+        </label>
+      </div>
 
-          <div class="mt-3 grid grid-cols-[1fr_92px] gap-2">
-            <label class="flex flex-col gap-1">
-              <span class="label">Action</span>
-              <div class="relative">
-                <span class="pointer-events-none absolute inset-y-0 left-2.5 flex items-center" :class="actionLook(g.action).color"><lc-icon :name="actionLook(g.action).icon" :size="15"></lc-icon></span>
-                <select v-model="g.action" @change="touch" class="field !py-1.5 pl-8" :disabled="!g.enabled">
-                  <option value="">none</option>
-                  <option v-for="a in ACTIONS" :key="a.id" :value="a.id">{{ a.id }}</option>
-                </select>
-              </div>
-            </label>
-            <label class="flex flex-col gap-1">
-              <span class="label truncate" :title="actionLook(g.action).hint">{{ actionLook(g.action).hint }}</span>
-              <input type="number" step="0.1" min="0" v-model.number="g.value" @input="touch" class="field !py-1.5 tabular-nums" :disabled="!g.enabled || !g.action" />
-            </label>
-          </div>
+      <form class="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-white/10 bg-slate-950/40 px-3 py-2" @submit.prevent="fetchGifts">
+        <lc-icon name="cloud-download" :size="16" class="text-tt-cyan"></lc-icon>
+        <span class="text-xs text-slate-300">{{ catalog.length ? `${catalog.length} TikTok gifts loaded` : 'Load every TikTok gift with its real image' }}</span>
+        <input v-model.trim="fetchUser" class="field ml-auto !w-48 !py-1.5 text-xs" placeholder="any LIVE @account (optional)" autocomplete="off" spellcheck="false" />
+        <button class="btn btn-ghost !py-1.5 text-xs" :class="fx.fetch" :disabled="socketState !== 'open' || busy.fetch">
+          <lc-icon :name="busy.fetch ? 'loader-circle' : 'download'" :size="14" :class="busy.fetch ? 'animate-spin' : ''"></lc-icon>
+          {{ busy.fetch ? 'Loading…' : 'Load TikTok gifts' }}
+        </button>
+      </form>
 
-          <div class="mt-2 flex items-center justify-between">
-            <button class="inline-flex items-center gap-1 text-[11px] font-semibold text-tt-cyan/80 hover:text-tt-cyan disabled:opacity-40" :class="fx['gift' + g.key]" :disabled="socketState !== 'open' || !g.name" @click="testGift(g)" title="Simulate this gift through the rules that are live on the server">
-              <lc-icon name="play" :size="12"></lc-icon> simulate gift
+      <!-- gift grid -->
+      <div class="max-h-[600px] overflow-y-auto pr-1">
+        <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-5">
+          <li v-for="g in visibleGifts" :key="g.key">
+            <button class="group relative flex w-full flex-col items-center gap-1 rounded-xl border px-1.5 pb-2 pt-3 text-center transition hover:-translate-y-0.5 active:scale-95"
+                    :class="[g.rule ? 'border-tt-cyan/35 bg-tt-cyan/[.06]' : 'border-white/5 bg-slate-950/50 hover:border-white/20', menu.gift?.key === g.key ? 'ring-2 ring-tt-red' : '']"
+                    :aria-label="g.name + (g.rule ? ', mapped to ' + g.rule.action : ', no action')"
+                    @click="openMenu(g, $event)">
+              <span v-if="g.rule" class="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-slate-900 ring-1 ring-white/15" :class="actionLook(g.rule.action).color" :title="g.rule.action + ' ' + g.rule.value">
+                <lc-icon :name="actionLook(g.rule.action).icon" :size="13"></lc-icon>
+              </span>
+              <img v-if="g.image" :src="imgSrc(g.image)" :alt="''" loading="lazy" class="h-12 w-12 object-contain drop-shadow" @error="$event.target.style.visibility = 'hidden'" />
+              <span v-else class="grid h-12 w-12 place-items-center rounded-xl bg-white/5" :class="giftLook(g.name).color"><lc-icon :name="giftLook(g.name).icon" :size="24"></lc-icon></span>
+              <span class="w-full truncate text-xs font-semibold" :title="g.name">{{ g.name }}</span>
+              <span class="flex items-center gap-0.5 text-[10px] text-slate-400"><lc-icon name="gem" :size="10" class="text-tt-cyan"></lc-icon>{{ g.diamonds != null ? fmt(g.diamonds) : '?' }}</span>
+              <span v-if="g.rule" class="max-w-full truncate rounded-md bg-white/5 px-1.5 text-[10px] font-semibold" :class="actionLook(g.rule.action).color">{{ actionLook(g.rule.action).label }} · {{ g.rule.value }}</span>
             </button>
-            <button v-if="g.custom" class="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-red-400" @click="removeGift(i)"><lc-icon name="trash-2" :size="12"></lc-icon> remove</button>
-          </div>
-        </li>
+          </li>
 
-        <li>
-          <button class="flex h-full min-h-[148px] w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/15 text-slate-400 transition hover:border-tt-cyan/40 hover:text-tt-cyan active:scale-[.98]" @click="addGift">
-            <lc-icon name="plus" :size="24"></lc-icon><span class="text-sm font-semibold">Add another gift</span>
-          </button>
-        </li>
-      </ul>
+          <!-- add a rule for a gift that isn't in the list (exact TikTok name) -->
+          <li v-if="giftSearch && !exactMatch">
+            <button class="flex h-full min-h-[132px] w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/15 px-2 text-slate-400 transition hover:border-tt-cyan/40 hover:text-tt-cyan" @click="openMenu(customGift(giftSearch), $event)">
+              <lc-icon name="plus" :size="22"></lc-icon><span class="text-xs font-semibold">Add “{{ giftSearch }}”</span>
+            </button>
+          </li>
+        </ul>
+        <p v-if="!visibleGifts.length && !giftSearch" class="py-8 text-center text-sm text-slate-500">
+          {{ giftTab === 'mapped' ? 'No gift has an action yet. Tap a gift in "All" to add one.' : 'No gifts yet. Press "Load TikTok gifts".' }}
+        </p>
+        <div v-if="filteredGifts.length > giftLimit" class="mt-3 text-center">
+          <button class="btn btn-ghost !py-1.5 text-xs" @click="giftLimit += 80"><lc-icon name="chevrons-down" :size="14"></lc-icon> Show more ({{ filteredGifts.length - giftLimit }})</button>
+        </div>
+      </div>
     </section>
-
     <div class="flex flex-col gap-5">
       <!-- ===================================================================== -->
       <!-- 4. MANUAL TEST PANEL                                                  -->
@@ -331,6 +340,53 @@
     Sends <code>CONNECT_TIKTOK</code> · <code>UPDATE_RULES</code> · <code>TEST_TRIGGER</code> to {{ serverUrl }}
   </footer>
 
+  <!-- gift menu (opens next to the tapped gift; bottom sheet on phones) -->
+  <div v-if="menu.gift" class="fixed inset-0 z-40" @click="closeMenu"></div>
+  <transition enter-from-class="opacity-0 scale-95" enter-active-class="transition duration-150" leave-to-class="opacity-0" leave-active-class="transition duration-100">
+    <div v-if="menu.gift" class="fixed z-50 flex max-h-[min(560px,85vh)] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-900/95 shadow-2xl shadow-black/60 backdrop-blur"
+         :style="menu.style" role="dialog" aria-modal="true" :aria-label="'Action for ' + menu.gift.name" @keydown.esc="closeMenu">
+      <div class="flex items-center gap-3 border-b border-white/10 p-3">
+        <img v-if="menu.gift.image" :src="imgSrc(menu.gift.image)" alt="" class="h-11 w-11 object-contain" />
+        <span v-else class="grid h-11 w-11 place-items-center rounded-xl bg-white/5" :class="giftLook(menu.gift.name).color"><lc-icon :name="giftLook(menu.gift.name).icon" :size="22"></lc-icon></span>
+        <div class="min-w-0 flex-1">
+          <div class="truncate font-bold">{{ menu.gift.name }}</div>
+          <div class="flex items-center gap-1 text-xs text-slate-400"><lc-icon name="gem" :size="11" class="text-tt-cyan"></lc-icon>{{ menu.gift.diamonds != null ? fmt(menu.gift.diamonds) : '?' }} diamonds</div>
+        </div>
+        <button class="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white" @click="closeMenu" aria-label="Close"><lc-icon name="x" :size="16"></lc-icon></button>
+      </div>
+
+      <div class="overflow-y-auto p-2">
+        <div class="label px-2 pb-1 pt-1">What happens in {{ game.name }}</div>
+        <button class="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-white/5" :class="!menuRule ? 'bg-white/5' : ''" @click="setGiftAction(menu.gift, '')">
+          <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/5 text-slate-500"><lc-icon name="circle-off" :size="16"></lc-icon></span>
+          <span class="min-w-0 flex-1"><span class="block text-sm font-semibold">Nothing</span><span class="block text-xs text-slate-500">Shown in the log only</span></span>
+          <lc-icon v-if="!menuRule" name="check" :size="16" class="text-emerald-400"></lc-icon>
+        </button>
+        <button v-for="a in ACTIONS" :key="a.id" class="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-white/5"
+                :class="menuRule?.action === a.id ? 'bg-white/[.07] ring-1 ring-white/10' : ''" @click="setGiftAction(menu.gift, a.id)">
+          <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/5" :class="a.color"><lc-icon :name="a.icon" :size="16"></lc-icon></span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm font-semibold">{{ a.label }} <span class="font-mono text-[10px] font-normal text-slate-500">{{ a.id }}</span></span>
+            <span class="block text-xs text-slate-400">{{ a.effect }}</span>
+          </span>
+          <lc-icon v-if="menuRule?.action === a.id" name="check" :size="16" class="text-emerald-400"></lc-icon>
+        </button>
+      </div>
+
+      <div v-if="menuRule" class="flex flex-wrap items-center gap-2 border-t border-white/10 p-3">
+        <span class="label">{{ actionLook(menuRule.action).hint }}</span>
+        <div class="flex items-center rounded-xl border border-white/10 bg-slate-950/80">
+          <button class="grid h-8 w-8 place-items-center text-slate-300 hover:text-white" @click="stepValue(menu.gift, -1)" aria-label="Less"><lc-icon name="minus" :size="14"></lc-icon></button>
+          <input type="number" step="0.1" min="0" :value="menuRule.value" @input="setGiftValue(menu.gift, $event.target.valueAsNumber)" class="w-16 bg-transparent py-1.5 text-center text-sm tabular-nums focus:outline-none" />
+          <button class="grid h-8 w-8 place-items-center text-slate-300 hover:text-white" @click="stepValue(menu.gift, 1)" aria-label="More"><lc-icon name="plus" :size="14"></lc-icon></button>
+        </div>
+        <span class="text-[11px] text-slate-500">× combo</span>
+        <button class="btn btn-primary ml-auto !px-3 !py-1.5 text-xs" :class="fx.menuTest" :disabled="socketState !== 'open'" @click="testInGame(menu.gift)">
+          <lc-icon name="play" :size="14"></lc-icon> Test in game
+        </button>
+      </div>
+    </div>
+  </transition>
   <!-- toasts -->
   <div class="pointer-events-none fixed bottom-4 left-1/2 z-50 flex w-[min(92vw,420px)] -translate-x-1/2 flex-col gap-2" aria-live="polite">
     <transition-group enter-from-class="opacity-0 translate-y-2" enter-active-class="transition duration-200" leave-to-class="opacity-0" leave-active-class="transition duration-300">
@@ -368,16 +424,17 @@ const LcIcon = {
 /* ===========================================================================
  * Configuration: actions, preset gifts, quick tests, games
  * ======================================================================== */
+// label/effect describe what the action does in the game; default = value used when you first pick it.
 const ACTIONS = [
-  { id: 'SPAWN_OBSTACLE',   icon: 'construction',     color: 'text-orange-300',  hint: 'Obstacle count' },
-  { id: 'SPEED_BOOST',      icon: 'zap',              color: 'text-amber-300',   hint: 'Speed ×' },
-  { id: 'SPEED_SLOW',       icon: 'snail',            color: 'text-sky-300',     hint: 'Speed ×' },
-  { id: 'SCREEN_SPLATTER',  icon: 'droplets',         color: 'text-yellow-700',  hint: 'Seconds' },
-  { id: 'REVERSE_CONTROLS', icon: 'arrow-left-right', color: 'text-violet-300',  hint: 'Seconds' },
-  { id: 'BOSS_ATTACK',      icon: 'skull',            color: 'text-red-400',     hint: 'Boss level' },
-  { id: 'HEAL_PLAYER',      icon: 'heart-pulse',      color: 'text-emerald-300', hint: 'HP' },
+  { id: 'SPAWN_OBSTACLE',   icon: 'construction',     color: 'text-orange-300',  hint: 'Barriers',   label: 'Barriers',        effect: 'Drops road barriers ahead of the car',         default: 1 },
+  { id: 'SPEED_BOOST',      icon: 'zap',              color: 'text-amber-300',   hint: 'Speed ×',    label: 'Speed boost',     effect: 'Traffic rushes faster for a few seconds',     default: 1.5 },
+  { id: 'SPEED_SLOW',       icon: 'snail',            color: 'text-sky-300',     hint: 'Speed ×',    label: 'Slow motion',     effect: 'Everything slows down for a few seconds',     default: 0.6 },
+  { id: 'SCREEN_SPLATTER',  icon: 'droplets',         color: 'text-yellow-700',  hint: 'Seconds',    label: 'Mud splatter',    effect: 'Mud covers the screen',                       default: 3 },
+  { id: 'REVERSE_CONTROLS', icon: 'arrow-left-right', color: 'text-violet-300',  hint: 'Seconds',    label: 'Reverse controls', effect: 'Left becomes right',                         default: 5 },
+  { id: 'BOSS_ATTACK',      icon: 'skull',            color: 'text-red-400',     hint: 'Boss level', label: 'Boss attack',     effect: 'A boss flies in and shoots at the car (1–5)', default: 1 },
+  { id: 'HEAL_PLAYER',      icon: 'heart-pulse',      color: 'text-emerald-300', hint: 'HP',         label: 'Heal',            effect: 'Gives the car health back',                   default: 10 },
 ];
-const NO_ACTION = { icon: 'circle-off', color: 'text-slate-500', hint: 'Value' };
+const NO_ACTION = { icon: 'circle-off', color: 'text-slate-500', hint: 'Value', label: 'Nothing' };
 
 // `name` must match TikTok's gift name exactly (case-insensitive on the server).
 const PRESET_GIFTS = [
@@ -442,7 +499,6 @@ const store = {
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n) => Number(n || 0).toLocaleString();
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random());
-const giftKey = () => 'g' + Math.random().toString(36).slice(2, 9);
 const giftLook = (name) => GIFT_LOOK[String(name).toLowerCase()] ?? DEFAULT_GIFT_LOOK;
 const actionLook = (id) => ACTIONS.find((a) => a.id === id) ?? NO_ACTION;
 
@@ -475,7 +531,21 @@ const app = createApp({
     const tiktok = reactive({ status: 'DISCONNECTED', username: null, error: null, reconnecting: false, attempt: 0 });
     const stats = reactive({ diamonds: 0, viewers: 0, likes: 0, gifts: 0, triggers: 0 });
 
-    const gifts = ref(store.get('tt.gifts', null) ?? PRESET_GIFTS.map((g) => ({ ...g, key: giftKey(), enabled: true, custom: false })));
+    // Local rule draft { "Rose": { action, value } }. First run: the preset gifts. Older versions saved cards in tt.gifts.
+    function initialDraft() {
+      const saved = store.get('tt.rules', null);
+      if (saved && typeof saved === 'object') return saved;
+      const cards = store.get('tt.gifts', null) ?? PRESET_GIFTS.map((g) => ({ ...g, enabled: true }));
+      return Object.fromEntries(cards.filter((c) => c.enabled && c.action && c.name).map((c) => [c.name, { action: c.action, value: c.value ?? 1 }]));
+    }
+    const draft = ref(initialDraft());
+    const catalog = ref([]); // [{ id, name, diamonds, image }] from the server
+    const giftSearch = ref('');
+    const giftTab = ref('all');
+    const giftSort = ref('asc');
+    const giftLimit = ref(80);
+    const fetchUser = ref('');
+    const menu = reactive({ gift: null, style: {} });
     const serverRules = ref(null);
     const dirty = ref(store.get('tt.dirty', true));
     const rulesSyncedAt = ref(null);
@@ -595,7 +665,7 @@ const app = createApp({
       };
     }
 
-    function send(type, payload = {}, timeoutMs = 30000) {
+    function send(type, payload = {}, timeoutMs = type === 'FETCH_GIFTS' ? 60000 : 30000) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject(new Error('Control server offline'));
       const id = uid();
       return new Promise((resolve, reject) => {
@@ -614,7 +684,11 @@ const app = createApp({
           setStatus(p.status, true);
           if (p.likes) stats.likes = Math.max(p.likes.totalLikes, p.likes.streamTotalLikes);
           if (p.viewerCount != null) stats.viewers = p.viewerCount;
+          if (Array.isArray(p.gifts)) catalog.value = p.gifts;
           syncServerRules(p.rules);
+          break;
+        case 'GIFTS':
+          catalog.value = p.gifts || [];
           break;
         case 'STATUS':
           setStatus(p);
@@ -629,7 +703,8 @@ const app = createApp({
           const arrow = p.action ? ` <span class="text-slate-500">-&gt;</span> <span class="text-tt-cyan">${esc(p.action)}</span> <span class="text-slate-500">(${esc(p.value)})</span>`
                                  : ' <span class="text-slate-500">(no rule)</span>';
           const timeout = p.reason === 'streak_timeout' ? ' <span class="text-amber-400">[streak timeout]</span>' : '';
-          addLog(tag, `<span class="text-emerald-300">@${esc(p.user)}</span> sent <b>${esc(p.giftName)}</b>${p.repeatCount > 1 ? ` <span class="text-tt-red">x${p.repeatCount}</span>` : ''} <span class="text-slate-500">${gem()} ${fmt(p.totalDiamonds)}</span>${arrow}${timeout}`, !p.action);
+          const pic = p.giftImage ? `<img src="${esc(imgSrc(p.giftImage))}" alt="" class="inline h-4 w-4 object-contain align-[-3px]"> ` : '';
+          addLog(tag, `<span class="text-emerald-300">@${esc(p.user)}</span> sent ${pic}<b>${esc(p.giftName)}</b>${p.repeatCount > 1 ? ` <span class="text-tt-red">x${p.repeatCount}</span>` : ''} <span class="text-slate-500">${gem()} ${fmt(p.totalDiamonds)}</span>${arrow}${timeout}`, !p.action);
           break;
         }
         case 'GAME_EVENT':
@@ -673,25 +748,16 @@ const app = createApp({
 
     /** Make the cards reflect the server's live mapping (adds cards for unknown gifts). */
     function loadFromServer() {
-      const rules = serverRules.value || {};
-      const lower = Object.fromEntries(Object.entries(rules).map(([k, v]) => [k.toLowerCase(), { name: k, ...v }]));
-      for (const g of gifts.value) {
-        const r = lower[g.name.toLowerCase()];
-        if (r) { g.action = r.action; g.value = r.value; g.enabled = true; delete lower[g.name.toLowerCase()]; }
-        else { g.enabled = false; }
-      }
-      for (const r of Object.values(lower)) {
-        gifts.value.push({ key: giftKey(), name: r.name, diamonds: null, action: r.action, value: r.value, enabled: true, custom: true });
-      }
+      draft.value = JSON.parse(JSON.stringify(serverRules.value || {}));
       dirty.value = false;
       persist();
     }
 
     function buildRules() {
       const out = {};
-      for (const g of gifts.value) {
-        if (!g.enabled || !g.action || !g.name) continue;
-        out[g.name] = { action: g.action, value: Number.isFinite(g.value) ? g.value : 1 };
+      for (const [name, r] of Object.entries(draft.value)) {
+        if (!name || !r?.action) continue;
+        out[name] = { action: r.action, value: Number.isFinite(r.value) ? r.value : 1 };
       }
       return out;
     }
@@ -706,11 +772,96 @@ const app = createApp({
       } catch { /* toast shown */ }
     }
 
-    // Saved cards from older versions may carry an emoji "icon" field; icons now come from GIFT_LOOK.
-    const persist = () => { store.set('tt.gifts', gifts.value.map(({ icon, ...g }) => g)); store.set('tt.dirty', dirty.value); };
+    const persist = () => { store.set('tt.rules', draft.value); store.set('tt.dirty', dirty.value); };
     const touch = () => { dirty.value = true; persist(); };
-    const addGift = () => { gifts.value.push({ key: giftKey(), name: '', diamonds: null, action: 'SPAWN_OBSTACLE', value: 1, enabled: true, custom: true }); touch(); };
-    const removeGift = (i) => { gifts.value.splice(i, 1); touch(); };
+
+    /* ------------------------------------------------------------------
+     * Gift grid + per-gift menu
+     * ---------------------------------------------------------------- */
+    // Server gift images are paths like /gift-img/123.png on the control server.
+    const httpBase = computed(() => serverUrl.value.replace(/^ws(s?):/, 'http$1:').replace(/\/ws\/?$/, '').replace(/\/$/, ''));
+    const imgSrc = (u) => (!u ? '' : u.startsWith('/') ? httpBase.value + u : u);
+    const ruleFor = (name) => {
+      const lower = String(name).toLowerCase();
+      const key = Object.keys(draft.value).find((k) => k.toLowerCase() === lower);
+      return key ? { key, ...draft.value[key] } : null;
+    };
+    const customGift = (name) => ({ key: 'custom:' + name.toLowerCase(), name, diamonds: null, image: null });
+
+    /** Catalogue gifts + preset/draft gifts that aren't in it yet (so rules are always visible). */
+    const allGifts = computed(() => {
+      const seen = new Set();
+      const out = [];
+      for (const g of catalog.value) { seen.add(g.name.toLowerCase()); out.push({ key: 'id:' + g.id, ...g }); }
+      for (const p of PRESET_GIFTS) if (!seen.has(p.name.toLowerCase())) { seen.add(p.name.toLowerCase()); out.push({ key: 'preset:' + p.name, name: p.name, diamonds: p.diamonds, image: null }); }
+      for (const name of Object.keys(draft.value)) if (!seen.has(name.toLowerCase())) { seen.add(name.toLowerCase()); out.push(customGift(name)); }
+      return out.map((g) => ({ ...g, rule: ruleFor(g.name) }));
+    });
+    const mappedCount = computed(() => allGifts.value.filter((g) => g.rule).length);
+    const filteredGifts = computed(() => {
+      const q = giftSearch.value.toLowerCase();
+      let list = allGifts.value.filter((g) => (giftTab.value === 'all' || g.rule) && (!q || g.name.toLowerCase().includes(q)));
+      const d = (g) => (g.diamonds == null ? Infinity : g.diamonds);
+      if (giftSort.value === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+      else if (giftSort.value === 'desc') list = [...list].sort((a, b) => d(b) - d(a));
+      else list = [...list].sort((a, b) => d(a) - d(b));
+      // Mapped gifts first on the "All" tab, so the current setup is visible at a glance.
+      if (giftTab.value === 'all' && !q) list = [...list.filter((g) => g.rule), ...list.filter((g) => !g.rule)];
+      return list;
+    });
+    const visibleGifts = computed(() => filteredGifts.value.slice(0, giftLimit.value));
+    const exactMatch = computed(() => allGifts.value.some((g) => g.name.toLowerCase() === giftSearch.value.toLowerCase()));
+    const menuRule = computed(() => (menu.gift ? ruleFor(menu.gift.name) : null));
+
+    function openMenu(g, ev) {
+      if (menu.gift?.key === g.key) return closeMenu();
+      menu.gift = g;
+      const W = 340, vw = innerWidth, vh = innerHeight;
+      if (vw < 640) { menu.style = { left: '8px', right: '8px', bottom: '8px' }; return; }
+      const r = ev.currentTarget.getBoundingClientRect();
+      let left = r.right + 10;
+      if (left + W > vw - 8) left = r.left - W - 10;
+      if (left < 8) left = Math.min(vw - W - 8, Math.max(8, r.left));
+      const top = Math.max(8, Math.min(r.top - 20, vh - Math.min(560, vh * 0.85) - 8));
+      menu.style = { left: left + 'px', top: top + 'px', width: W + 'px' };
+      nextTick(() => document.querySelector('[role=dialog] button')?.focus());
+    }
+    const closeMenu = () => { menu.gift = null; };
+
+    function setGiftAction(g, action) {
+      const existing = ruleFor(g.name);
+      const next = { ...draft.value };
+      if (existing) delete next[existing.key];
+      if (action) {
+        const keep = existing && existing.action === action ? existing.value : actionLook(action).default ?? 1;
+        next[existing?.key ?? g.name] = { action, value: keep };
+      }
+      draft.value = next;
+      touch();
+    }
+    function setGiftValue(g, v) {
+      const r = ruleFor(g.name);
+      if (!r || !Number.isFinite(v)) return;
+      draft.value = { ...draft.value, [r.key]: { action: r.action, value: Math.max(0, v) } };
+      touch();
+    }
+    function stepValue(g, dir) {
+      const r = ruleFor(g.name);
+      if (!r) return;
+      const step = r.value < 1 || ['SPEED_BOOST', 'SPEED_SLOW'].includes(r.action) ? 0.1 : 1;
+      setGiftValue(g, Math.round((r.value + dir * step) * 10) / 10);
+    }
+    async function testInGame(g) {
+      if (dirty.value) await applyRules();
+      act('menuTest', 'TEST_TRIGGER', { giftName: g.name, repeatCount: 1, diamondCount: g.diamonds ?? 1, user: 'tester' },
+        (r) => (r?.matched === false ? `${g.name}: no live rule` : `${g.name} → ${r.action}`)).catch(() => {});
+    }
+    async function fetchGifts() {
+      try {
+        await act('fetch', 'FETCH_GIFTS', { username: fetchUser.value }, (r) => `${r.count} gifts loaded from TikTok`);
+      } catch { /* toast shown */ }
+    }
+    addEventListener('keydown', (e) => e.key === 'Escape' && closeMenu());
 
     /* ------------------------------------------------------------------
      * Commands
@@ -728,8 +879,6 @@ const app = createApp({
     }
     const fireTest = (t) => act('test' + t.id, 'TEST_TRIGGER', { action: t.action, value: t.value, user: 'dashboard' }, `${t.label} sent`).catch(() => {});
     const fireCustom = () => act('custom', 'TEST_TRIGGER', { action: custom.action, value: custom.value, user: 'dashboard' }, `${custom.action} sent`).catch(() => {});
-    const testGift = (g) => act('gift' + g.key, 'TEST_TRIGGER', { giftName: g.name, repeatCount: 1, diamondCount: g.diamonds ?? 1, user: 'tester' },
-      (r) => (r?.matched === false ? `${g.name}: no live rule (press Apply Rules)` : `${g.name} → ${r.action}`)).catch(() => {});
 
     function saveServerUrl() {
       serverUrl.value = serverUrlDraft.value || DEFAULT_SERVER;
@@ -786,8 +935,10 @@ const app = createApp({
       ACTIONS, TESTS, GAMES, LOG_FILTERS, TAG_COLOR, TAG_STYLE, giftLook, actionLook,
       serverUrl, serverUrlDraft, tokenDraft, showServer, saveServerUrl,
       socketState, socketLabel, socketDot, username, tiktok, pendingConnect, badge, metrics,
-      gifts, serverRules, dirty, rulesSyncedAt, touch, addGift, removeGift, applyRules, loadFromServer,
-      custom, fx, busy, toasts, fireTest, fireCustom, testGift, connectTikTok, disconnectTikTok,
+      serverRules, dirty, rulesSyncedAt, applyRules, loadFromServer, fmt,
+      catalog, allGifts, filteredGifts, visibleGifts, mappedCount, exactMatch, giftSearch, giftTab, giftSort, giftLimit, fetchUser, fetchGifts,
+      menu, menuRule, openMenu, closeMenu, setGiftAction, setGiftValue, stepValue, testInGame, customGift, imgSrc,
+      custom, fx, busy, toasts, fireTest, fireCustom, connectTikTok, disconnectTikTok,
       visibleLog, filters, toggleFilter, clearLog, logBox, autoScroll, onLogScroll, scrollToBottom,
       game, previewOn, previewKey, gameUrl, selectGame, copyGameUrl,
     };

@@ -119,11 +119,27 @@ PORT=$PORT
 HOST=127.0.0.1
 WS_TOKEN=$TOKEN
 ALLOWED_ORIGINS=https://$DOMAIN,http://$DOMAIN
+DATA_DIR=/var/lib/$SERVICE
 NODE_ENV=production
 EOF
 umask 022
 chown root:"$APP_USER" "$ENV_FILE"
 chmod 640 "$ENV_FILE"
+
+# --- 5b. Gift catalogue: reuse what koydam-tiktok already downloaded (same VPS), once -----
+STATE_DIR="/var/lib/$SERVICE"
+KOYDAM_DATA="${KOYDAM_DATA:-/opt/koydam-tiktok/data}"
+mkdir -p "$STATE_DIR"
+if [[ ! -s "$STATE_DIR/gifts.json" && -s "$KOYDAM_DATA/gifts.json" ]]; then
+  c_info "Importing the gift list and images from $KOYDAM_DATA..."
+  cp "$KOYDAM_DATA/gifts.json" "$STATE_DIR/gifts.json"
+  if [[ -d "$KOYDAM_DATA/gift-images" ]]; then
+    mkdir -p "$STATE_DIR/gift-images"
+    cp -a "$KOYDAM_DATA/gift-images/." "$STATE_DIR/gift-images/"
+  fi
+  c_ok "Imported $(node -e "try{console.log(require('$STATE_DIR/gifts.json').length)}catch{console.log(0)}") gifts"
+fi
+chown -R "$APP_USER:$APP_USER" "$STATE_DIR"
 
 # --- 6. systemd service ----------------------------------------------------------
 cat > /etc/systemd/system/$SERVICE.service <<EOF

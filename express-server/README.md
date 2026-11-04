@@ -35,10 +35,15 @@ Dashboard → server:
 { "type": "TEST_TRIGGER", "payload": { "action": "SPAWN_OBSTACLE", "value": 3 } }
 { "type": "TEST_TRIGGER", "payload": { "giftName": "Rose", "repeatCount": 5, "user": "tester" } }
 { "type": "GET_STATE" }
+{ "type": "FETCH_GIFTS", "payload": { "username": "any_live_account" } }
 ```
+`FETCH_GIFTS` loads TikTok's full gift list (names, diamond prices, images). Leave out `username` to use the stream you're connected to. TikTok only returns the list for an account that is LIVE at that moment.
 Each message gets an `ACK` or `ERROR` reply. If you send an `id`, the reply carries it back as `requestId`.
 
-Server → all clients: `STATE` (on connect), `STATUS`, `GAME_EVENT` (gifts that matched a rule, plus test actions), `GIFT_RECEIVED` (every finished gift, matched or not), `RULES_UPDATED`, `LIKES_UPDATE` and `VIEWERS_UPDATE` (each sent at most once a second).
+Server → all clients: `STATE` (on connect), `STATUS`, `GAME_EVENT` (gifts that matched a rule, plus test actions), `GIFT_RECEIVED` (every finished gift, matched or not), `RULES_UPDATED`, `LIKES_UPDATE` and `VIEWERS_UPDATE` (each sent at most once a second), and `GIFTS` (the gift catalogue).
+
+### Gift catalogue
+The server saves gifts to `DATA_DIR/gifts.json` (default `express-server/data/`, on the VPS `/var/lib/tiktokgg`). It downloads each gift image once, only from TikTok's image servers, and serves it at `/gift-img/<id>.png`, so dashboards and OBS don't depend on TikTok's servers during a stream. The catalogue fills up from the room's gift list when you connect, from every gift received, and from `FETCH_GIFTS`. `GAME_EVENT` and `GIFT_RECEIVED` include `giftImage`.
 
 ```json
 { "type": "GAME_EVENT", "payload": {

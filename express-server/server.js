@@ -16,6 +16,7 @@
  *   TEST_TRIGGER       { action, value?, user? }        fire an action directly
  *                      { giftName, repeatCount?, user? } or simulate a gift through the rules
  *   GET_STATE          {}
+ *   FETCH_GIFTS        { username? }                    load TikTok's gift list (names, diamonds, images)
  *
  * Server → client
  *   STATE        full snapshot (sent on connect and for GET_STATE)
@@ -23,6 +24,7 @@
  *   GAME_EVENT   { user, giftName, diamondCount, action, value, ... }   only gifts that matched a rule
  *   GIFT_RECEIVED{ user, giftName, diamondCount, repeatCount, totalDiamonds, action|null, ... } every finished gift
  *   VIEWERS_UPDATE { viewerCount }
+ *   GIFTS        { gifts: [{ id, name, diamonds, image }] }   gift catalogue (images served at /gift-img/…)
  *   RULES_UPDATED{ rules }
  *   LIKES_UPDATE { totalLikes, streamTotalLikes, lastUser, lastCount }
  *   ACK / ERROR  reply to a client message (carries `requestId` if the client sent `id`)
@@ -52,6 +54,9 @@ const CONFIG = Object.freeze({
   wsToken: process.env.WS_TOKEN || '',
   // Folder with the control panel (web-dashboard/index.html), served at "/". Missing folder = API only.
   dashboardDir: path.resolve(process.env.DASHBOARD_DIR || path.join(__dirname, '..', 'web-dashboard')),
+  // Writable folder for the gift catalogue (gifts.json + gift-images/). On the VPS: /var/lib/tiktokgg
+  dataDir: path.resolve(process.env.DATA_DIR || path.join(__dirname, 'data')),
+  giftImgAllowLocal: process.env.GIFT_IMG_ALLOW_LOCAL === '1', // tests only: allow image downloads from localhost
   // Optional browser Origin allowlist, e.g. "https://tiktokgg.koydam.com,http://localhost:5500".
   // Stops random websites a streamer visits from talking to their local server. Empty = allow all.
   allowedOrigins: (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
@@ -89,12 +94,14 @@ const MSG = Object.freeze({
   UPDATE_RULES: 'UPDATE_RULES',
   TEST_TRIGGER: 'TEST_TRIGGER',
   GET_STATE: 'GET_STATE',
+  FETCH_GIFTS: 'FETCH_GIFTS',
   // outbound
   STATE: 'STATE',
   STATUS: 'STATUS',
   GAME_EVENT: 'GAME_EVENT',
   GIFT_RECEIVED: 'GIFT_RECEIVED',
   VIEWERS_UPDATE: 'VIEWERS_UPDATE',
+  GIFTS: 'GIFTS',
   RULES_UPDATED: 'RULES_UPDATED',
   LIKES_UPDATE: 'LIKES_UPDATE',
   ACK: 'ACK',
@@ -196,6 +203,168 @@ function normalizeGift(d = {}) {
     groupId: String(first(d.groupId, '')),
   };
 }
+
+// ============================================================================
+// 5b. GIFT CATALOGUE — real TikTok gift names, diamond prices and images
+//
+//   • Saved to DATA_DIR/gifts.json (same format as the koydam-tiktok panel, so its cache can be copied).
+//   • Each image is downloaded ONCE from TikTok's CDN into DATA_DIR/gift-images and served from
+//     /gift-img/<id>.<ext>, so dashboards and OBS never depend on TikTok's CDN during a stream.
+//   • Filled from: the room's gift list on connect, every gift received, and FETCH_GIFTS.
+// ============================================================================
+const GiftCatalog = (() => {
+  const FILE = path.join(CONFIG.dataDir, 'gifts.json');
+  const IMG_DIR = path.join(CONFIG.dataDir, 'gift-images');
+  const IMG_FILE_RE = /^[0-9]{1,20}\.(png|jpg|webp|gif)$/;
+  // Only download from TikTok's image servers; never fetch arbitrary hosts.
+  const HOST_RE = /(^|\.)(tiktokcdn(-us|-eu)?|ibyteimg|byteimg|muscdn|tiktokv|ttwstatic)\.com$/i;
+  const hostOk = (u) => {
+    try {
+      const { hostname, protocol } = new URL(u);
+      if (!/^https?:$/.test(protocol)) return false;
+      return HOST_RE.test(hostname) || (CONFIG.giftImgAllowLocal && /^(127\.0\.0\.\d{1,3}|localhost)$/.test(hostname));
+    } catch { return false; }
+  };
+  const pickUrl = (list) => {
+    if (!Array.isArray(list)) return '';
+    const ok = list.map(String).filter((u) => /^https?:\/\//.test(u) && !/\.heic/i.test(u));
+    return ok.find((u) => /\.(png|jpe?g|webp)/i.test(u)) || ok[0] || '';
+  };
+  const imgUrl = (img) => (typeof img === 'string' ? img : pickUrl(img?.urlList) || pickUrl(img?.url_list) || pickUrl(img?.url) || '');
+  const imageType = (b) =>
+    b[0] === 0x89 && b[1] === 0x50 ? 'png'
+      : b[0] === 0xff && b[1] === 0xd8 ? 'jpg'
+      : b.slice(0, 4).toString() === 'RIFF' && b.slice(8, 12).toString() === 'WEBP' ? 'webp'
+      : b.slice(0, 3).toString() === 'GIF' ? 'gif' : null;
+
+  const byId = new Map(); // id -> { id, name, diamonds, remote, local }
+  const failed = new Set();
+  const queue = [];
+  let active = 0;
+  let saveTimer = null;
+  let notifyTimer = null;
+  let onChange = () => {};
+
+  const cleanId = (id) => String(id ?? '').replace(/[^0-9]/g, '').slice(0, 20);
+
+  function load() {
+    try {
+      const arr = JSON.parse(fs.readFileSync(FILE, 'utf8'));
+      for (const g of Array.isArray(arr) ? arr : []) {
+        const id = cleanId(g.id);
+        if (!id || !g.name) continue;
+        const localName = typeof g.local === 'string' ? path.basename(g.local) : '';
+        const local = IMG_FILE_RE.test(localName) && fs.existsSync(path.join(IMG_DIR, localName)) ? `/gift-img/${localName}` : '';
+        const e = { id, name: String(g.name).slice(0, 48), diamonds: Number(g.diamonds) || 0, remote: typeof g.remote === 'string' ? g.remote : '', local };
+        byId.set(id, e);
+        if (!e.local && e.remote) enqueue(e);
+      }
+      log.info(`Gift catalogue: ${byId.size} gifts (${[...byId.values()].filter((e) => e.local).length} images cached) from ${FILE}`);
+    } catch (err) {
+      if (err.code !== 'ENOENT') log.warn(`Could not read ${FILE}: ${err.message}`);
+    }
+  }
+
+  function save(now = false) {
+    clearTimeout(saveTimer);
+    const write = () => {
+      try {
+        fs.mkdirSync(CONFIG.dataDir, { recursive: true });
+        const tmp = `${FILE}.${process.pid}.tmp`;
+        fs.writeFileSync(tmp, JSON.stringify([...byId.values()], null, 1));
+        fs.renameSync(tmp, FILE);
+      } catch (err) { log.warn(`Gift catalogue save failed: ${err.message}`); }
+    };
+    if (now) write(); else saveTimer = setTimeout(write, 2000);
+  }
+
+  function changed() {
+    save();
+    clearTimeout(notifyTimer);
+    notifyTimer = setTimeout(() => onChange(list()), 600);
+  }
+
+  /** Add or update one gift. Returns true if something changed. */
+  function add(g) {
+    const id = cleanId(g.id);
+    const name = String(g.name ?? '').trim().slice(0, 48);
+    if (!id || id === '0' || !name || /^Gift#/.test(name)) return false;
+    const prev = byId.get(id);
+    const remote = imgUrl(g.image) || prev?.remote || '';
+    const next = { id, name, diamonds: Number(g.diamonds) || prev?.diamonds || 0, remote, local: prev?.local || '' };
+    if (prev && prev.name === next.name && prev.diamonds === next.diamonds && prev.remote === next.remote) return false;
+    byId.set(id, next);
+    if (next.remote && !next.local) enqueue(next);
+    changed();
+    return true;
+  }
+
+  /** Accepts the connector's gift list in any of the shapes it has used. */
+  function ingest(raw) {
+    let arr = Array.isArray(raw) ? raw : raw?.gifts ?? raw?.giftList ?? raw?.gift_list ?? raw?.data?.gifts ?? [];
+    if (Array.isArray(raw?.pages)) for (const pg of raw.pages) arr = arr.concat(pg.gifts || []);
+    let n = 0;
+    for (const g of arr) {
+      if (!g || typeof g !== 'object') continue;
+      add({ id: g.id ?? g.giftId, name: g.name ?? g.giftName, diamonds: g.diamond_count ?? g.diamondCount, image: g.image ?? g.icon ?? g.giftImage });
+      n++;
+    }
+    return n;
+  }
+
+  function find(id, name) {
+    const byIdHit = byId.get(cleanId(id));
+    if (byIdHit) return byIdHit;
+    const lower = String(name ?? '').toLowerCase();
+    for (const e of byId.values()) if (e.name.toLowerCase() === lower) return e;
+    return null;
+  }
+
+  function enqueue(e) {
+    if (failed.has(e.id) || queue.includes(e) || !hostOk(e.remote)) return;
+    queue.push(e);
+    pump();
+  }
+  function pump() {
+    while (active < 4 && queue.length) {
+      const e = queue.shift();
+      active++;
+      download(e).finally(() => { active--; pump(); });
+    }
+  }
+  async function download(e) {
+    try {
+      const r = await fetch(e.remote, { signal: AbortSignal.timeout(15_000), headers: { 'User-Agent': 'Mozilla/5.0' } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length > 2 * 1024 * 1024) throw new Error('too large');
+      const type = imageType(buf);
+      if (!type) throw new Error('not an image');
+      fs.mkdirSync(IMG_DIR, { recursive: true });
+      const file = `${e.id}.${type}`;
+      fs.writeFileSync(path.join(IMG_DIR, file), buf);
+      e.local = `/gift-img/${file}`;
+      changed();
+    } catch (err) {
+      failed.add(e.id);
+      log.warn(`Gift image download failed (${e.name}): ${err.message}`);
+    }
+  }
+
+  function list() {
+    return [...byId.values()]
+      .map((e) => ({ id: e.id, name: e.name, diamonds: e.diamonds, image: e.local || e.remote || null }))
+      .sort((a, b) => a.diamonds - b.diamonds || a.name.localeCompare(b.name));
+  }
+
+  return {
+    load, add, ingest, find, list, IMG_DIR, IMG_FILE_RE,
+    flush: () => save(true),
+    imageFor: (id, name) => { const e = find(id, name); return e ? e.local || e.remote || null : null; },
+    size: () => byId.size,
+    onChange: (fn) => (onChange = fn),
+  };
+})();
 
 // ============================================================================
 // 6. STREAK GATE — decides WHEN a gift should produce a trigger
@@ -419,6 +588,7 @@ function routeGift(gift, { simulated = false, reason = 'gift' } = {}) {
     profilePictureUrl: gift.user.profilePictureUrl,
     giftName: gift.giftName,
     giftId: gift.giftId,
+    giftImage: GiftCatalog.imageFor(gift.giftId, gift.giftName) || gift.giftPictureUrl || null, // /gift-img/… when cached
     diamondCount: gift.diamondCount, // diamonds per single gift
     repeatCount: gift.repeatCount, // gifts in this streak
     totalDiamonds: gift.diamondCount * gift.repeatCount,
@@ -444,6 +614,7 @@ function completeGift(gift, opts = {}) {
     nickname: gift.user.nickname,
     giftName: gift.giftName,
     giftPictureUrl: gift.giftPictureUrl,
+    giftImage: GiftCatalog.imageFor(gift.giftId, gift.giftName) || gift.giftPictureUrl || null,
     diamondCount: gift.diamondCount,
     repeatCount: gift.repeatCount,
     totalDiamonds: gift.diamondCount * gift.repeatCount,
@@ -528,6 +699,10 @@ const TikTok = (() => {
       attempt = 0;
       setStatus({ status: STATUS.CONNECTED, roomId: String(info?.roomId ?? '') || null, error: null, reconnecting: false, attempt: 0 });
       log.info(`Connected to @${username} (room ${state.roomId})`);
+      // Fill the gift catalogue from this room (non-blocking).
+      roomGifts(conn, info)
+        .then((list) => { const n = GiftCatalog.ingest(list); if (n) log.info(`Gift list from @${username}: ${n} gifts`); })
+        .catch((err) => log.warn(`Could not load the room's gift list: ${describeError(err)}`));
       return state;
     } catch (err) {
       if (myGen !== generation) return state;
@@ -557,6 +732,7 @@ const TikTok = (() => {
 
     on('gift', (data) => {
       const gift = normalizeGift(data);
+      GiftCatalog.add({ id: gift.giftId, name: gift.giftName, diamonds: gift.diamondCount, image: gift.giftPictureUrl });
       if (streakGate.accept(gift)) completeGift(gift);
     });
 
@@ -603,7 +779,44 @@ const TikTok = (() => {
     setStatus({ status: STATUS.DISCONNECTED, roomId: null, error: null, reconnecting: false, attempt: 0 });
   }
 
-  return { connect, disconnect, status: () => state };
+  /** The connector's gift list for a connection, in whichever way this connector version offers it. */
+  async function roomGifts(c, info) {
+    let list = info?.availableGifts ?? c.availableGifts;
+    if (!list || (Array.isArray(list) && !list.length)) {
+      const f = c.fetchAvailableGifts ?? c.getAvailableGifts;
+      if (f) list = await f.call(c);
+    }
+    return list || [];
+  }
+
+  /**
+   * Gift list for FETCH_GIFTS: from the current stream, or from any account that is LIVE right now
+   * (TikTok only returns the gift list for a live room). Uses a short-lived second connection.
+   */
+  async function fetchGifts(rawUsername) {
+    const username = String(rawUsername ?? '').trim().replace(/^@/, '');
+    if (!username && conn && state.status === STATUS.CONNECTED) return roomGifts(conn, null);
+    const u = username || state.username;
+    if (!/^[\w.]{2,50}$/.test(u || '')) throw new Error('Enter the username of any TikTok account that is LIVE right now');
+    const temp = new Connection(u, { processInitialData: false, enableExtendedGiftInfo: true, ...(CONFIG.signApiKey ? { signApiKey: CONFIG.signApiKey } : {}) });
+    temp.on('error', () => {});
+    try {
+      const info = await Promise.race([
+        temp.connect(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out after 45s')), 45_000)),
+      ]);
+      return await roomGifts(temp, info);
+    } catch (err) {
+      const m = describeError(err);
+      throw new Error(/offline|not.*live|isn't online|UserOffline|room id/i.test(m) ? `@${u} is not LIVE right now. Enter any account that is streaming at the moment.` : `Could not load gifts: ${m}`);
+    } finally {
+      temp.removeAllListeners?.();
+      temp.on?.('error', () => {});
+      Promise.resolve(temp.disconnect?.()).catch(() => {});
+    }
+  }
+
+  return { connect, disconnect, fetchGifts, status: () => state };
 })();
 
 function describeError(err) {
@@ -641,12 +854,13 @@ const handlers = {
 
     if (p.giftName) {
       const matched = RuleStore.match(p.giftName);
+      const known = GiftCatalog.find(null, p.giftName);
       const gift = {
         user,
-        giftId: 'test',
+        giftId: known?.id ?? 'test',
         // Use the rule's canonical spelling ("rose" → "Rose") unless only the "*" fallback matched.
         giftName: matched && matched.name !== '*' ? matched.name : String(p.giftName),
-        diamondCount: Number(p.diamondCount) || 1,
+        diamondCount: Number(p.diamondCount) || known?.diamonds || 1,
         giftPictureUrl: null,
         streakable: false,
         repeatCount: Math.max(1, Math.min(10_000, Number(p.repeatCount) || 1)),
@@ -683,6 +897,14 @@ const handlers = {
     return event;
   },
 
+  async [MSG.FETCH_GIFTS]({ username } = {}) {
+    const list = await TikTok.fetchGifts(username);
+    const count = GiftCatalog.ingest(list);
+    if (!count) throw new Error('TikTok returned no gifts for that account. Try another account that is LIVE.');
+    log.info(`FETCH_GIFTS: ${count} gifts (catalogue now ${GiftCatalog.size()})`);
+    return { count, total: GiftCatalog.size() };
+  },
+
   [MSG.GET_STATE]() {
     return snapshot();
   },
@@ -710,7 +932,7 @@ async function handleClientMessage(ws, raw) {
 }
 
 function snapshot() {
-  return { status: TikTok.status(), rules: RuleStore.all(), likes: Likes.toJSON(), viewerCount: Viewers.viewerCount, clients: Hub.clients.size };
+  return { status: TikTok.status(), rules: RuleStore.all(), likes: Likes.toJSON(), viewerCount: Viewers.viewerCount, clients: Hub.clients.size, gifts: GiftCatalog.list() };
 }
 
 // ============================================================================
@@ -725,6 +947,12 @@ app.get('/api/state', (req, res) => {
   if (CONFIG.wsToken && !safeEqual(given, CONFIG.wsToken)) return res.status(401).json({ error: 'token required' });
   res.json(snapshot());
 });
+// Cached TikTok gift images (public, long cache: file names are gift ids).
+app.get('/gift-img/:file', (req, res) => {
+  if (!GiftCatalog.IMG_FILE_RE.test(req.params.file)) return res.status(404).end();
+  res.sendFile(path.join(GiftCatalog.IMG_DIR, req.params.file), { maxAge: '30d', dotfiles: 'deny' }, (err) => err && !res.headersSent && res.status(404).end());
+});
+
 // The control panel itself (so one process serves https://tiktokgg.koydam.com behind nginx).
 if (fs.existsSync(path.join(CONFIG.dashboardDir, 'index.html'))) {
   app.use(express.static(CONFIG.dashboardDir, { index: 'index.html', maxAge: '5m' }));
@@ -739,6 +967,9 @@ app.use((err, _req, res, _next) => {
 // ============================================================================
 // 13. BOOT + PROCESS SAFETY + GRACEFUL SHUTDOWN
 // ============================================================================
+GiftCatalog.load();
+GiftCatalog.onChange((gifts) => Hub.broadcast(MSG.GIFTS, { gifts }));
+
 const server = http.createServer(app);
 Hub.attach(server);
 
@@ -763,6 +994,7 @@ async function shutdown(signal) {
   const force = setTimeout(() => process.exit(0), 3_000);
   force.unref();
   try { await TikTok.disconnect(); } catch { /* ignore */ }
+  GiftCatalog.flush();
   Hub.close();
   server.close(() => process.exit(0));
 }
