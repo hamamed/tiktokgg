@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#020617" />
+  <title>LIVE Remote</title>
+  <meta name="description" content="Phone remote for the TikTok LIVE game: pause, connect, presets and test triggers." />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme { --color-tt-red: #fe2c55; --color-tt-cyan: #25f4ee; }
+    @layer components {
+      .card { @apply rounded-2xl border border-white/10 bg-slate-900/80 p-4; }
+      .big { @apply flex w-full items-center justify-center gap-3 rounded-2xl px-4 py-4 text-base font-bold transition select-none active:scale-95 disabled:opacity-40; }
+      .label { @apply text-[11px] font-semibold uppercase tracking-wider text-slate-400; }
+    }
+  </style>
+  <style>
+    body { background: #020617; -webkit-tap-highlight-color: transparent; }
+    svg.i { width: 1.15em; height: 1.15em; flex: none; }
+    @keyframes ok { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,.9); } 100% { box-shadow: 0 0 0 14px rgba(52,211,153,0); } }
+    .ok { animation: ok .6s ease-out; }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100 antialiased">
+<main class="mx-auto flex max-w-md flex-col gap-3 px-4 pb-10 pt-[max(16px,env(safe-area-inset-top))]">
+  <header class="flex items-center gap-3">
+    <div class="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-tt-red to-fuchsia-600" data-icon="smartphone"></div>
+    <div class="min-w-0 flex-1">
+      <h1 class="text-base font-bold">LIVE Remote</h1>
+      <p class="flex items-center gap-1.5 text-[11px] text-slate-400"><span id="sockDot" class="h-1.5 w-1.5 rounded-full bg-amber-400"></span><span id="sockText">connecting…</span></p>
+    </div>
+    <span id="badge" class="rounded-full bg-red-500/15 px-3 py-1.5 text-xs font-bold text-red-300 ring-1 ring-red-400/40">Offline</span>
+  </header>
+
+  <section class="grid grid-cols-3 gap-2" aria-label="Stream stats">
+    <div class="card !p-3"><div class="label flex items-center gap-1"><span data-icon="gem" class="text-tt-cyan"></span>Diamonds</div><div id="stDiamonds" class="mt-1 text-xl font-extrabold tabular-nums">0</div></div>
+    <div class="card !p-3"><div class="label flex items-center gap-1"><span data-icon="eye"></span>Viewers</div><div id="stViewers" class="mt-1 text-xl font-extrabold tabular-nums">0</div></div>
+    <div class="card !p-3"><div class="label flex items-center gap-1"><span data-icon="heart" class="text-tt-red"></span>Likes</div><div id="stLikes" class="mt-1 text-xl font-extrabold tabular-nums">0</div></div>
+  </section>
+
+  <button id="pauseBtn" class="big bg-white/10 ring-1 ring-white/15" type="button"></button>
+
+  <section class="card flex flex-col gap-2" aria-label="TikTok connection">
+    <div class="flex gap-2">
+      <label class="relative min-w-0 flex-1">
+        <span class="sr-only">TikTok username</span>
+        <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500" data-icon="at-sign"></span>
+        <input id="user" class="w-full rounded-xl border border-white/10 bg-slate-950 py-3 pl-9 pr-3 text-base focus:border-tt-cyan/60 focus:outline-none" placeholder="tiktok_username" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      </label>
+      <button id="connBtn" class="rounded-xl bg-tt-red px-4 font-bold active:scale-95" type="button">Connect</button>
+    </div>
+    <label class="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-3">
+      <span data-icon="power" id="autoIcon" class="text-slate-400"></span>
+      <span class="min-w-0 flex-1 text-sm font-semibold">Auto-connect<span id="autoText" class="block truncate text-[11px] font-normal text-slate-400"></span></span>
+      <input id="autoChk" type="checkbox" class="h-6 w-11 accent-emerald-500" />
+    </label>
+  </section>
+
+  <section class="card" aria-label="Presets">
+    <div class="label mb-2 flex items-center gap-1.5"><span data-icon="bookmark" class="text-violet-300"></span>Presets</div>
+    <div id="presets" class="grid grid-cols-2 gap-2"></div>
+  </section>
+
+  <section class="card" aria-label="Test actions">
+    <div class="label mb-2 flex items-center gap-1.5"><span data-icon="flask-conical" class="text-amber-300"></span>Test in the game</div>
+    <div id="tests" class="grid grid-cols-3 gap-2"></div>
+  </section>
+
+  <section class="card" aria-label="Top supporters">
+    <div class="label mb-2 flex items-center gap-1.5"><span data-icon="crown" class="text-amber-300"></span>Top supporters</div>
+    <ol id="sup" class="flex flex-col gap-2"></ol>
+  </section>
+</main>
+<div id="toast" class="pointer-events-none fixed inset-x-4 bottom-[max(16px,env(safe-area-inset-bottom))] mx-auto max-w-md"></div>
+
+<script>
+/* Phone remote: same WebSocket protocol as the dashboard (see express-server/server.js). */
+const pascal = (s) => s.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());
+function icon(name) {
+  const node = window.lucide?.icons?.[pascal(name)];
+  const kids = !node ? [] : Array.isArray(node[0]) ? node : node[2] ?? [];
+  return `<svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${kids.map(([t, a]) => `<${t} ${Object.entries(a).map(([k, v]) => `${k}="${v}"`).join(' ')}/>`).join('')}</svg>`;
+}
+document.querySelectorAll('[data-icon]').forEach((el) => (el.innerHTML = icon(el.dataset.icon)));
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (n) => Number(n || 0).toLocaleString();
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+const TESTS = [
+  ['SPAWN_OBSTACLE', 'construction', 'Barriers', 3, 'text-orange-300'], ['SPEED_BOOST', 'zap', 'Speed up', 1.5, 'text-amber-300'],
+  ['SPEED_SLOW', 'snail', 'Slow', 0.5, 'text-sky-300'], ['SCREEN_SPLATTER', 'droplets', 'Mud', 3, 'text-yellow-600'],
+  ['REVERSE_CONTROLS', 'arrow-left-right', 'Reverse', 5, 'text-violet-300'], ['BOSS_ATTACK', 'skull', 'Boss', 1, 'text-red-400'],
+  ['HEAL_PLAYER', 'heart-pulse', 'Heal', 25, 'text-emerald-300'], ['STEER_LEFT', 'arrow-big-left', 'Left', 1, 'text-cyan-300'],
+  ['STEER_RIGHT', 'arrow-big-right', 'Right', 1, 'text-cyan-300'],
+];
+
+// ---------- connection (token: ?token=… once, then remembered; shared with the dashboard) ----------
+const qs = new URLSearchParams(location.search);
+if (qs.get('token')) { store.set('tt.token', qs.get('token')); }
+if (qs.get('server')) { store.set('tt.server', qs.get('server')); }
+if (qs.get('token') || qs.get('server')) history.replaceState(null, '', location.pathname);
+const hosted = /^https?:$/.test(location.protocol) && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+const SERVER = store.get('tt.server', hosted ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws` : 'ws://localhost:8080');
+const TOKEN = store.get('tt.token', '');
+
+const state = { status: {}, paused: false, presets: [], supporters: [], diamonds: 0, viewers: 0, likes: 0 };
+let ws, retry = 0, n = 0;
+const pending = new Map();
+
+function connect() {
+  const sep = SERVER.includes('?') ? '&' : '?';
+  ws = new WebSocket(`${SERVER}${sep}role=remote${TOKEN ? '&token=' + encodeURIComponent(TOKEN) : ''}`);
+  ws.onopen = () => { retry = 0; sock('open'); };
+  ws.onmessage = (ev) => {
+    let m; try { m = JSON.parse(ev.data); } catch { return; }
+    if (m.requestId && pending.has(m.requestId)) {
+      const p = pending.get(m.requestId); pending.delete(m.requestId);
+      return m.type === 'ERROR' ? p.reject(new Error(m.payload?.error || 'Failed')) : p.resolve(m.payload?.result);
+    }
+    onMessage(m.type, m.payload || {});
+  };
+  ws.onclose = (e) => {
+    sock('closed');
+    for (const p of pending.values()) p.reject(new Error('Connection lost'));
+    pending.clear();
+    if (e.code === 4401) { $('sockText').textContent = 'access token missing: scan the QR code from the dashboard again'; return; }
+    setTimeout(connect, Math.min(10000, 600 * 2 ** retry++));
+  };
+}
+function send(type, payload = {}) {
+  if (ws?.readyState !== 1) return Promise.reject(new Error('Not connected to the server'));
+  const id = 'r' + n++;
+  return new Promise((resolve, reject) => { pending.set(id, { resolve, reject }); ws.send(JSON.stringify({ type, payload, id })); });
+}
+function sock(s) {
+  $('sockDot').className = `h-1.5 w-1.5 rounded-full ${s === 'open' ? 'bg-emerald-400' : 'bg-red-500'}`;
+  $('sockText').textContent = s === 'open' ? 'server online' : 'server offline, retrying…';
+}
+
+function onMessage(type, p) {
+  switch (type) {
+    case 'STATE':
+      state.status = p.status || {}; state.paused = !!p.paused; state.presets = p.presets || []; state.supporters = p.supporters || [];
+      state.diamonds = p.session?.diamonds ?? 0; state.viewers = p.viewerCount ?? 0; state.likes = Math.max(p.likes?.totalLikes ?? 0, p.likes?.streamTotalLikes ?? 0);
+      if (!$('user').value) $('user').value = p.status?.autoConnect?.username || p.status?.username || store.get('tt.username', '');
+      render(); break;
+    case 'STATUS': state.status = p; render(); break;
+    case 'PAUSED': state.paused = !!p.paused; render(); break;
+    case 'PRESETS': state.presets = p.presets || []; render(); break;
+    case 'SUPPORTERS': state.supporters = p.top || []; render(); break;
+    case 'SESSION': state.diamonds = p.diamonds ?? 0; render(); break;
+    case 'VIEWERS_UPDATE': state.viewers = p.viewerCount ?? 0; render(); break;
+    case 'LIKES_UPDATE': state.likes = Math.max(p.totalLikes ?? 0, p.streamTotalLikes ?? 0); render(); break;
+  }
+}
+
+// ---------- UI ----------
+function render() {
+  const st = state.status;
+  const live = st.status === 'CONNECTED';
+  const b = $('badge');
+  b.textContent = live ? 'LIVE' : st.reconnecting ? 'Reconnecting' : st.status === 'ERROR' ? 'Error' : 'Offline';
+  b.className = `rounded-full px-3 py-1.5 text-xs font-bold ring-1 ${live ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/40' : st.reconnecting ? 'bg-amber-500/15 text-amber-300 ring-amber-400/40' : 'bg-red-500/15 text-red-300 ring-red-400/40'}`;
+  $('connBtn').textContent = live ? 'Disconnect' : 'Connect';
+  $('connBtn').className = `rounded-xl px-4 font-bold active:scale-95 ${live ? 'bg-white/10' : 'bg-tt-red'}`;
+
+  const pb = $('pauseBtn');
+  pb.innerHTML = `${icon(state.paused ? 'circle-play' : 'circle-pause')}<span>${state.paused ? 'Resume game' : 'Pause game'}</span>`;
+  pb.className = `big ring-1 ${state.paused ? 'bg-amber-500/25 text-amber-100 ring-amber-400/50' : 'bg-white/10 ring-white/15'}`;
+
+  const a = st.autoConnect || {};
+  $('autoChk').checked = !!a.enabled;
+  $('autoIcon').className = a.enabled ? 'text-emerald-400' : 'text-slate-400';
+  $('autoText').textContent = !a.enabled ? 'Connects by itself when you go live' : live ? `On · connected` : `On · watching @${a.username}`;
+
+  $('stDiamonds').textContent = fmt(state.diamonds);
+  $('stViewers').textContent = fmt(state.viewers);
+  $('stLikes').textContent = fmt(state.likes);
+
+  $('presets').innerHTML = state.presets.length
+    ? state.presets.map((p) => `<button class="big !py-3 bg-violet-500/15 text-sm ring-1 ring-violet-400/30" data-preset="${esc(p.name)}">${icon('folder-open')}<span class="truncate">${esc(p.name)}</span></button>`).join('')
+    : '<p class="col-span-2 text-xs text-slate-500">No presets yet. Save one in the dashboard.</p>';
+
+  $('sup').innerHTML = state.supporters.length
+    ? state.supporters.map((u, i) => `<li class="flex items-center gap-3"><span class="w-5 text-center font-black ${['text-amber-300', 'text-slate-300', 'text-amber-600'][i]}">${i + 1}</span>${u.avatar ? `<img src="${esc(u.avatar)}" alt="" class="h-8 w-8 rounded-full object-cover" referrerpolicy="no-referrer">` : `<span class="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-xs font-bold">${esc((u.nickname || u.uniqueId || '?')[0].toUpperCase())}</span>`}<span class="min-w-0 flex-1 truncate font-semibold">${esc(u.nickname || u.uniqueId)}</span><span class="flex items-center gap-1 text-tt-cyan">${icon('gem')}${fmt(u.diamonds)}</span></li>`).join('')
+    : '<li class="text-xs text-slate-500">Nobody has sent a gift yet.</li>';
+}
+$('tests').innerHTML = TESTS.map(([action, ic, label, value, color]) =>
+  `<button class="big !flex-col !gap-1 !py-3 bg-white/5 text-xs ring-1 ring-white/10" data-action="${action}" data-value="${value}"><span class="${color} text-xl">${icon(ic)}</span>${label}</button>`).join('');
+
+function toast(text, error = false) {
+  const t = $('toast');
+  t.innerHTML = `<div class="flex items-center gap-2 rounded-xl border px-4 py-3 text-sm shadow-2xl ${error ? 'border-red-500/40 bg-red-950/95 text-red-100' : 'border-emerald-500/30 bg-emerald-950/95 text-emerald-100'}">${icon(error ? 'circle-x' : 'circle-check')}${esc(text)}</div>`;
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => (t.innerHTML = ''), error ? 4500 : 1800);
+}
+async function run(btn, type, payload, okText) {
+  try {
+    const r = await send(type, payload);
+    if (btn) { btn.classList.remove('ok'); void btn.offsetWidth; btn.classList.add('ok'); }
+    if (navigator.vibrate) navigator.vibrate(15);
+    if (okText) toast(typeof okText === 'function' ? okText(r) : okText);
+    return r;
+  } catch (e) { toast(e.message, true); throw e; }
+}
+
+$('pauseBtn').onclick = (e) => run(e.currentTarget, 'SET_PAUSED', { paused: !state.paused }, (r) => (r.paused ? 'Game paused' : 'Game resumed')).catch(() => {});
+$('connBtn').onclick = (e) => {
+  const u = $('user').value.trim().replace(/^@/, '');
+  if (state.status.status === 'CONNECTED') return run(e.currentTarget, 'DISCONNECT_TIKTOK', {}, 'Disconnected').catch(() => {});
+  if (!u) return toast('Type your TikTok username', true);
+  store.set('tt.username', u);
+  toast(`Connecting to @${u}…`);
+  run(e.currentTarget, 'CONNECT_TIKTOK', { username: u }, `Live: @${u}`).catch(() => {});
+};
+$('autoChk').onchange = (e) => {
+  const u = $('user').value.trim().replace(/^@/, '');
+  run(null, 'SET_AUTO_CONNECT', { enabled: e.target.checked, username: u }, e.target.checked ? `Auto-connect on for @${u}` : 'Auto-connect off').catch(() => render());
+};
+$('presets').onclick = (e) => {
+  const b = e.target.closest('[data-preset]');
+  if (b) run(b, 'LOAD_PRESET', { name: b.dataset.preset }, `Preset "${b.dataset.preset}" loaded`).catch(() => {});
+};
+$('tests').onclick = (e) => {
+  const b = e.target.closest('[data-action]');
+  if (b) run(b, 'TEST_TRIGGER', { action: b.dataset.action, value: Number(b.dataset.value), user: 'remote' }, `${b.textContent.trim()} sent`).catch(() => {});
+};
+render();
+connect();
+</script>
+</body>
+</html>

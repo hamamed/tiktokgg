@@ -12,6 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
   <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 
   <style type="text/tailwindcss">
     @theme {
@@ -216,6 +217,47 @@
     </section>
     <div class="flex flex-col gap-5">
       <!-- ===================================================================== -->
+      <!-- LIVE CONTROLS: pause, auto-connect, presets, phone remote             -->
+      <!-- ===================================================================== -->
+      <section class="card" aria-labelledby="live-title">
+        <div class="mb-3 flex items-center justify-between gap-2">
+          <h2 id="live-title" class="flex items-center gap-2 text-lg font-bold"><lc-icon name="radio-tower" :size="18" class="text-tt-cyan"></lc-icon> Live controls</h2>
+          <button class="btn btn-ghost !px-3 !py-1.5 text-xs" @click="remoteOpen = true"><lc-icon name="smartphone" :size="14"></lc-icon> Phone remote</button>
+        </div>
+        <div class="grid gap-2 sm:grid-cols-2">
+          <button class="btn !justify-start !py-3 text-left ring-1" :class="[paused ? 'bg-amber-500/20 text-amber-100 ring-amber-400/40' : 'bg-white/5 ring-white/10 hover:bg-white/10', fx.pause]" :disabled="socketState !== 'open'" @click="togglePause">
+            <lc-icon :name="paused ? 'circle-play' : 'circle-pause'" :size="22"></lc-icon>
+            <span><span class="block">{{ paused ? 'Resume game' : 'Pause game' }}</span><span class="block text-[11px] font-normal opacity-70">{{ paused ? 'Gifts are counted but do nothing' : 'Freeze the game for a break' }}</span></span>
+          </button>
+          <label class="flex cursor-pointer items-center gap-3 rounded-xl bg-white/5 px-4 py-3 ring-1 ring-white/10" :class="fx.auto">
+            <lc-icon name="power" :size="20" :class="auto.enabled ? 'text-emerald-400' : 'text-slate-400'"></lc-icon>
+            <span class="min-w-0 flex-1 text-sm font-semibold">Auto-connect<span class="block truncate text-[11px] font-normal text-slate-400">{{ autoText }}</span></span>
+            <span class="relative inline-flex items-center">
+              <input type="checkbox" class="peer sr-only" :checked="auto.enabled" :disabled="socketState !== 'open'" @change="toggleAuto($event.target.checked)" />
+              <span class="h-5 w-9 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500"></span>
+              <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
+            </span>
+          </label>
+        </div>
+        <div class="mt-3 rounded-xl border border-white/10 bg-slate-950/50 p-3">
+          <div class="mb-2 flex flex-wrap items-center gap-2"><lc-icon name="bookmark" :size="15" class="text-violet-300"></lc-icon><span class="label">Presets</span><span class="text-[11px] text-slate-500">gifts + chat commands + like goals</span></div>
+          <div class="flex flex-wrap gap-1.5">
+            <span v-for="p in presets" :key="p.name" class="inline-flex items-center rounded-lg border border-white/10 bg-white/5">
+              <button class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold hover:text-white" :class="fx['preset:' + p.name]" @click="loadPreset(p.name)" :title="`${p.rules} gifts · ${p.commands} commands · ${p.goals} like goals`">
+                <lc-icon name="folder-open" :size="12"></lc-icon>{{ p.name }}
+              </button>
+              <button class="grid h-7 w-7 place-items-center text-slate-500 hover:text-red-300" @click="deletePreset(p.name)" :aria-label="'Delete preset ' + p.name"><lc-icon name="x" :size="12"></lc-icon></button>
+            </span>
+            <span v-if="!presets.length" class="text-xs text-slate-500">No presets yet. Save your current setup below.</span>
+          </div>
+          <form class="mt-2 flex gap-2" @submit.prevent="savePreset">
+            <input v-model.trim="presetName" class="field !py-1.5 text-xs" placeholder="Name, e.g. Chaos mode" maxlength="40" />
+            <button class="btn btn-ghost shrink-0 !py-1.5 text-xs" :class="fx.savePreset" :disabled="!presetName || socketState !== 'open'"><lc-icon name="save" :size="14"></lc-icon> Save current</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ===================================================================== -->
       <!-- 4. MANUAL TEST PANEL                                                  -->
       <!-- ===================================================================== -->
       <section class="card">
@@ -252,6 +294,16 @@
           </label>
           <button class="btn btn-ghost" :class="fx.custom" :disabled="socketState !== 'open'"><lc-icon name="zap"></lc-icon> Fire</button>
         </form>
+        <div class="mt-3 grid gap-2 border-t border-white/10 pt-3 sm:grid-cols-2">
+          <form class="flex items-end gap-2" @submit.prevent="testChat">
+            <label class="flex min-w-0 flex-1 flex-col gap-1"><span class="label">Test chat message</span><input v-model="chatTest" class="field !py-1.5 font-mono text-sm" placeholder="!left" /></label>
+            <button class="btn btn-ghost !px-3" :class="fx.testChat" :disabled="socketState !== 'open'" aria-label="Send test chat"><lc-icon name="message-square" :size="15"></lc-icon></button>
+          </form>
+          <form class="flex items-end gap-2" @submit.prevent="testLikes">
+            <label class="flex min-w-0 flex-1 flex-col gap-1"><span class="label">Test likes</span><input type="number" min="1" v-model.number="likesTest" class="field !py-1.5 text-sm" /></label>
+            <button class="btn btn-ghost !px-3" :class="fx.testLikes" :disabled="socketState !== 'open'" aria-label="Send test likes"><lc-icon name="heart" :size="15"></lc-icon></button>
+          </form>
+        </div>
       </section>
 
       <!-- ===================================================================== -->
@@ -279,6 +331,75 @@
       </section>
     </div>
 
+    <!-- ===================================================================== -->
+    <!-- CHAT COMMANDS + LIKE GOALS                                            -->
+    <!-- ===================================================================== -->
+    <section class="grid gap-5 lg:col-span-2 lg:grid-cols-2">
+      <div class="card flex flex-col gap-3" aria-labelledby="cmd-title">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 id="cmd-title" class="flex items-center gap-2 text-lg font-bold"><lc-icon name="message-square" :size="18" class="text-tt-cyan"></lc-icon> Chat commands</h2>
+            <p class="text-xs text-slate-400">Free actions anyone can trigger by typing, e.g. <code class="text-slate-300">!left</code>. Cooldowns stop spam.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span v-if="cmdDirty" class="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-400/30"><lc-icon name="circle-dot" :size="12"></lc-icon> unsaved</span>
+            <button class="btn btn-primary !px-3 !py-1.5 text-xs" :class="fx.saveCmds" :disabled="!cmdDirty || socketState !== 'open'" @click="saveCommands"><lc-icon name="send" :size="14"></lc-icon> Save</button>
+          </div>
+        </div>
+        <div v-if="cmdDraft.length" class="hidden grid-cols-[1.1fr_1.4fr_64px_64px_64px_28px] gap-2 px-1 sm:grid">
+          <span class="label">Command</span><span class="label">Action</span><span class="label">Value</span><span class="label" title="Seconds before anyone can use it again">Wait s</span><span class="label" title="Seconds before the same viewer can use it again">Each s</span><span></span>
+        </div>
+        <div v-for="(c, i) in cmdDraft" :key="c.uid" class="grid grid-cols-2 gap-2 rounded-xl border border-white/5 bg-slate-950/50 p-2 sm:grid-cols-[1.1fr_1.4fr_64px_64px_64px_28px] sm:border-0 sm:bg-transparent sm:p-0">
+          <label class="relative"><span class="sr-only">Command</span>
+            <input v-model.trim="c.key" @input="cmdDirty = true" class="field !py-1.5 font-mono text-sm" placeholder="!left" maxlength="25" />
+          </label>
+          <label class="relative"><span class="sr-only">Action</span>
+            <span class="pointer-events-none absolute inset-y-0 left-2.5 flex items-center" :class="actionLook(c.action).color"><lc-icon :name="actionLook(c.action).icon" :size="14"></lc-icon></span>
+            <select v-model="c.action" @change="cmdDirty = true" class="field !py-1.5 pl-8 text-sm"><option v-for="a in ACTIONS" :key="a.id" :value="a.id">{{ a.label }}</option></select>
+          </label>
+          <label><span class="sr-only">Value</span><input type="number" step="0.1" min="0" v-model.number="c.value" @input="cmdDirty = true" class="field !py-1.5 text-sm" /></label>
+          <label><span class="sr-only">Wait seconds</span><input type="number" min="0" v-model.number="c.cooldown" @input="cmdDirty = true" class="field !py-1.5 text-sm" title="Seconds before anyone can use it again" /></label>
+          <label><span class="sr-only">Per viewer seconds</span><input type="number" min="0" v-model.number="c.userCooldown" @input="cmdDirty = true" class="field !py-1.5 text-sm" title="Seconds before the same viewer can use it again" /></label>
+          <button class="grid h-9 w-7 place-items-center rounded-lg text-slate-500 hover:bg-red-500/15 hover:text-red-300" @click="cmdDraft.splice(i, 1); cmdDirty = true" :aria-label="'Remove ' + c.key"><lc-icon name="trash-2" :size="14"></lc-icon></button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button class="btn btn-ghost !py-1.5 text-xs" @click="addCommand()"><lc-icon name="plus" :size="14"></lc-icon> Add command</button>
+          <button v-if="!cmdDraft.length" class="btn btn-ghost !py-1.5 text-xs" @click="addSuggestedCommands"><lc-icon name="wand-sparkles" :size="14"></lc-icon> Add !left and !right</button>
+        </div>
+      </div>
+
+      <div class="card flex flex-col gap-3" aria-labelledby="goal-title">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 id="goal-title" class="flex items-center gap-2 text-lg font-bold"><lc-icon name="heart" :size="18" class="text-pink-400"></lc-icon> Like goals</h2>
+            <p class="text-xs text-slate-400">Every N likes something happens. Viewers see the progress bar in the game. <b class="text-slate-300">{{ fmt(likesCounted) }}</b> likes counted this stream.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span v-if="goalDirty" class="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-400/30"><lc-icon name="circle-dot" :size="12"></lc-icon> unsaved</span>
+            <button class="btn btn-primary !px-3 !py-1.5 text-xs" :class="fx.saveGoals" :disabled="!goalDirty || socketState !== 'open'" @click="saveGoals"><lc-icon name="send" :size="14"></lc-icon> Save</button>
+          </div>
+        </div>
+        <div v-for="(g, i) in goalDraft" :key="g.uid" class="rounded-xl border border-white/5 bg-slate-950/50 p-2.5">
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-[110px_1.3fr_70px_1fr_28px]">
+            <label class="flex flex-col gap-1"><span class="label">Every</span><input type="number" min="10" step="10" v-model.number="g.every" @input="goalDirty = true" class="field !py-1.5 text-sm" /></label>
+            <label class="relative flex flex-col gap-1"><span class="label">Action</span>
+              <span class="pointer-events-none absolute bottom-0 left-2.5 flex h-[34px] items-center" :class="actionLook(g.action).color"><lc-icon :name="actionLook(g.action).icon" :size="14"></lc-icon></span>
+              <select v-model="g.action" @change="goalDirty = true" class="field !py-1.5 pl-8 text-sm"><option v-for="a in ACTIONS" :key="a.id" :value="a.id">{{ a.label }}</option></select>
+            </label>
+            <label class="flex flex-col gap-1"><span class="label">Value</span><input type="number" step="0.1" min="0" v-model.number="g.value" @input="goalDirty = true" class="field !py-1.5 text-sm" /></label>
+            <label class="flex flex-col gap-1"><span class="label">Label on stream</span><input v-model.trim="g.label" @input="goalDirty = true" class="field !py-1.5 text-sm" :placeholder="actionLook(g.action).label" maxlength="40" /></label>
+            <button class="mt-auto grid h-9 w-7 place-items-center rounded-lg text-slate-500 hover:bg-red-500/15 hover:text-red-300" @click="goalDraft.splice(i, 1); goalDirty = true" aria-label="Remove goal"><lc-icon name="trash-2" :size="14"></lc-icon></button>
+          </div>
+          <div v-if="g.every >= 10" class="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
+            <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10"><div class="h-full rounded-full bg-gradient-to-r from-pink-500 to-tt-red" :style="{ width: ((likesCounted % g.every) / g.every * 100) + '%' }"></div></div>
+            {{ fmt(likesCounted % g.every) }} / {{ fmt(g.every) }}
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button class="btn btn-ghost !py-1.5 text-xs" :disabled="goalDraft.length >= 10" @click="addGoal"><lc-icon name="plus" :size="14"></lc-icon> Add like goal</button>
+        </div>
+      </div>
+    </section>
     <!-- ===================================================================== -->
     <!-- 5. GAMES                                                              -->
     <!-- ===================================================================== -->
@@ -367,6 +488,19 @@
             </span>
           </label>
 
+          <div class="grid gap-2 sm:grid-cols-3">
+            <label v-for="o in OVERLAY_OPTS" :key="o.key" class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5">
+              <lc-icon :name="o.icon" :size="16" :class="o.color"></lc-icon>
+              <span class="min-w-0 flex-1 text-xs font-semibold">{{ o.label }}</span>
+              <span class="relative inline-flex items-center">
+                <input type="checkbox" class="peer sr-only" v-model="overlay[o.key]" @change="onOverlayToggle" />
+                <span class="h-5 w-9 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500"></span>
+                <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
+              </span>
+            </label>
+          </div>
+          <p class="-mt-2 text-[11px] text-slate-500">Sound plays in OBS when "Control audio via OBS" is ticked on the Browser Source. The preview here is always muted.</p>
+
           <div class="flex flex-col gap-2 rounded-xl border border-white/10 bg-slate-950/60 p-3">
             <span class="label">OBS Browser Source URL</span>
             <div class="flex flex-wrap gap-2">
@@ -375,6 +509,112 @@
               <a class="btn btn-primary !py-1.5" :href="gameUrl(game, false)" target="_blank" rel="noopener"><lc-icon name="external-link"></lc-icon> Open game</a>
             </div>
             <p class="text-[11px] text-slate-500">The link includes your access token, so keep it private. In OBS set the size to 1080×1920 (vertical) and tick "Shutdown source when not visible" off.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- ===================================================================== -->
+    <!-- STREAM REPORTS                                                        -->
+    <!-- ===================================================================== -->
+    <section class="card lg:col-span-2" aria-labelledby="rep-title">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 id="rep-title" class="flex items-center gap-2 text-lg font-bold"><lc-icon name="chart-column" :size="18" class="text-amber-300"></lc-icon> Stream reports</h2>
+          <p class="text-xs text-slate-400">A report is saved when a stream ends or you disconnect. Tests from the dashboard aren't counted while you're live.</p>
+        </div>
+        <a class="btn btn-ghost !py-1.5 text-xs" :href="csvUrl('current')" target="_blank" rel="noopener"><lc-icon name="file-down" :size="14"></lc-icon> CSV of this stream</a>
+      </div>
+
+      <div class="grid gap-5 lg:grid-cols-[1.3fr_1fr]">
+        <!-- current stream -->
+        <div class="flex flex-col gap-3">
+          <div class="flex items-center gap-2 text-sm">
+            <span class="rounded-full px-2.5 py-0.5 text-[11px] font-bold" :class="session?.live ? 'bg-tt-red/20 text-tt-red' : 'bg-white/5 text-slate-400'">{{ session?.live ? 'LIVE' : 'REHEARSAL' }}</span>
+            <span class="font-semibold">{{ session?.username ? '@' + session.username : 'Not connected: tests are counted here' }}</span>
+            <span class="text-xs text-slate-500" v-if="session">since {{ fmtTime(session.startedAt) }} · {{ fmtDur(nowTick - session.startedAt) }}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div v-for="t in sessionTiles" :key="t.label" class="rounded-xl bg-slate-950/60 p-3 ring-1 ring-white/5">
+              <div class="flex items-center gap-1.5 text-[11px] text-slate-400"><lc-icon :name="t.icon" :size="12" :class="t.color"></lc-icon>{{ t.label }}</div>
+              <div class="mt-1 text-lg font-extrabold tabular-nums">{{ t.value }}</div>
+            </div>
+          </div>
+          <div class="rounded-xl bg-slate-950/60 p-3 ring-1 ring-white/5">
+            <div class="label mb-2 flex items-center gap-1.5"><lc-icon name="crown" :size="13" class="text-amber-300"></lc-icon> Top supporters (shown in the game)</div>
+            <ol class="flex flex-col gap-1.5">
+              <li v-for="(u, i) in supporters" :key="u.uniqueId" class="flex items-center gap-3">
+                <span class="w-5 text-center text-sm font-black" :class="['text-amber-300', 'text-slate-300', 'text-amber-600'][i]">{{ i + 1 }}</span>
+                <img v-if="u.avatar" :src="u.avatar" alt="" class="h-8 w-8 rounded-full object-cover" referrerpolicy="no-referrer" />
+                <span v-else class="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-xs font-bold">{{ (u.nickname || u.uniqueId || '?')[0].toUpperCase() }}</span>
+                <span class="min-w-0 flex-1 truncate text-sm font-semibold">{{ u.nickname || u.uniqueId }} <span class="text-xs font-normal text-slate-500">@{{ u.uniqueId }}</span></span>
+                <span class="flex items-center gap-1 text-sm tabular-nums text-tt-cyan"><lc-icon name="gem" :size="12"></lc-icon>{{ fmt(u.diamonds) }}</span>
+              </li>
+              <li v-if="!supporters.length" class="text-xs text-slate-500">Nobody has sent a gift yet.</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- past streams -->
+        <div class="flex min-w-0 flex-col gap-2">
+          <div class="label flex items-center gap-1.5"><lc-icon name="calendar" :size="13"></lc-icon> Past streams</div>
+          <ul class="flex max-h-[340px] flex-col gap-1.5 overflow-y-auto pr-1">
+            <li v-for="r in reports" :key="r.id" class="flex items-center gap-2 rounded-xl px-3 py-2 ring-1" :class="report?.id === r.id ? 'bg-white/10 ring-white/20' : 'bg-slate-950/60 ring-white/5'">
+              <button class="min-w-0 flex-1 text-left" @click="viewReport(r.id)">
+                <span class="block truncate text-sm font-semibold">@{{ r.username }} <span class="text-xs font-normal text-slate-500">{{ fmtDate(r.startedAt) }}</span></span>
+                <span class="flex flex-wrap gap-x-3 text-[11px] text-slate-400">
+                  <span class="inline-flex items-center gap-1"><lc-icon name="gem" :size="10" class="text-tt-cyan"></lc-icon>{{ fmt(r.diamonds) }}</span>
+                  <span class="inline-flex items-center gap-1"><lc-icon name="heart" :size="10" class="text-tt-red"></lc-icon>{{ fmt(r.likes) }}</span>
+                  <span class="inline-flex items-center gap-1"><lc-icon name="clock" :size="10"></lc-icon>{{ fmtDur((r.endedAt || nowTick) - r.startedAt) }}</span>
+                </span>
+              </button>
+              <a class="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white" :href="csvUrl(r.id)" target="_blank" rel="noopener" :aria-label="'Download CSV for ' + r.id"><lc-icon name="download" :size="15"></lc-icon></a>
+            </li>
+            <li v-if="!reports.length" class="rounded-xl bg-slate-950/60 px-3 py-6 text-center text-xs text-slate-500">No saved streams yet.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- selected report -->
+      <div v-if="report" class="mt-5 rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 class="font-bold">@{{ report.username }} · {{ fmtDate(report.startedAt) }} · {{ fmtDur((report.endedAt || nowTick) - report.startedAt) }}</h3>
+          <div class="flex gap-2">
+            <a class="btn btn-ghost !py-1.5 text-xs" :href="csvUrl(report.id)" target="_blank" rel="noopener"><lc-icon name="file-down" :size="14"></lc-icon> CSV</a>
+            <button class="btn btn-ghost !px-2 !py-1.5" @click="report = null" aria-label="Close report"><lc-icon name="x" :size="14"></lc-icon></button>
+          </div>
+        </div>
+        <div class="grid gap-4 md:grid-cols-3">
+          <div>
+            <div class="label mb-1.5">Top gifters</div>
+            <ol class="flex flex-col gap-1 text-sm">
+              <li v-for="(u, i) in report.topGifters.slice(0, 10)" :key="u.uniqueId" class="flex items-center gap-2">
+                <span class="w-5 text-right text-xs text-slate-500">{{ i + 1 }}</span><span class="min-w-0 flex-1 truncate">@{{ u.uniqueId }}</span><span class="tabular-nums text-tt-cyan">{{ fmt(u.diamonds) }}</span>
+              </li>
+              <li v-if="!report.topGifters.length" class="text-xs text-slate-500">No gifts.</li>
+            </ol>
+          </div>
+          <div>
+            <div class="label mb-1.5">Gifts</div>
+            <ul class="flex flex-col gap-1 text-sm">
+              <li v-for="g in report.giftList.slice(0, 10)" :key="g.name" class="flex items-center gap-2">
+                <img v-if="g.image" :src="imgSrc(g.image)" alt="" class="h-5 w-5 object-contain" /><span v-else class="h-5 w-5"></span>
+                <span class="min-w-0 flex-1 truncate">{{ g.name }} <span class="text-xs text-slate-500">×{{ fmt(g.count) }}</span></span><span class="tabular-nums text-tt-cyan">{{ fmt(g.diamonds) }}</span>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <div class="label mb-1.5">Actions fired</div>
+            <ul class="flex flex-col gap-1 text-sm">
+              <li v-for="(n, a) in report.actions" :key="a" class="flex items-center gap-2">
+                <lc-icon :name="actionLook(a).icon" :size="14" :class="actionLook(a).color"></lc-icon><span class="min-w-0 flex-1 truncate">{{ actionLook(a).label || a }}</span><span class="tabular-nums">{{ fmt(n) }}</span>
+              </li>
+            </ul>
+            <div class="mt-3 grid grid-cols-2 gap-1 text-xs text-slate-400">
+              <span>Peak viewers <b class="text-slate-200">{{ fmt(report.peakViewers) }}</b></span>
+              <span>Best run <b class="text-slate-200">{{ fmt(report.bestRun) }}</b></span>
+              <span>Chat messages <b class="text-slate-200">{{ fmt(report.chats) }}</b></span>
+              <span>Commands <b class="text-slate-200">{{ fmt(report.commands) }}</b></span>
+            </div>
           </div>
         </div>
       </div>
@@ -469,6 +709,23 @@
     </ul>
   </div>
 
+  <!-- phone remote: QR code -->
+  <div v-if="remoteOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" @click.self="remoteOpen = false" @keydown.esc="remoteOpen = false">
+    <div class="card w-full max-w-sm text-center" role="dialog" aria-modal="true" aria-labelledby="remote-title">
+      <div class="mb-2 flex items-center justify-between">
+        <h2 id="remote-title" class="flex items-center gap-2 text-lg font-bold"><lc-icon name="smartphone" :size="18" class="text-tt-cyan"></lc-icon> Phone remote</h2>
+        <button class="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white" @click="remoteOpen = false" aria-label="Close"><lc-icon name="x" :size="16"></lc-icon></button>
+      </div>
+      <p class="mb-3 text-xs text-slate-400">Scan with your phone's camera. Big buttons for pause, connect, presets and tests.</p>
+      <div class="mx-auto w-56 rounded-2xl bg-white p-3" v-html="remoteQr"></div>
+      <div class="mt-3 flex gap-2">
+        <input :value="remoteUrl" readonly class="field min-w-0 flex-1 font-mono text-[11px]" @focus="$event.target.select()" />
+        <button class="btn btn-ghost !px-3 !py-1.5 text-xs" :class="fx.copyRemote" @click="copyText(remoteUrl, 'copyRemote')"><lc-icon name="copy" :size="14"></lc-icon></button>
+      </div>
+      <p class="mt-2 text-[11px] text-slate-500">The link includes your access token. Only share it with people who may control the stream.</p>
+    </div>
+  </div>
+
   <!-- toasts -->
   <div class="pointer-events-none fixed bottom-4 left-1/2 z-50 flex w-[min(92vw,420px)] -translate-x-1/2 flex-col gap-2" aria-live="polite">
     <transition-group enter-from-class="opacity-0 translate-y-2" enter-active-class="transition duration-200" leave-to-class="opacity-0" leave-active-class="transition duration-300">
@@ -515,6 +772,8 @@ const ACTIONS = [
   { id: 'REVERSE_CONTROLS', icon: 'arrow-left-right', color: 'text-violet-300',  hint: 'Seconds',    label: 'Reverse controls', effect: 'Left becomes right',                         default: 5 },
   { id: 'BOSS_ATTACK',      icon: 'skull',            color: 'text-red-400',     hint: 'Boss level', label: 'Boss attack',     effect: 'A boss flies in and shoots at the car (1–5)', default: 1 },
   { id: 'HEAL_PLAYER',      icon: 'heart-pulse',      color: 'text-emerald-300', hint: 'HP',         label: 'Heal',            effect: 'Gives the car health back',                   default: 10 },
+  { id: 'STEER_LEFT',       icon: 'arrow-big-left',   color: 'text-cyan-300',    hint: 'Lanes',      label: 'Move left',       effect: 'Moves the car one lane left',                 default: 1 },
+  { id: 'STEER_RIGHT',      icon: 'arrow-big-right',  color: 'text-cyan-300',    hint: 'Lanes',      label: 'Move right',      effect: 'Moves the car one lane right',                default: 1 },
 ];
 const NO_ACTION = { icon: 'circle-off', color: 'text-slate-500', hint: 'Value', label: 'Nothing' };
 
@@ -562,13 +821,20 @@ const GAMES = [
       { action: 'REVERSE_CONTROLS', text: 'Left is right for the given seconds.' },
       { action: 'BOSS_ATTACK',      text: 'A boss flies in and fires at the car. Level 1–5.' },
       { action: 'HEAL_PLAYER',      text: 'Restores that much HP (max 100).' },
+      { action: 'STEER_LEFT',       text: 'Moves the car a lane left (great for chat commands).' },
+      { action: 'STEER_RIGHT',      text: 'Moves the car a lane right.' },
     ],
   },
 ];
 
-const LOG_FILTERS = ['GIFT', 'GAME', 'TEST', 'LIKE', 'SYS'];
-const TAG_COLOR = { GIFT: 'text-tt-red', GAME: 'text-tt-cyan', TEST: 'text-amber-300', LIKE: 'text-pink-300', SYS: 'text-slate-400', ERR: 'text-red-400' };
-const TAG_STYLE = { GIFT: 'bg-tt-red/15 text-tt-red', GAME: 'bg-tt-cyan/10 text-tt-cyan', TEST: 'bg-amber-400/10 text-amber-300', LIKE: 'bg-pink-400/10 text-pink-300', SYS: 'bg-white/5 text-slate-300' };
+const LOG_FILTERS = ['GIFT', 'CHAT', 'TEST', 'LIKE', 'SYS'];
+const TAG_COLOR = { GIFT: 'text-tt-red', CHAT: 'text-tt-cyan', GAME: 'text-tt-cyan', TEST: 'text-amber-300', LIKE: 'text-pink-300', SYS: 'text-slate-400', ERR: 'text-red-400' };
+const TAG_STYLE = { GIFT: 'bg-tt-red/15 text-tt-red', CHAT: 'bg-tt-cyan/10 text-tt-cyan', TEST: 'bg-amber-400/10 text-amber-300', LIKE: 'bg-pink-400/10 text-pink-300', SYS: 'bg-white/5 text-slate-300' };
+const OVERLAY_OPTS = [
+  { key: 'goals', label: 'Like goals', icon: 'heart', color: 'text-pink-400' },
+  { key: 'supporters', label: 'Top supporters', icon: 'crown', color: 'text-amber-300' },
+  { key: 'sound', label: 'Sound', icon: 'volume-2', color: 'text-tt-cyan' },
+];
 const MAX_LOG = 500;
 
 /* ===========================================================================
@@ -646,6 +912,27 @@ const app = createApp({
     const previewOn = ref(store.get('tt.preview', true));
     const previewKey = ref(0);
     const showLegend = ref(store.get('tt.legend', true));
+    const overlay = reactive({ goals: true, supporters: true, sound: true, ...store.get('tt.overlay', {}) });
+
+    // live controls, chat commands, like goals, reports
+    const paused = ref(false);
+    const auto = reactive({ enabled: false, username: '', live: null, checkedAt: null, error: null });
+    const presets = ref([]);
+    const presetName = ref('');
+    const cmdDraft = ref([]);
+    const cmdDirty = ref(false);
+    const goalDraft = ref([]);
+    const goalDirty = ref(false);
+    const likesCounted = ref(0);
+    const supporters = ref([]);
+    const session = ref(null);
+    const reports = ref([]);
+    const report = ref(null);
+    const remoteOpen = ref(false);
+    const chatTest = ref('!left');
+    const likesTest = ref(100);
+    const nowTick = ref(Date.now());
+    setInterval(() => (nowTick.value = Date.now()), 30_000);
 
     /* ------------------------------------------------------------------
      * Feedback: toasts + button flash
@@ -769,15 +1056,33 @@ const app = createApp({
           if (p.viewerCount != null) stats.viewers = p.viewerCount;
           if (Array.isArray(p.gifts)) catalog.value = p.gifts;
           syncServerRules(p.rules);
+          syncCommands(p.commands || {});
+          syncGoals(p.goals || []);
+          paused.value = !!p.paused;
+          presets.value = p.presets || [];
+          supporters.value = p.supporters || [];
+          session.value = p.session || null;
+          likesCounted.value = p.likes?.totalLikes ?? 0;
+          if (p.status?.autoConnect) Object.assign(auto, p.status.autoConnect);
+          send('GET_REPORTS').then((r) => { reports.value = r.reports || []; }).catch(() => {});
           break;
+        case 'COMMANDS_UPDATED': syncCommands(p.commands || {}, p.reason === 'preset'); break;
+        case 'GOALS_UPDATED': syncGoals(p.goals || [], p.reason === 'preset'); break;
+        case 'PAUSED': paused.value = !!p.paused; addLog('SYS', p.paused ? '<span class="text-amber-300">game paused</span>' : 'game resumed'); break;
+        case 'PRESETS': presets.value = p.presets || []; break;
+        case 'SUPPORTERS': supporters.value = p.top || []; break;
+        case 'SESSION': session.value = p; break;
+        case 'REPORTS': reports.value = p.reports || []; break;
         case 'GIFTS':
           catalog.value = p.gifts || [];
           break;
         case 'STATUS':
           setStatus(p);
+          if (p.autoConnect) Object.assign(auto, p.autoConnect);
           break;
         case 'RULES_UPDATED':
-          syncServerRules(p.rules);
+          if (p.reason === 'preset') { serverRules.value = p.rules || {}; loadFromServer(); toast(`Preset "${p.preset}" loaded`); addLog('SYS', `preset <b>${esc(p.preset)}</b> loaded`); }
+          else syncServerRules(p.rules);
           break;
         case 'GIFT_RECEIVED': {
           stats.gifts += p.repeatCount;
@@ -793,9 +1098,12 @@ const app = createApp({
         case 'GAME_EVENT':
           stats.triggers++;
           // Gift-driven events are already logged via GIFT_RECEIVED; log direct test actions here.
-          if (p.reason === 'test' && !p.matchedRule) addLog('TEST', `<span class="text-tt-cyan">${esc(p.action)}</span> value=<b>${esc(p.value)}</b> <span class="text-slate-500">(manual trigger)</span>`);
+          if (p.source === 'chat') addLog(p.simulated ? 'TEST' : 'CHAT', `<span class="text-emerald-300">@${esc(p.user)}</span> typed <b>${esc(p.command)}</b> <span class="text-slate-500">-&gt;</span> <span class="text-tt-cyan">${esc(p.action)}</span>`);
+          else if (p.source === 'likes') addLog('LIKE', `<b>like goal</b> reached at ${fmt(p.likes)} likes <span class="text-slate-500">-&gt;</span> <span class="text-tt-cyan">${esc(p.action)}</span> <span class="text-slate-500">(${esc(p.value)})</span>`);
+          else if (p.reason === 'test' && !p.matchedRule) addLog('TEST', `<span class="text-tt-cyan">${esc(p.action)}</span> value=<b>${esc(p.value)}</b> <span class="text-slate-500">(manual trigger)</span>`);
           break;
         case 'LIKES_UPDATE':
+          likesCounted.value = p.totalLikes;
           stats.likes = Math.max(p.totalLikes, p.streamTotalLikes);
           if (p.lastUser) addLog('LIKE', `<span class="text-emerald-300">@${esc(p.lastUser)}</span> +${fmt(p.lastCount)} likes <span class="text-slate-500">(total ${fmt(stats.likes)})</span>`, true);
           break;
@@ -1004,7 +1312,7 @@ const app = createApp({
         await act('fetch', 'FETCH_GIFTS', { username: fetchUser.value }, (r) => `${r.count} gifts loaded from TikTok`);
       } catch { /* toast shown */ }
     }
-    addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMenu(); closePicker(); } });
+    addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMenu(); closePicker(); remoteOpen.value = false; } });
 
     /* ------------------------------------------------------------------
      * Commands
@@ -1044,10 +1352,125 @@ const app = createApp({
       if (serverUrl.value !== DEFAULT_SERVER || !hosted) u.searchParams.set('server', serverUrl.value);
       if (token.value) u.searchParams.set('token', token.value);
       if (!showLegend.value) u.searchParams.set('legend', '0');
+      if (!overlay.goals) u.searchParams.set('goals', '0');
+      if (!overlay.supporters) u.searchParams.set('supporters', '0');
+      if (!overlay.sound) u.searchParams.set('sound', '0');
       if (preview) u.searchParams.set('preview', '1');
       return u.toString();
     }
     function onLegendToggle() { store.set('tt.legend', showLegend.value); previewKey.value++; }
+    function onOverlayToggle() { store.set('tt.overlay', { ...overlay }); previewKey.value++; }
+
+    /* ------------------------------------------------------------------
+     * Live controls: pause, auto-connect, presets, phone remote
+     * ---------------------------------------------------------------- */
+    const togglePause = () => act('pause', 'SET_PAUSED', { paused: !paused.value }, (r) => (r.paused ? 'Game paused' : 'Game resumed')).catch(() => {});
+    function toggleAuto(on) {
+      const u = (auto.username || username.value || tiktok.username || '').replace(/^@/, '');
+      if (on && !u) { toast('Type your TikTok username first', 'error'); return; }
+      act('auto', 'SET_AUTO_CONNECT', { enabled: on, username: u }, on ? `Auto-connect on for @${u}` : 'Auto-connect off').then((r) => Object.assign(auto, r)).catch(() => {});
+    }
+    const autoText = computed(() => {
+      if (!auto.enabled) return 'Connects by itself when you go live';
+      if (tiktok.status === 'CONNECTED') return `On · connected to @${tiktok.username}`;
+      if (auto.checkedAt) return `On · @${auto.username} not live (checked ${fmtTime(auto.checkedAt)})`;
+      return `On · watching @${auto.username}`;
+    });
+    async function savePreset() {
+      // Save what's in the editors: send unsaved rules/commands/goals first.
+      if (dirty.value) await applyRules();
+      if (cmdDirty.value) await saveCommands();
+      if (goalDirty.value) await saveGoals();
+      const name = presetName.value;
+      act('savePreset', 'SAVE_PRESET', { name }, `Preset "${name}" saved`).then(() => (presetName.value = '')).catch(() => {});
+    }
+    function loadPreset(name) {
+      if ((dirty.value || cmdDirty.value || goalDirty.value) && !confirm(`Load "${name}"? Your unsaved changes will be replaced.`)) return;
+      act('preset:' + name, 'LOAD_PRESET', { name }).catch(() => {});
+    }
+    function deletePreset(name) {
+      if (!confirm(`Delete preset "${name}"?`)) return;
+      act('delPreset', 'DELETE_PRESET', { name }, `Preset "${name}" deleted`).catch(() => {});
+    }
+    const remoteUrl = computed(() => {
+      const u = new URL('remote.html', location.href);
+      u.search = '';
+      if (serverUrl.value !== DEFAULT_SERVER || !hosted) u.searchParams.set('server', serverUrl.value);
+      if (token.value) u.searchParams.set('token', token.value);
+      return u.toString();
+    });
+    const remoteQr = computed(() => {
+      if (!window.qrcode) return '<p style="color:#334155;font-size:12px">QR library not loaded</p>';
+      const q = window.qrcode(0, 'M');
+      q.addData(remoteUrl.value);
+      q.make();
+      return q.createSvgTag({ cellSize: 5, margin: 0, scalable: true });
+    });
+    async function copyText(text, key) {
+      try { await navigator.clipboard.writeText(text); flash(key, true); toast('Link copied'); }
+      catch { flash(key, false); toast('Copy failed: select the link and copy it manually', 'error'); }
+    }
+
+    /* ------------------------------------------------------------------
+     * Chat commands + like goals (each card saves on its own)
+     * ---------------------------------------------------------------- */
+    const rowId = () => Math.random().toString(36).slice(2, 9);
+    function syncCommands(obj, force = false) {
+      if (cmdDirty.value && !force) return;
+      cmdDraft.value = Object.entries(obj).map(([key, c]) => ({ uid: rowId(), key, ...c }));
+      cmdDirty.value = false;
+    }
+    function syncGoals(list, force = false) {
+      if (goalDirty.value && !force) return;
+      goalDraft.value = list.map((g) => ({ uid: rowId(), ...g }));
+      goalDirty.value = false;
+    }
+    function addCommand(key = '', action = 'STEER_LEFT') {
+      cmdDraft.value.push({ uid: rowId(), key, action, value: 1, cooldown: 3, userCooldown: 10 });
+      cmdDirty.value = true;
+    }
+    function addSuggestedCommands() { addCommand('!left', 'STEER_LEFT'); addCommand('!right', 'STEER_RIGHT'); }
+    async function saveCommands() {
+      const commands = {};
+      for (const c of cmdDraft.value) if (c.key) commands[c.key] = { action: c.action, value: c.value, cooldown: c.cooldown, userCooldown: c.userCooldown };
+      try { await act('saveCmds', 'UPDATE_COMMANDS', { commands }, `${Object.keys(commands).length} chat commands live`); cmdDirty.value = false; } catch { /* toast shown */ }
+    }
+    function addGoal() {
+      goalDraft.value.push({ uid: rowId(), every: 1000, action: 'HEAL_PLAYER', value: 20, label: '' });
+      goalDirty.value = true;
+    }
+    async function saveGoals() {
+      const goals = goalDraft.value.map(({ uid, ...g }) => g);
+      try { await act('saveGoals', 'UPDATE_GOALS', { goals }, `${goals.length} like goals live`); goalDirty.value = false; } catch { /* toast shown */ }
+    }
+    const testChat = () => act('testChat', 'TEST_CHAT', { comment: chatTest.value, user: 'tester' },
+      (r) => (!r.matched ? 'No command matches that message' : r.fired ? `${r.command} fired` : `${r.command} is on cooldown`)).catch(() => {});
+    const testLikes = () => act('testLikes', 'TEST_LIKES', { count: likesTest.value, user: 'tester' }, (r) => `${fmt(r.totalLikes)} likes counted`).catch(() => {});
+
+    /* ------------------------------------------------------------------
+     * Reports
+     * ---------------------------------------------------------------- */
+    const csvUrl = (id) => `${httpBase.value}/api/reports/${encodeURIComponent(id)}.csv${token.value ? '?token=' + encodeURIComponent(token.value) : ''}`;
+    const viewReport = (id) => send('GET_REPORT', { id }).then((r) => { report.value = r; }).catch((e) => toast(e.message, 'error'));
+    const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const fmtDate = (t) => new Date(t).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    function fmtDur(ms) {
+      const m = Math.max(0, Math.round(ms / 60000));
+      return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+    }
+    const sessionTiles = computed(() => {
+      const s = session.value || {};
+      return [
+        { label: 'Diamonds', icon: 'gem', color: 'text-tt-cyan', value: fmt(s.diamonds) },
+        { label: 'Gifts', icon: 'gift', color: 'text-tt-red', value: fmt(s.gifts) },
+        { label: 'Gifters', icon: 'users', color: 'text-violet-300', value: fmt(s.gifters) },
+        { label: 'Likes', icon: 'heart', color: 'text-pink-400', value: fmt(s.likes) },
+        { label: 'Peak viewers', icon: 'eye', color: 'text-slate-300', value: fmt(s.peakViewers) },
+        { label: 'Chat commands', icon: 'message-square', color: 'text-tt-cyan', value: fmt(s.commands) },
+        { label: 'Runs', icon: 'timer', color: 'text-amber-300', value: fmt(s.runs) },
+        { label: 'Best run', icon: 'trophy', color: 'text-amber-300', value: fmt(s.bestRun) },
+      ];
+    });
     function selectGame(gm) { game.value = gm; store.set('tt.game', gm.id); previewKey.value++; }
     async function copyGameUrl() {
       try { await navigator.clipboard.writeText(gameUrl(game.value, false)); flash('copy', true); toast('Game link copied'); }
@@ -1086,7 +1509,12 @@ const app = createApp({
       picker, pickerGifts, openPicker, closePicker, togglePick, rulesByAction, removeRule, clearAllRules,
       custom, fx, busy, toasts, fireTest, fireCustom, connectTikTok, disconnectTikTok,
       visibleLog, filters, toggleFilter, clearLog, logBox, autoScroll, onLogScroll, scrollToBottom,
-      game, previewOn, previewKey, gameUrl, selectGame, copyGameUrl, showLegend, onLegendToggle,
+      game, previewOn, previewKey, gameUrl, selectGame, copyGameUrl, showLegend, onLegendToggle, OVERLAY_OPTS, overlay, onOverlayToggle,
+      paused, togglePause, auto, autoText, toggleAuto, presets, presetName, savePreset, loadPreset, deletePreset,
+      remoteOpen, remoteUrl, remoteQr, copyText,
+      cmdDraft, cmdDirty, addCommand, addSuggestedCommands, saveCommands, goalDraft, goalDirty, addGoal, saveGoals, likesCounted,
+      chatTest, likesTest, testChat, testLikes,
+      supporters, session, sessionTiles, reports, report, viewReport, csvUrl, fmtTime, fmtDate, fmtDur, nowTick,
     };
   },
 });

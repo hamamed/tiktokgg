@@ -40,11 +40,26 @@
     .alert .what { color: var(--muted); font-size: .8em; display: flex; align-items: center; gap: .3em; white-space: nowrap; }
     @keyframes pop { from { opacity: 0; transform: translateX(-20px) scale(.96); } }
 
-    /* "Send a gift" list for viewers: top-right, under the HP panel */
-    .legend { position: absolute; right: 3.5%; top: 12%; width: 37%; pointer-events: none; font-size: clamp(9px, 1.75vh, 17px);
-              background: rgba(8,10,20,.78); border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: .55em .5em .45em; backdrop-filter: blur(6px); }
-    .legend[hidden], body.nolegend .legend { display: none; }
-    .legend h3 { margin: 0 0 .35em; padding: 0 .3em; display: flex; align-items: center; gap: .35em; font-size: .78em; letter-spacing: .06em; text-transform: uppercase; color: var(--red); }
+    /* Right column for viewers, under the HP panel: gift/command list, like goals, top supporters */
+    .rightcol { position: absolute; right: 3.5%; top: 12%; width: 37%; display: flex; flex-direction: column; gap: .5em; pointer-events: none; font-size: clamp(9px, 1.75vh, 17px); }
+    .rpanel { background: rgba(8,10,20,.78); border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: .55em .5em .45em; backdrop-filter: blur(6px); }
+    .rpanel[hidden], body.nolegend .legend, body.nogoals .goals, body.nosupporters .sup { display: none; }
+    .rpanel h3 { margin: 0 0 .35em; padding: 0 .3em; display: flex; align-items: center; gap: .35em; font-size: .78em; letter-spacing: .06em; text-transform: uppercase; color: var(--red); }
+    .legend .cmd { display: grid; place-items: center; width: 1.7em; height: 1.7em; border-radius: 8px; background: rgba(37,244,238,.12); color: var(--cyan); }
+    .goals h3 { color: #f472b6; }
+    .goal { padding: .2em .3em .35em; }
+    .goal .gl { display: flex; align-items: center; gap: .3em; font-size: .8em; font-weight: 800; white-space: nowrap; overflow: hidden; }
+    .goal .gl b { margin-left: auto; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .goal .bar { height: .5em; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: .3em; }
+    .goal .bar i { display: block; height: 100%; background: linear-gradient(90deg, #ec4899, #fe2c55); transition: width .6s; }
+    .goals.hit { box-shadow: 0 0 0 1px rgba(244,114,182,.8), 0 0 24px rgba(244,114,182,.5); }
+    .sup h3 { color: #fbbf24; }
+    .sup ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .25em; }
+    .sup li { display: grid; grid-template-columns: 1.3em 1.9em 1fr; align-items: center; gap: .4em; padding: .15em .3em; }
+    .sup .rank { font-weight: 900; font-size: .85em; text-align: center; }
+    .sup .av { width: 1.9em; height: 1.9em; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,.08); display: grid; place-items: center; font-weight: 800; font-size: .85em; }
+    .sup .nm { font-weight: 800; font-size: .82em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sup .dm { color: var(--muted); font-size: .75em; font-weight: 600; display: flex; align-items: center; gap: .15em; }
     .legend ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .2em; transition: opacity .35s; }
     .legend ul.fading { opacity: 0; }
     .legend li { display: grid; grid-template-columns: 2em 1fr; align-items: center; gap: .45em; padding: .25em .3em; border-radius: 9px; transition: background .3s, box-shadow .3s; }
@@ -96,15 +111,26 @@
       <div class="effects" id="effects"></div>
       <div class="alerts" id="alerts"></div>
     </div>
-    <aside class="legend" id="legend" hidden aria-label="What each gift does">
-      <h3><span data-icon="gift"></span>Send a gift</h3>
-      <ul id="legendList"></ul>
-      <div class="dots" id="legendDots"></div>
-    </aside>
+    <div class="rightcol">
+      <aside class="rpanel legend" id="legend" hidden aria-label="What each gift does">
+        <h3><span data-icon="gift"></span><span id="legendTitle">Send a gift</span></h3>
+        <ul id="legendList"></ul>
+        <div class="dots" id="legendDots"></div>
+      </aside>
+      <section class="rpanel goals" id="goalsBox" hidden aria-label="Like goals">
+        <h3><span data-icon="heart"></span>Like goals</h3>
+        <div id="goalsList"></div>
+      </section>
+      <section class="rpanel sup" id="supBox" hidden aria-label="Top supporters">
+        <h3><span data-icon="crown"></span>Top supporters</h3>
+        <ol id="supList"></ol>
+      </section>
+    </div>
     <div class="banner" id="banner"></div>
 
     <div class="conn"><span class="dot" id="dot"></span><span id="connText">connecting…</span></div>
     <div class="tools">
+      <button id="soundBtn" type="button"><span></span><span>Sound</span></button>
       <button id="autoBtn" type="button"><span data-icon="bot"></span><span>Autopilot on</span></button>
     </div>
   </div>
@@ -119,6 +145,8 @@
  *               ?server=wss://…   control server (default: same host /ws, or ws://localhost:8080 locally)
  *               ?obs=1            hide on-screen buttons      ?preview=1  dashboard preview mode
  *               ?legend=0         hide the "Send a gift" list (top right)
+ *               ?goals=0  ?supporters=0  hide the like goals / top supporters panels
+ *               ?sound=0          no sound (sound is also off in the dashboard preview)
  * ======================================================================== */
 
 // ---------- icons (Lucide) ----------
@@ -139,6 +167,8 @@ const ACTION_LOOK = {
   REVERSE_CONTROLS: { icon: 'arrow-left-right', color: '#c4b5fd', label: 'Reversed controls' },
   BOSS_ATTACK:      { icon: 'skull',            color: '#f87171', label: 'Boss attack' },
   HEAL_PLAYER:      { icon: 'heart-pulse',      color: '#6ee7b7', label: 'Heal' },
+  STEER_LEFT:       { icon: 'arrow-big-left',   color: '#67e8f9', label: 'Move left' },
+  STEER_RIGHT:      { icon: 'arrow-big-right',  color: '#67e8f9', label: 'Move right' },
 };
 const GIFT_ICON = { rose: 'flower', 'ice cream cone': 'ice-cream-cone', 'finger heart': 'hand-heart', doughnut: 'donut', galaxy: 'sparkles', universe: 'orbit' };
 
@@ -154,6 +184,8 @@ const imgSrc = (u) => (!u ? '' : u.startsWith('/') ? HTTP_BASE + u : u);
 if (qs.get('obs') === '1') document.body.classList.add('obs');
 if (qs.get('preview') === '1') document.body.classList.add('preview');
 if (qs.get('legend') === '0') document.body.classList.add('nolegend');
+if (qs.get('goals') === '0') document.body.classList.add('nogoals');
+if (qs.get('supporters') === '0') document.body.classList.add('nosupporters');
 
 // ---------- canvas & world ----------
 const cvs = document.getElementById('game');
@@ -175,7 +207,7 @@ const S = {
   obstacles: [], shots: [], particles: [], mud: [], stripes: 0,
   fx: { boost: { until: 0, mul: 1 }, slow: { until: 0, mul: 1 }, reverse: { until: 0 }, mud: { until: 0 } },
   boss: null, // { until, level, x, dir, fireIn }
-  ambientIn: 1.2, shake: 0, now: 0,
+  ambientIn: 1.2, shake: 0, now: 0, paused: false, runGifters: {}, // diamonds per @user since the last respawn
 };
 
 function speedMul() {
@@ -219,6 +251,9 @@ const ACTIONS = {
     else S.boss = { until: S.now + extra, level, x: W / 2, dir: 1, fireIn: 1.2, enter: 0, by: ev.user };
     banner('BOSS INCOMING', `level ${level} · sent by @${ev.user}`, '#f87171');
   },
+  // Chat steering: moves the car one lane (two for value >= 2) and holds off the autopilot briefly.
+  STEER_LEFT(ev) { viewerSteer(-1, ev.value); },
+  STEER_RIGHT(ev) { viewerSteer(1, ev.value); },
   HEAL_PLAYER(ev) {
     if (S.crashed > 0) return;
     S.hp = clamp(S.hp + (Number(ev.value) || 10), 0, 100);
@@ -230,13 +265,93 @@ function handleGameEvent(ev) {
   const fn = ACTIONS[ev.action];
   showAlert(ev, !!fn);
   flashLegend(ev.matchedRule);
+  if (ev.source === 'likes') { SFX.play('goal'); flashGoals(); }
+  SFX.play(fn ? ev.action : 'alert');
   if (fn) fn(ev);
 }
 
+function viewerSteer(dir, value) {
+  const n = clamp(Math.round(Number(value) || 1), 1, 2);
+  for (let i = 0; i < n; i++) steer(dir);
+  S.aiCooldown = 1.2;
+}
+
+// ---------- sound: synthesised with Web Audio (no files). OBS: tick "Control audio via OBS". ----------
+const SFX = (() => {
+  let ctx = null;
+  let master = null;
+  let enabled = qs.get('sound') !== '0' && qs.get('preview') !== '1' && readStore('gr.sound') !== false;
+  function ac() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+      master = ctx.createGain();
+      master.gain.value = 0.35;
+      master.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    return ctx;
+  }
+  function tone({ type = 'sine', f0 = 440, f1 = f0, dur = 0.2, vol = 0.5, delay = 0 }) {
+    const c = ac(); if (!c) return;
+    const t = c.currentTime + delay;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(master);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+  function noise({ dur = 0.3, vol = 0.5, freq = 800, delay = 0 }) {
+    const c = ac(); if (!c) return;
+    const t = c.currentTime + delay;
+    const len = Math.floor(c.sampleRate * dur);
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const f = c.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = freq;
+    const g = c.createGain();
+    g.gain.value = vol;
+    src.connect(f).connect(g).connect(master);
+    src.start(t);
+  }
+  const SOUNDS = {
+    SPAWN_OBSTACLE: () => { noise({ dur: 0.18, vol: 0.7, freq: 400 }); tone({ type: 'square', f0: 160, f1: 90, dur: 0.15, vol: 0.25 }); },
+    SPEED_BOOST: () => tone({ type: 'sawtooth', f0: 220, f1: 880, dur: 0.45, vol: 0.22 }),
+    SPEED_SLOW: () => tone({ type: 'sawtooth', f0: 660, f1: 110, dur: 0.6, vol: 0.2 }),
+    SCREEN_SPLATTER: () => { noise({ dur: 0.35, vol: 0.9, freq: 300 }); noise({ dur: 0.25, vol: 0.6, freq: 600, delay: 0.12 }); },
+    REVERSE_CONTROLS: () => { for (let i = 0; i < 4; i++) tone({ type: 'triangle', f0: i % 2 ? 520 : 390, dur: 0.1, vol: 0.28, delay: i * 0.1 }); },
+    BOSS_ATTACK: () => { tone({ type: 'sawtooth', f0: 90, f1: 55, dur: 1, vol: 0.4 }); for (let i = 0; i < 3; i++) tone({ type: 'square', f0: 880, f1: 660, dur: 0.18, vol: 0.14, delay: 0.15 + i * 0.25 }); },
+    HEAL_PLAYER: () => [523, 659, 784].forEach((f, i) => tone({ f0: f, dur: 0.25, vol: 0.3, delay: i * 0.08 })),
+    STEER_LEFT: () => tone({ type: 'triangle', f0: 600, f1: 450, dur: 0.08, vol: 0.18 }),
+    STEER_RIGHT: () => tone({ type: 'triangle', f0: 450, f1: 600, dur: 0.08, vol: 0.18 }),
+    hit: () => noise({ dur: 0.2, vol: 0.8, freq: 900 }),
+    crash: () => { noise({ dur: 0.9, vol: 1, freq: 500 }); tone({ type: 'sawtooth', f0: 200, f1: 40, dur: 0.8, vol: 0.3 }); },
+    goal: () => [523, 659, 784, 1046].forEach((f, i) => tone({ type: 'square', f0: f, dur: 0.16, vol: 0.16, delay: i * 0.11 })),
+    alert: () => tone({ f0: 1320, f1: 1760, dur: 0.12, vol: 0.12 }),
+  };
+  return {
+    get enabled() { return enabled; },
+    toggle() { enabled = !enabled; try { localStorage.setItem('gr.sound', JSON.stringify(enabled)); } catch {} if (enabled) { ac(); SOUNDS.alert(); } return enabled; },
+    unlock() { if (enabled) ac(); },
+    play(name) { if (!enabled) return; try { (SOUNDS[name] || SOUNDS.alert)(); } catch { /* audio unavailable */ } },
+  };
+})();
+
 // ---------- "Send a gift" list (built from the server's live rules + gift catalogue) ----------
-const LEGEND = { rules: {}, gifts: [], page: 0, pages: 1, timer: null };
+const LEGEND = { rules: {}, gifts: [], commands: {}, page: 0, pages: 1, timer: null };
 const PER_PAGE = 7;
-const SHORT = { SPAWN_OBSTACLE: 'Barriers', SPEED_BOOST: 'Speed up', SPEED_SLOW: 'Slow down', SCREEN_SPLATTER: 'Mud', REVERSE_CONTROLS: 'Reverse', BOSS_ATTACK: 'Boss', HEAL_PLAYER: 'Heal' };
+const SHORT = { SPAWN_OBSTACLE: 'Barriers', SPEED_BOOST: 'Speed up', SPEED_SLOW: 'Slow down', SCREEN_SPLATTER: 'Mud', REVERSE_CONTROLS: 'Reverse', BOSS_ATTACK: 'Boss', HEAL_PLAYER: 'Heal', STEER_LEFT: 'Move left', STEER_RIGHT: 'Move right' };
 
 function legendRows() {
   const byName = new Map(LEGEND.gifts.map((g) => [g.name.toLowerCase(), g]));
@@ -246,20 +361,24 @@ function legendRows() {
       const g = byName.get(name.toLowerCase());
       return { key: name.toLowerCase(), name: name === '*' ? 'Any other gift' : g?.name ?? name, diamonds: name === '*' ? Infinity : g?.diamonds ?? Infinity, image: g?.image, rule: r };
     })
-    .sort((a, b) => a.diamonds - b.diamonds || a.name.localeCompare(b.name));
+    .sort((a, b) => a.diamonds - b.diamonds || a.name.localeCompare(b.name))
+    // Chat commands after the gifts: "Type !left → Move left"
+    .concat(Object.entries(LEGEND.commands).filter(([, c]) => ACTION_LOOK[c.action]).map(([key, c]) => ({ key, name: key, command: true, diamonds: Infinity, rule: c })));
 }
 
 function renderLegend() {
   const rows = legendRows();
   const box = $('legend');
   box.hidden = !rows.length;
+  const hasGifts = rows.some((r) => !r.command), hasCmds = rows.some((r) => r.command);
+  $('legendTitle').textContent = hasGifts && hasCmds ? 'Send a gift or type' : hasCmds ? 'Type in chat' : 'Send a gift';
   LEGEND.pages = Math.max(1, Math.ceil(rows.length / PER_PAGE));
   LEGEND.page %= LEGEND.pages;
   const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   $('legendList').innerHTML = rows.slice(LEGEND.page * PER_PAGE, LEGEND.page * PER_PAGE + PER_PAGE).map((r) => {
     const look = ACTION_LOOK[r.rule.action];
-    const pic = r.image ? `<img src="${esc(imgSrc(r.image))}" alt="">` : icon(GIFT_ICON[r.key] ?? 'gift');
-    const price = Number.isFinite(r.diamonds) ? `<small>${icon('gem')}${r.diamonds.toLocaleString()}</small>` : '';
+    const pic = r.command ? `<span class="cmd">${icon('message-square')}</span>` : r.image ? `<img src="${esc(imgSrc(r.image))}" alt="">` : icon(GIFT_ICON[r.key] ?? 'gift');
+    const price = Number.isFinite(r.diamonds) ? `<small>${icon('gem')}${r.diamonds.toLocaleString()}</small>` : r.command ? '<small>free</small>' : '';
     return `<li data-key="${esc(r.key)}"><span class="gimg">${pic}</span><span style="min-width:0">
       <span class="gname"><span style="overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>${price}</span>
       <span class="gact" style="color:${look.color}">${icon(look.icon)}${SHORT[r.rule.action] ?? look.label}</span></span></li>`;
@@ -274,6 +393,34 @@ function renderLegend() {
       setTimeout(() => { LEGEND.page = (LEGEND.page + 1) % LEGEND.pages; renderLegend(); $('legendList').classList.remove('fading'); }, 350);
     }, 6000);
   }
+}
+
+// ---------- like goals + top supporters ----------
+const LIKES = { total: 0, goals: [] };
+function renderGoals() {
+  const box = $('goalsBox');
+  box.hidden = !LIKES.goals.length;
+  $('goalsList').innerHTML = LIKES.goals.slice(0, 3).map((g) => {
+    const look = ACTION_LOOK[g.action] ?? { icon: 'sparkles', color: '#f472b6', label: g.action };
+    const into = LIKES.total % g.every;
+    const pct = Math.round((into / g.every) * 100);
+    const label = g.label || look.label;
+    return `<div class="goal"><div class="gl" style="color:${look.color}">${icon(look.icon)}<span style="overflow:hidden;text-overflow:ellipsis">${label.replace(/[<>&]/g, '')}</span><b>${into.toLocaleString()} / ${g.every.toLocaleString()}</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
+  }).join('');
+}
+function flashGoals() {
+  const b = $('goalsBox');
+  b.classList.remove('hit'); void b.offsetWidth; b.classList.add('hit');
+  setTimeout(() => b.classList.remove('hit'), 1500);
+}
+function renderSupporters(top = []) {
+  $('supBox').hidden = !top.length;
+  const medal = ['#fbbf24', '#cbd5e1', '#d97706'];
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  $('supList').innerHTML = top.slice(0, 3).map((u, i) => {
+    const av = u.avatar ? `<img class="av" src="${esc(u.avatar)}" alt="" referrerpolicy="no-referrer">` : `<span class="av">${esc((u.nickname || u.uniqueId || '?')[0].toUpperCase())}</span>`;
+    return `<li><span class="rank" style="color:${medal[i]}">${i === 0 ? icon('crown') : i + 1}</span>${av}<span style="min-width:0"><span class="nm" style="display:block">${esc(u.nickname || u.uniqueId)}</span><span class="dm">${icon('gem')}${Number(u.diamonds).toLocaleString()}</span></span></li>`;
+  }).join('');
 }
 
 /** Glow the row of the gift that just fired (jumps to its page if needed). */
@@ -304,12 +451,17 @@ function hurt(dmg, by) {
   S.invuln = 0.9;
   S.shake = 0.35;
   S.lastHitBy = by || S.lastHitBy;
+  SFX.play(S.hp <= 0 ? 'crash' : 'hit');
   for (let i = 0; i < 18; i++) S.particles.push({ x: S.x + rand(-25, 25), y: PLAYER_Y + rand(0, 40), vx: rand(-220, 220), vy: rand(-220, 40), life: 0.8, color: '#fe2c55' });
   if (S.hp <= 0) {
     S.crashed = 3;
     S.best = Math.max(S.best, Math.floor(S.dist));
     try { localStorage.setItem('gr.best', JSON.stringify(S.best)); } catch {}
-    banner('CRASHED', S.lastHitBy ? `taken out by @${S.lastHitBy}` : 'back in 3…', '#fe2c55');
+    // MVP of the run = biggest gifter since the last respawn.
+    const mvp = Object.entries(S.runGifters).sort((a, b) => b[1] - a[1])[0];
+    const sub = [S.lastHitBy ? `taken out by @${S.lastHitBy}` : '', mvp ? `MVP @${mvp[0]} · ${mvp[1].toLocaleString()} diamonds` : ''].filter(Boolean).join('  ·  ') || 'back in 3…';
+    banner('CRASHED', sub, '#fe2c55', 3000);
+    send('GAME_STATS', { distance: Math.floor(S.dist) });
   }
 }
 
@@ -346,8 +498,7 @@ let last = performance.now();
 function tick(t) {
   const dt = Math.min(0.05, (t - last) / 1000);
   last = t;
-  S.now += dt;
-  update(dt);
+  if (!S.paused) { S.now += dt; update(dt); }
   draw();
   requestAnimationFrame(tick);
 }
@@ -361,7 +512,7 @@ function update(dt) {
 
   if (S.crashed > 0) {
     S.crashed -= dt;
-    if (S.crashed <= 0) { S.hp = 100; S.dist = 0; S.obstacles = []; S.shots = []; S.lastHitBy = null; S.invuln = 1.5; banner('', ''); }
+    if (S.crashed <= 0) { S.hp = 100; S.dist = 0; S.obstacles = []; S.shots = []; S.lastHitBy = null; S.invuln = 1.5; S.runGifters = {}; banner('', ''); }
   } else {
     S.dist += v * dt / 40;
     if (S.autopilot) autopilot(dt);
@@ -478,6 +629,17 @@ function draw() {
   ctx.restore();
 
   drawMud();
+  if (S.paused) {
+    mctx.fillStyle = 'rgba(5,6,13,.6)';
+    mctx.fillRect(0, 0, W, H);
+    mctx.fillStyle = '#fff';
+    mctx.textAlign = 'center';
+    mctx.font = '900 64px system-ui, sans-serif';
+    mctx.fillText('PAUSED', W / 2, H / 2 - 10);
+    mctx.font = '600 22px system-ui, sans-serif';
+    mctx.fillStyle = '#94a3b8';
+    mctx.fillText('back in a moment', W / 2, H / 2 + 30);
+  }
 }
 
 function drawCar(x, y, wrecked) {
@@ -542,15 +704,17 @@ function renderHud() {
 
 function showAlert(ev, handled) {
   const look = ACTION_LOOK[ev.action] ?? { icon: 'circle-help', color: '#94a3b8', label: ev.action };
-  const giftIcon = GIFT_ICON[String(ev.giftName).toLowerCase()] ?? (ev.giftId === 'test' && !ev.matchedRule ? 'flask-conical' : 'gift');
+  const giftIcon = ev.source === 'chat' ? 'message-square' : ev.source === 'likes' ? 'heart' : GIFT_ICON[String(ev.giftName).toLowerCase()] ?? (ev.giftId === 'test' && !ev.matchedRule ? 'flask-conical' : 'gift');
   const el = document.createElement('div');
   el.className = 'alert';
   el.style.borderLeftColor = look.color;
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const what = ev.giftId === 'test' && !ev.matchedRule ? 'test trigger' : `${esc(ev.giftName)}${ev.repeatCount > 1 ? ' ×' + ev.repeatCount : ''}`;
+  const what = ev.source === 'chat' ? `typed ${esc(ev.command || ev.giftName)}`
+    : ev.source === 'likes' ? `${Number(ev.likes || 0).toLocaleString()} likes!`
+    : ev.giftId === 'test' && !ev.matchedRule ? 'test trigger' : `${esc(ev.giftName)}${ev.repeatCount > 1 ? ' ×' + ev.repeatCount : ''}`;
   const pic = ev.giftImage ? `<img src="${esc(imgSrc(ev.giftImage))}" alt="" style="width:1.7em;height:1.7em;object-fit:contain">` : icon(giftIcon);
   el.innerHTML = `<div class="ic" style="color:${look.color}">${pic}</div>
-    <div style="min-width:0"><div class="who">@${esc(ev.user)}</div>
+    <div style="min-width:0"><div class="who">${ev.source === 'likes' ? 'Like goal' : '@' + esc(ev.user)}</div>
     <div class="what">${what} <span style="color:${look.color};display:inline-flex;align-items:center;gap:.25em">${icon('arrow-right')} ${icon(look.icon)} ${esc(look.label)}${handled ? '' : ' (unknown)'}</span></div></div>`;
   const box = $('alerts');
   box.prepend(el);
@@ -559,13 +723,13 @@ function showAlert(ev, handled) {
 }
 
 let bannerTimer;
-function banner(title, sub, color = '#fff') {
+function banner(title, sub, color = '#fff', ms = 2600) {
   const b = $('banner');
   clearTimeout(bannerTimer);
   if (!title) { b.innerHTML = ''; return; }
   b.innerHTML = `<h2 style="color:${color}">${title}</h2><p>${sub.replace(/[<>&]/g, '')}</p>`;
   b.classList.remove('flashbanner'); void b.offsetWidth; b.classList.add('flashbanner');
-  bannerTimer = setTimeout(() => (b.innerHTML = ''), 2600);
+  bannerTimer = setTimeout(() => (b.innerHTML = ''), ms);
 }
 
 // ---------- input ----------
@@ -575,6 +739,7 @@ addEventListener('keydown', (e) => {
   if (e.key === 'p') { S.autopilot = !S.autopilot; syncAutoBtn(); }
 });
 cvs.parentElement.addEventListener('pointerdown', (e) => {
+  SFX.unlock(); // browsers only allow audio after a click/tap (OBS doesn't need this)
   if (e.target.closest('.tools')) return;
   const r = cvs.getBoundingClientRect();
   S.autopilot = false; syncAutoBtn();
@@ -583,9 +748,14 @@ cvs.parentElement.addEventListener('pointerdown', (e) => {
 const autoBtn = $('autoBtn');
 function syncAutoBtn() { autoBtn.lastElementChild.textContent = S.autopilot ? 'Autopilot on' : 'Autopilot off'; }
 autoBtn.addEventListener('click', (e) => { e.stopPropagation(); S.autopilot = !S.autopilot; syncAutoBtn(); });
+const soundBtn = $('soundBtn');
+function syncSoundBtn() { soundBtn.firstElementChild.innerHTML = icon(SFX.enabled ? 'volume-2' : 'volume-x'); soundBtn.lastElementChild.textContent = SFX.enabled ? 'Sound on' : 'Sound off'; }
+soundBtn.addEventListener('click', (e) => { e.stopPropagation(); SFX.toggle(); syncSoundBtn(); });
+syncSoundBtn();
 
 // ---------- WebSocket ----------
 let ws, retry = 0;
+function send(type, payload) { if (ws?.readyState === 1) ws.send(JSON.stringify({ type, payload })); }
 function connect() {
   const sep = SERVER.includes('?') ? '&' : '?';
   const url = `${SERVER}${sep}role=game${TOKEN ? '&token=' + encodeURIComponent(TOKEN) : ''}`;
@@ -595,10 +765,24 @@ function connect() {
   ws.onmessage = (m) => {
     let msg; try { msg = JSON.parse(m.data); } catch { return; }
     const p = msg.payload || {};
-    if (msg.type === 'GAME_EVENT') handleGameEvent(p);
-    else if (msg.type === 'STATE') { LEGEND.rules = p.rules || {}; LEGEND.gifts = p.gifts || []; renderLegend(); }
-    else if (msg.type === 'RULES_UPDATED') { LEGEND.rules = p.rules || {}; renderLegend(); }
-    else if (msg.type === 'GIFTS') { LEGEND.gifts = p.gifts || []; renderLegend(); }
+    switch (msg.type) {
+      case 'GAME_EVENT': handleGameEvent(p); break;
+      case 'STATE':
+        LEGEND.rules = p.rules || {}; LEGEND.gifts = p.gifts || []; LEGEND.commands = p.commands || {}; renderLegend();
+        LIKES.goals = p.goals || []; LIKES.total = p.likes?.totalLikes ?? 0; renderGoals();
+        renderSupporters(p.supporters); S.paused = !!p.paused;
+        break;
+      case 'RULES_UPDATED': LEGEND.rules = p.rules || {}; renderLegend(); break;
+      case 'GIFTS': LEGEND.gifts = p.gifts || []; renderLegend(); break;
+      case 'COMMANDS_UPDATED': LEGEND.commands = p.commands || {}; renderLegend(); break;
+      case 'GOALS_UPDATED': LIKES.goals = p.goals || []; renderGoals(); break;
+      case 'LIKES_UPDATE': LIKES.total = p.totalLikes ?? LIKES.total; renderGoals(); break;
+      case 'SUPPORTERS': renderSupporters(p.top); break;
+      case 'PAUSED': S.paused = !!p.paused; break;
+      case 'GIFT_RECEIVED':
+        if (p.totalDiamonds > 0 && S.crashed <= 0) S.runGifters[p.user] = (S.runGifters[p.user] || 0) + p.totalDiamonds;
+        break;
+    }
   };
   ws.onclose = (e) => {
     if (e.code === 4401) { setConn(false, 'access token missing: add ?token=… to the URL'); return; }

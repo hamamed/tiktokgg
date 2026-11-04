@@ -66,6 +66,17 @@ The installer runs the server on `127.0.0.1` (a free port in 3200-3299) and adds
 
 **Gifts:** the dashboard shows every TikTok gift with its real image. Tap a gift to choose what it does in the game. Press **Load TikTok gifts** while you're connected, or enter any account that is LIVE right now. On the VPS the installer also copies the gift list and images that `koydam-tiktok` has already downloaded (`/opt/koydam-tiktok/data`).
 
+**Stream features** (all saved in `DATA_DIR` on the server):
+* **Chat commands:** for example `!left → Move left`, with a shared wait and a per-viewer wait. Viewers can type `!left` or just `left`.
+* **Like goals:** "every N likes → action". The game shows a progress bar.
+* **Top supporters:** the top 3 gifters of the stream are shown in the game. When the car crashes, the banner names the MVP of that run.
+* **Presets:** save the gifts, chat commands and like goals as a named preset, and load it from the dashboard or the phone.
+* **Auto-connect:** the server checks every minute whether your account is LIVE and connects by itself. A manual Disconnect turns it off.
+* **Pause:** freezes the game. Gifts are still counted but trigger nothing.
+* **Phone remote:** `/remote.html`. Scan the QR code from **Live controls → Phone remote** on the dashboard.
+* **Sound:** generated in the browser. In OBS, tick "Control audio via OBS" on the Browser Source. Add `&sound=0` to the game link to turn it off.
+* **Stream reports:** saved when a stream ends or you disconnect: diamonds, top gifters, gifts, actions, likes, peak viewers and best run. Download each one as CSV (`/api/reports/<id>.csv?token=…`). Dashboard tests aren't counted while you're live.
+
 Rules are saved on the server (`DATA_DIR/rules.json`, on the VPS `/var/lib/tiktokgg/rules.json`), so they survive restarts and updates. In the **Games** panel each action card shows its gifts. Use **+ Gift** to add one, and × to remove it. Mapped gift tiles also have a trash button, and **Clear all** removes every rule. Press **Apply Rules** to send changes.
 
 ### Lite setup on your own PC

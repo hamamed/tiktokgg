@@ -37,6 +37,17 @@ Dashboard → server:
 { "type": "GET_STATE" }
 { "type": "FETCH_GIFTS", "payload": { "username": "any_live_account" } }
 ```
+```json
+{ "type": "UPDATE_COMMANDS", "payload": { "commands": { "!left": { "action": "STEER_LEFT", "value": 1, "cooldown": 3, "userCooldown": 10 } } } }
+{ "type": "UPDATE_GOALS", "payload": { "goals": [{ "every": 1000, "action": "HEAL_PLAYER", "value": 20, "label": "Free heal" }] } }
+{ "type": "SET_PAUSED", "payload": { "paused": true } }
+{ "type": "SET_AUTO_CONNECT", "payload": { "enabled": true, "username": "my_tiktok" } }
+{ "type": "SAVE_PRESET", "payload": { "name": "Chaos mode" } }   (also LOAD_PRESET / DELETE_PRESET)
+{ "type": "TEST_CHAT", "payload": { "comment": "!left" } }       { "type": "TEST_LIKES", "payload": { "count": 500 } }
+{ "type": "GET_REPORTS" }   { "type": "GET_REPORT", "payload": { "id": "current" } }
+```
+`GAME_EVENT` has a `source` field: `gift`, `chat`, `likes` or `test`. The server also sends `COMMANDS_UPDATED`, `GOALS_UPDATED`, `PAUSED`, `PRESETS`, `SUPPORTERS` (top 3 gifters), `SESSION` (current stream totals) and `REPORTS`. Reports download as CSV from `GET /api/reports/<id>.csv?token=…`, where `id` can be `current`.
+
 `FETCH_GIFTS` loads TikTok's full gift list (names, diamond prices, images). Leave out `username` to use the stream you're connected to. TikTok only returns the list for an account that is LIVE at that moment.
 Each message gets an `ACK` or `ERROR` reply. If you send an `id`, the reply carries it back as `requestId`.
 
