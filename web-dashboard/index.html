@@ -554,11 +554,11 @@
         </button>
       </div>
 
-      <div class="grid gap-5 md:grid-cols-[minmax(0,300px)_1fr]" v-if="activeGame">
-        <!-- live preview (follows the active game) -->
-        <div class="mx-auto w-full max-w-[300px]">
+      <div class="grid gap-5" :class="gamePane === 'layout' ? 'md:grid-cols-[minmax(0,420px)_1fr]' : 'md:grid-cols-[minmax(0,300px)_1fr]'" v-if="activeGame">
+        <!-- live preview (follows the active game; editable in Screen layout) -->
+        <div class="mx-auto w-full" :class="gamePane === 'layout' ? 'max-w-[420px]' : 'max-w-[300px]'">
           <div class="relative aspect-[9/16] overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/50">
-            <iframe v-if="previewOn && tab === 'games'" :key="previewKey" :src="gameUrl(true)" title="Game preview" class="absolute inset-0 h-full w-full" allow="autoplay"></iframe>
+            <iframe v-if="previewOn && tab === 'games'" :key="previewKey + gamePane" :src="gameUrl(true) + (gamePane === 'layout' ? '&edit=1' : '')" :title="gamePane === 'layout' ? 'Layout editor' : 'Game preview'" class="absolute inset-0 h-full w-full" allow="autoplay"></iframe>
             <button v-else class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-white" @click="previewOn = true">
               <lc-icon name="circle-play" :size="44"></lc-icon><span class="text-sm font-semibold">Start preview</span>
             </button>
@@ -575,11 +575,47 @@
             <p class="mt-1 text-sm text-slate-400">{{ activeGame.description }}</p>
           </div>
           <div class="flex w-fit gap-1 rounded-xl bg-slate-950/70 p-1" role="tablist" aria-label="Game panels">
-            <button v-for="pn in [['gifts', 'Gift actions', 'gift'], ['settings', 'Game settings', 'sliders-horizontal']]" :key="pn[0]" role="tab" :aria-selected="gamePane === pn[0]" @click="gamePane = pn[0]"
+            <button v-for="pn in [['gifts', 'Gift actions', 'gift'], ['settings', 'Game settings', 'sliders-horizontal'], ['layout', 'Screen layout', 'layout-dashboard']]" :key="pn[0]" role="tab" :aria-selected="gamePane === pn[0]" @click="gamePane = pn[0]"
                     class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition" :class="gamePane === pn[0] ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'">
               <lc-icon :name="pn[2]" :size="14"></lc-icon>{{ pn[1] }}
             </button>
           </div>
+          <!-- screen layout: move / resize / H-V every window -->
+          <div v-show="gamePane === 'layout'" class="flex flex-col gap-3">
+            <div class="rounded-xl border border-tt-cyan/30 bg-tt-cyan/[.06] p-3 text-xs text-slate-300">
+              <b class="text-white">Drag the windows on the preview</b> to put them anywhere. Click a window to pick it, drag the <b class="text-tt-red">red handle</b> to make it wider or narrower, and use its bar for
+              <b>H</b> (horizontal) / <b>V</b> (vertical), size and reset. OBS updates live. Every game has its own layout.
+              <a class="ml-1 font-semibold text-tt-cyan hover:underline" :href="gameUrl(false) + '&edit=1'" target="_blank" rel="noopener">Open the big editor ↗</a>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <div v-for="w in LAYOUT_WINDOWS" :key="w.key" class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-white/5 bg-slate-950/50 px-3 py-2">
+                <lc-icon :name="w.icon" :size="16" class="text-tt-cyan"></lc-icon>
+                <span class="min-w-[120px] flex-1 text-sm font-semibold">{{ w.label }}
+                  <span class="block text-[11px] font-normal" :class="layout[w.key]?.x != null ? 'text-amber-300' : 'text-slate-500'">{{ layout[w.key]?.x != null ? `moved · ${Math.round(layout[w.key].x)}%, ${Math.round(layout[w.key].y)}%` : 'default place' }}</span>
+                </span>
+                <label v-if="w.show" class="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400" :title="'Show ' + w.label">
+                  <span class="relative inline-flex items-center">
+                    <input type="checkbox" class="peer sr-only" :checked="gameOptionsDraft[w.show] !== false" @change="gameOptionsDraft[w.show] = $event.target.checked; optChanged(true)" />
+                    <span class="h-4 w-7 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500"></span>
+                    <span class="absolute left-0.5 h-3 w-3 rounded-full bg-white transition peer-checked:translate-x-3"></span>
+                  </span>show
+                </label>
+                <div v-if="w.dir" class="flex overflow-hidden rounded-lg border border-white/10 text-xs font-bold">
+                  <button v-for="d in ['h', 'v']" :key="d" class="px-2 py-1 transition" :class="(layout[w.key]?.dir || w.dir) === d ? 'bg-tt-red text-white' : 'text-slate-400 hover:text-white'" @click="setWin(w.key, { dir: d })" :title="d === 'h' ? 'Horizontal' : 'Vertical'">{{ d.toUpperCase() }}</button>
+                </div>
+                <label class="flex items-center gap-1.5 text-xs text-slate-400">size
+                  <input type="range" min="0.5" max="2.5" step="0.1" :value="layout[w.key]?.s || 1" @change="setWin(w.key, { s: Number($event.target.value) })" class="w-20 accent-tt-red" />
+                  <b class="w-9 tabular-nums text-slate-300">{{ Math.round((layout[w.key]?.s || 1) * 100) }}%</b>
+                </label>
+                <button class="btn btn-ghost !px-2 !py-1 text-xs" :disabled="!layout[w.key]" @click="setWin(w.key, null)" title="Back to the default place, size and direction"><lc-icon name="rotate-ccw" :size="13"></lc-icon></button>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button class="btn btn-ghost !py-1.5 text-xs" :class="fx.layoutAll" :disabled="socketState !== 'open'" @click="copyLayoutToAll()"><lc-icon name="copy" :size="14"></lc-icon> Use this layout in all games</button>
+              <button class="btn btn-ghost !py-1.5 text-xs text-red-300" :class="fx.layoutReset" :disabled="socketState !== 'open' || !Object.keys(layout).length" @click="resetLayout()"><lc-icon name="rotate-ccw" :size="14"></lc-icon> Reset all windows</button>
+            </div>
+          </div>
+
           <!-- game settings: everything the game does and shows; changes apply live -->
           <div v-show="gamePane === 'settings'" class="flex flex-col gap-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
@@ -1244,7 +1280,7 @@ const actionLook = (id) => {
   return a ? toUiAction(a) : NO_ACTION;
 };
 
-const { createApp, reactive, ref, computed, nextTick, onMounted } = Vue;
+const { createApp, reactive, ref, computed, nextTick, onMounted, watch } = Vue;
 
 const app = createApp({
   setup() {
@@ -1464,6 +1500,7 @@ const app = createApp({
           if (p.game) { activeGameId.value = p.game; CAT.active = p.game; }
           if (!ACTIONS.value.some((a) => a.id === custom.action)) custom.action = ACTIONS.value[0]?.id || custom.action;
           loadOptionsDraft(p.gameOptions || {});
+          applyLayoutMsg(p.layout);
           if (p.settings) applySettings(p.settings);
           if (p.teams) applyTeams(p.teams);
           voices.value = p.voices || [];
@@ -1488,6 +1525,7 @@ const app = createApp({
         case 'GAME_CHANGED':
           activeGameId.value = p.game; CAT.active = p.game;
           clearTimeout(optTimer); optSaving.value = false;
+          applyLayoutMsg(p.layout);
           loadOptionsDraft(p.options || {});
           custom.action = ACTIONS.value[0]?.id || custom.action;
           closeMenu(); closePicker();
@@ -1496,6 +1534,7 @@ const app = createApp({
         case 'GAME_OPTIONS': if (p.game === activeGameId.value) loadOptionsDraft(p.options || {}); break;
         case 'SETTINGS': applySettings(p); break;
         case 'TEAMS': applyTeams(p); break;
+        case 'LAYOUT': applyLayoutMsg(p.layout); break;
         case 'TEAM_JOIN': addLog('CHAT', `<span class="text-emerald-300">@${esc(p.user)}</span> joined <b class="${p.team === 'red' ? 'text-tt-red' : 'text-tt-cyan'}">${esc(teams.names?.[p.team] || p.team)}</b>${p.how === 'auto' ? ' <span class="text-slate-500">(auto)</span>' : ''}`, true); break;
         case 'TEAM_ROUND':
           if (p.kind === 'end') addLog('SYS', p.winner ? `team round: <b class="${p.winner === 'red' ? 'text-tt-red' : 'text-tt-cyan'}">${esc(p.names?.[p.winner])}</b> won ${p.score.red} – ${p.score.blue}${p.mvp ? ` · MVP @${esc(p.mvp.user)}` : ''}` : `team round: draw ${p.score.red} – ${p.score.blue}`);
@@ -1822,6 +1861,26 @@ const app = createApp({
       optionsDirty.value = false;
     }
     const gamePane = ref('gifts');
+    watch(gamePane, (p) => { if (p === 'layout') previewOn.value = true; }); // the editor is the preview
+    // Screen layout of the active game: { legend: { x, y, w, s, dir } }
+    const layout = reactive({});
+    const LAYOUT_WINDOWS = [
+      { key: 'legend', label: 'Gift list', icon: 'gift', dir: 'v', show: 'showLegend' },
+      { key: 'hud', label: 'Score panel', icon: 'trophy', dir: 'h', show: 'showHud' },
+      { key: 'supporters', label: 'Top supporters', icon: 'crown', dir: 'v', show: 'showSupporters' },
+      { key: 'goals', label: 'Like goals', icon: 'heart', dir: 'v', show: 'showGoals' },
+      { key: 'alerts', label: 'Gift alerts', icon: 'bell', dir: 'v', show: 'showAlerts' },
+      { key: 'effects', label: 'Effect timers', icon: 'timer', dir: 'h', show: 'showEffects' },
+      { key: 'ticker', label: 'Tips bar', icon: 'lightbulb', show: 'showTicker' },
+      { key: 'banner', label: 'Big banners', icon: 'megaphone', show: 'showBanners' },
+      { key: 'toasts', label: 'Join messages', icon: 'hand' },
+      { key: 'teambar', label: 'Team battle bar', icon: 'swords' },
+    ];
+    function applyLayoutMsg(l) { for (const k of Object.keys(layout)) delete layout[k]; Object.assign(layout, l || {}); }
+    const sendLayout = (payload, key, ok) => act(key, 'UPDATE_LAYOUT', payload, ok).then((r) => applyLayoutMsg(r.layout)).catch(() => {});
+    const setWin = (k, patch) => sendLayout({ layout: { [k]: patch === null ? null : { ...(layout[k] || {}), ...patch } } }, 'layoutWin');
+    const resetLayout = () => { if (confirm('Put every window back in its default place for this game?')) sendLayout({ layout: {}, replace: true }, 'layoutReset', 'Layout reset'); };
+    const copyLayoutToAll = () => { if (confirm('Use this game\'s window layout in every game?')) sendLayout({ layout: { ...layout }, replace: true, copyToAll: true }, 'layoutAll', 'Layout copied to every game'); };
     const DEFAULT_GROUPS = [{ id: 'play', label: 'Gameplay', icon: 'sliders-horizontal' }, { id: 'text', label: 'Names, words & lists', icon: 'list' }, { id: 'show', label: 'On screen', icon: 'eye' }, { id: 'sound', label: 'Sound', icon: 'volume-2' }];
     const optionGroups = computed(() => {
       const opts = activeGame.value?.options || [];
@@ -2081,7 +2140,7 @@ const app = createApp({
       teams, teamDraft, teamDirty, teamPct, fmtClock, saveTeams, toggleTeams, teamControl, testTeam, TEAM_ROUNDS,
       ACTIONS, TESTS, GAMES, TABS, VOICE_TOGGLES, TEMPLATE_KEYS, STREAM_LANGS, LOG_FILTERS, TAG_COLOR, TAG_STYLE, giftLook, actionLook,
       tab, setTab, activeGameId, activeGame, setGame, gameOptionsDraft, optionsDirty, saveGameOptions, resetGame,
-      gamePane, optionGroups, fmtOpt, optSaving, optChanged, defaultOptions,
+      gamePane, optionGroups, layout, LAYOUT_WINDOWS, setWin, resetLayout, copyLayoutToAll, fmtOpt, optSaving, optChanged, defaultOptions,
       voices, voiceEngine, voiceDraft, voiceDirty, loadVoiceDraft, saveVoice, setVoiceLang, testVoice, testSocial,
       overlaySettings, toggleOverlay, clientsInfo, steps, setupSteps, setupDone, firstRuleGift, tryGift,
       serverUrl, serverUrlDraft, tokenDraft, showServer, saveServerUrl,

@@ -181,6 +181,15 @@ Several rules can match the same event (for example, Rose → `spawn_train` at t
 
 Use Export/Import in the rules panel to save a rule set per game or per show as JSON.
 
+## Screen layout (move any window)
+
+Dashboard → **Games** → **Screen layout**. The preview turns into an editor:
+
+- Drag any window to put it anywhere: gift list, score panel, top supporters, like goals, gift alerts, effect timers, tips bar, big banners, join messages or the team battle bar.
+- Click a window to pick it. Drag its red handle to make it wider or narrower. Its bar has **H / V** (horizontal or vertical) for the gift list, score panel, supporters, like goals, alerts and effect timers, plus size − / + and reset.
+- The list next to the preview does the same with buttons: show/hide, H / V, size and reset, plus *Use this layout in all games* and *Reset all windows*.
+- Each game keeps its own layout, and presets save it. OBS updates live. For a bigger editor, open `play.html?edit=1&token=…`.
+
 ## Game settings (per game)
 
 Dashboard → **Games** → **Game settings**. Each game keeps its own settings, and changes go live on stream right away. The preview next to the panel shows them.

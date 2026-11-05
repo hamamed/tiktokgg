@@ -130,6 +130,7 @@ const MSG = Object.freeze({
   TEST_SOCIAL: 'TEST_SOCIAL',
   ANNOUNCE: 'ANNOUNCE',
   UPDATE_TEAMS: 'UPDATE_TEAMS',
+  UPDATE_LAYOUT: 'UPDATE_LAYOUT',
   TEAM_CONTROL: 'TEAM_CONTROL',
   // outbound
   STATE: 'STATE',
@@ -153,6 +154,7 @@ const MSG = Object.freeze({
   CHAT: 'CHAT',
   CLIENTS: 'CLIENTS',
   TEAMS: 'TEAMS',
+  LAYOUT: 'LAYOUT',
   TEAM_JOIN: 'TEAM_JOIN',
   TEAM_ROUND: 'TEAM_ROUND',
   RULES_UPDATED: 'RULES_UPDATED',
@@ -1060,6 +1062,23 @@ const StreamSettings = (() => {
   };
 })();
 
+/**
+ * Screen layout: where each overlay window sits on the stream page, per game.
+ * { legend: { x, y, w, s, dir } } — x / y / w in % of the screen, s = size (1 = normal), dir 'h' | 'v'.
+ * A window without x / y stays in its default place.
+ */
+const LAYOUT_WINDOWS = ['hud', 'teambar', 'effects', 'alerts', 'legend', 'goals', 'supporters', 'ticker', 'toasts', 'banner'];
+function cleanWindow(v, cur = {}) {
+  if (v === null) return null;
+  if (typeof v !== 'object') throw new Error('layout windows must be objects');
+  const out = { ...cur };
+  const n = (k, lo, hi) => { if (v[k] === null) delete out[k]; else if (v[k] !== undefined) out[k] = Math.round(clampNum(v[k], lo, hi, lo) * 10) / 10; };
+  n('x', 0, 100); n('y', 0, 100); n('w', 5, 100); n('s', 0.5, 2.5);
+  if (v.dir === 'h' || v.dir === 'v') out.dir = v.dir; else if (v.dir === null) delete out.dir;
+  if ((out.x === undefined) !== (out.y === undefined)) { delete out.x; delete out.y; }
+  return Object.keys(out).length ? out : null;
+}
+
 /** The active game and each game's own setup. Switching games swaps rules, commands, goals and options. */
 const GameConfig = (() => {
   const f = jsonFile('games.json');
@@ -1075,6 +1094,7 @@ const GameConfig = (() => {
     const saved = games[id]?.options || {};
     return Object.fromEntries((g?.options || []).map((o) => [o.key, saved[o.key] ?? o.default]));
   }
+  const layout = (id = active) => games[id]?.layout || {};
   function cleanOptions(id, input) {
     const out = { ...options(id) };
     for (const o of Catalog.game(id)?.options || []) {
@@ -1092,7 +1112,7 @@ const GameConfig = (() => {
     return out;
   }
   function remember() {
-    games[active] = { rules: RuleStore.all(), commands: CommandStore.all(), goals: GoalStore.all(), options: games[active]?.options || {} };
+    games[active] = { rules: RuleStore.all(), commands: CommandStore.all(), goals: GoalStore.all(), options: games[active]?.options || {}, layout: games[active]?.layout || {} };
     f.write(games);
   }
   function apply(cfg) {
@@ -1101,7 +1121,7 @@ const GameConfig = (() => {
     GoalStore.update(cfg.goals || []);
   }
   function broadcastAll(reason) {
-    Hub.broadcast(MSG.GAME_CHANGED, { game: active, options: options() });
+    Hub.broadcast(MSG.GAME_CHANGED, { game: active, options: options(), layout: layout() });
     Hub.broadcast(MSG.RULES_UPDATED, { rules: RuleStore.all(), reason, game: active });
     Hub.broadcast(MSG.COMMANDS_UPDATED, { commands: CommandStore.all(), reason });
     Hub.broadcast(MSG.GOALS_UPDATED, { goals: GoalStore.all(), reason });
@@ -1121,6 +1141,22 @@ const GameConfig = (() => {
     },
     active: () => active,
     options,
+    layout,
+    /** Merge window changes into the active game's layout ({ legend: {...} | null }), or replace it, or copy it to every game. */
+    setLayout({ layout: input = {}, replace = false, copyToAll = false } = {}) {
+      if (!input || typeof input !== 'object') throw new Error('layout must be an object');
+      const next = replace ? {} : { ...layout() };
+      for (const [k, v] of Object.entries(input)) {
+        if (!LAYOUT_WINDOWS.includes(k)) continue;
+        const w = cleanWindow(v, replace ? {} : next[k]);
+        if (w) next[k] = w; else delete next[k];
+      }
+      games[active] = { ...(games[active] || {}), layout: next };
+      if (copyToAll) for (const g of Catalog.games()) games[g.id] = { ...(games[g.id] || defaultsFor(g.id)), layout: JSON.parse(JSON.stringify(next)) };
+      f.write(games);
+      Hub.broadcast(MSG.LAYOUT, { game: active, layout: next, copied: !!copyToAll });
+      return { game: active, layout: next };
+    },
     remember,
     switchTo(id) {
       if (!Catalog.game(id)) throw new Error(`Unknown game "${id}"`);
@@ -1136,7 +1172,7 @@ const GameConfig = (() => {
     },
     resetDefaults() {
       apply(defaultsFor(active));
-      games[active] = { ...defaultsFor(active), options: {} };
+      games[active] = { ...defaultsFor(active), options: {}, layout: layout() }; // the screen layout stays
       remember();
       broadcastAll('game');
       return { game: active };
@@ -1534,7 +1570,7 @@ const Presets = (() => {
     save(name) {
       const n = cleanName(name);
       if (!presets[n] && Object.keys(presets).length >= 30) throw new Error('At most 30 presets');
-      presets[n] = { game: GameConfig.active(), rules: RuleStore.all(), commands: CommandStore.all(), goals: GoalStore.all(), options: GameConfig.options(), savedAt: Date.now() };
+      presets[n] = { game: GameConfig.active(), rules: RuleStore.all(), commands: CommandStore.all(), goals: GoalStore.all(), options: GameConfig.options(), layout: GameConfig.layout(), savedAt: Date.now() };
       f.write(presets); broadcast();
       log.info(`Preset saved: ${n}`);
       return { name: n };
@@ -1549,6 +1585,7 @@ const Presets = (() => {
       const commands = CommandStore.update(p.commands || {});
       const goals = GoalStore.update(p.goals || []);
       if (p.options) GameConfig.setOptions(p.options);
+      if (p.layout) GameConfig.setLayout({ layout: p.layout, replace: true });
       GameConfig.remember();
       Hub.broadcast(MSG.RULES_UPDATED, { rules, reason: 'preset', preset: n });
       Hub.broadcast(MSG.COMMANDS_UPDATED, { commands, reason: 'preset' });
@@ -1956,6 +1993,7 @@ const handlers = {
   [MSG.RESET_GAME]() { return GameConfig.resetDefaults(); },
   [MSG.UPDATE_SETTINGS](p) { return StreamSettings.update(p); },
   [MSG.UPDATE_TEAMS](p) { return Teams.update(p); },
+  [MSG.UPDATE_LAYOUT](p) { return GameConfig.setLayout(p); },
   [MSG.TEAM_CONTROL]({ op }) { return Teams.control(String(op ?? '')); },
   async [MSG.TEST_VOICE]({ text } = {}) {
     const line = String(text || '').trim() || L(`Voice test. ${Engage.tip()}`, `اختبار الصوت. ${Engage.tip()}`, `Ses testi. ${Engage.tip()}`);
@@ -2070,7 +2108,7 @@ function snapshot() {
     status: TikTok.status(), rules: RuleStore.all(), likes: Likes.toJSON(), viewerCount: Viewers.viewerCount, clients: Hub.clients.size, gifts: GiftCatalog.list(),
     commands: CommandStore.all(), goals: GoalStore.all(), paused: Control.paused, presets: Presets.list(),
     supporters: Session.topGifters(3), session: Session.summary(),
-    game: GameConfig.active(), gameOptions: GameConfig.options(), settings: StreamSettings.all(),
+    game: GameConfig.active(), gameOptions: GameConfig.options(), layout: GameConfig.layout(), settings: StreamSettings.all(),
     voices: VOICES, voiceEngine: Voice.status(), clientsInfo: Hub.clientCounts(), teams: Teams.state(),
   };
 }
