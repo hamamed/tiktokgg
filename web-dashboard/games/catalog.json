@@ -280,6 +280,18 @@
      "l": {
       "ar": "سحب للأحمر",
       "tr": "Kırmızı için çek"
+     },
+     "team": "red",
+     "teamRole": "own",
+     "teamLabel": {
+      "en": "Pull for your team",
+      "ar": "اسحب لفريقك",
+      "tr": "Takımın için çek"
+     },
+     "teamSay": {
+      "en": "pull for your team",
+      "ar": "السحب لفريقك",
+      "tr": "takımın için çekmek"
      }
     },
     {
@@ -299,6 +311,18 @@
      "l": {
       "ar": "سحب للأزرق",
       "tr": "Mavi için çek"
+     },
+     "team": "blue",
+     "teamRole": "own",
+     "teamLabel": {
+      "en": "Pull for your team",
+      "ar": "اسحب لفريقك",
+      "tr": "Takımın için çek"
+     },
+     "teamSay": {
+      "en": "pull for your team",
+      "ar": "السحب لفريقك",
+      "tr": "takımın için çekmek"
      }
     },
     {
@@ -318,6 +342,18 @@
      "l": {
       "ar": "تجميد الأحمر",
       "tr": "Kırmızıyı dondur"
+     },
+     "team": "red",
+     "teamRole": "enemy",
+     "teamLabel": {
+      "en": "Freeze the other team",
+      "ar": "جمّد الفريق الآخر",
+      "tr": "Rakip takımı dondur"
+     },
+     "teamSay": {
+      "en": "freeze the other team",
+      "ar": "تجميد الفريق الآخر",
+      "tr": "rakip takımı dondurmak"
      }
     },
     {
@@ -337,6 +373,18 @@
      "l": {
       "ar": "تجميد الأزرق",
       "tr": "Maviyi dondur"
+     },
+     "team": "blue",
+     "teamRole": "enemy",
+     "teamLabel": {
+      "en": "Freeze the other team",
+      "ar": "جمّد الفريق الآخر",
+      "tr": "Rakip takımı dondur"
+     },
+     "teamSay": {
+      "en": "freeze the other team",
+      "ar": "تجميد الفريق الآخر",
+      "tr": "rakip takımı dondurmak"
      }
     },
     {
@@ -434,7 +482,8 @@
    "n": {
     "ar": "شد الحبل",
     "tr": "Halat Çekme"
-   }
+   },
+   "teamGame": true
   },
   {
    "id": "tower-race",
@@ -465,6 +514,18 @@
      "l": {
       "ar": "بناء الأحمر",
       "tr": "Kırmızıyı inşa et"
+     },
+     "team": "red",
+     "teamRole": "own",
+     "teamLabel": {
+      "en": "Build your team tower",
+      "ar": "ابنِ برج فريقك",
+      "tr": "Takımının kulesini yap"
+     },
+     "teamSay": {
+      "en": "build your team tower",
+      "ar": "بناء برج فريقك",
+      "tr": "takımının kulesini yapmak"
      }
     },
     {
@@ -484,6 +545,18 @@
      "l": {
       "ar": "بناء الأزرق",
       "tr": "Maviyi inşa et"
+     },
+     "team": "blue",
+     "teamRole": "own",
+     "teamLabel": {
+      "en": "Build your team tower",
+      "ar": "ابنِ برج فريقك",
+      "tr": "Takımının kulesini yap"
+     },
+     "teamSay": {
+      "en": "build your team tower",
+      "ar": "بناء برج فريقك",
+      "tr": "takımının kulesini yapmak"
      }
     },
     {
@@ -503,6 +576,18 @@
      "l": {
       "ar": "رياح على الأحمر",
       "tr": "Kırmızıya rüzgar"
+     },
+     "team": "red",
+     "teamRole": "enemy",
+     "teamLabel": {
+      "en": "Wind on the other tower",
+      "ar": "رياح على برج الخصم",
+      "tr": "Rakip kuleye rüzgar"
+     },
+     "teamSay": {
+      "en": "blow wind on the other tower",
+      "ar": "إرسال رياح على برج الخصم",
+      "tr": "rakip kuleye rüzgar göndermek"
      }
     },
     {
@@ -522,6 +607,18 @@
      "l": {
       "ar": "رياح على الأزرق",
       "tr": "Maviye rüzgar"
+     },
+     "team": "blue",
+     "teamRole": "enemy",
+     "teamLabel": {
+      "en": "Wind on the other tower",
+      "ar": "رياح على برج الخصم",
+      "tr": "Rakip kuleye rüzgar"
+     },
+     "teamSay": {
+      "en": "blow wind on the other tower",
+      "ar": "إرسال رياح على برج الخصم",
+      "tr": "rakip kuleye rüzgar göndermek"
      }
     },
     {
@@ -606,7 +703,8 @@
    "n": {
     "ar": "سباق الأبراج",
     "tr": "Kule Yarışı"
-   }
+   },
+   "teamGame": true
   },
   {
    "id": "castle-defense",

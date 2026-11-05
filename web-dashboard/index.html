@@ -625,6 +625,90 @@
       </div>
     </section>
     <!-- ===================================================================== -->
+    <!-- TEAMS: split viewers into Red and Blue                                 -->
+    <!-- ===================================================================== -->
+    <section v-show="tab === 'teams'" class="grid gap-5 lg:col-span-2 lg:grid-cols-2 lg:items-start" aria-labelledby="teams-title">
+      <div class="card flex flex-col gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="teams-title" class="flex items-center gap-2 text-lg font-bold"><lc-icon name="swords" :size="18" class="text-tt-red"></lc-icon> Team battle</h2>
+          <button class="btn !py-1.5 text-sm" :class="[teams.enabled ? 'btn-ghost' : 'btn-primary', fx.teamsOn]" :disabled="socketState !== 'open' || busy.teamsOn" @click="toggleTeams()">
+            <lc-icon :name="teams.enabled ? 'power-off' : 'power'" :size="15"></lc-icon> {{ teams.enabled ? 'Turn teams off' : 'Turn teams on' }}
+          </button>
+        </div>
+        <p class="-mt-2 text-xs text-slate-400">
+          Viewers type <b class="text-tt-red">1</b> to join Red or <b class="text-tt-cyan">2</b> to join Blue (also red / blue, أحمر / أزرق, kırmızı / mavi, or <b>join</b> for the smaller team).
+          Every diamond they gift is a point for their team, plus a point per {{ teamDraft.likesPerPoint }} likes. When the timer ends, the team with more points wins and the voice announces the winner and the team MVP. Works with every game.
+        </p>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="flex flex-col gap-1"><span class="label">Red team name</span>
+            <input v-model.trim="teamDraft.redName" @input="teamDirty = true" maxlength="20" placeholder="(stream language: Red)" class="field !py-1.5 text-sm" />
+          </label>
+          <label class="flex flex-col gap-1"><span class="label">Blue team name</span>
+            <input v-model.trim="teamDraft.blueName" @input="teamDirty = true" maxlength="20" placeholder="(stream language: Blue)" class="field !py-1.5 text-sm" />
+          </label>
+          <label class="flex flex-col gap-1"><span class="label">Round length</span>
+            <select v-model.number="teamDraft.roundSeconds" @change="teamDirty = true" class="field !py-1.5 text-sm">
+              <option v-for="o in TEAM_ROUNDS" :key="o[0]" :value="o[0]">{{ o[1] }}</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-1"><span class="label">Likes for 1 point</span>
+            <input type="number" min="1" max="10000" v-model.number="teamDraft.likesPerPoint" @input="teamDirty = true" class="field !py-1.5 text-sm" />
+          </label>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="flex items-center gap-3 rounded-xl bg-slate-950/50 px-3 py-2">
+            <input type="checkbox" class="h-4 w-4 accent-emerald-500" v-model="teamDraft.autoAssign" @change="teamDirty = true" />
+            <lc-icon name="shuffle" :size="15" class="text-amber-300"></lc-icon>
+            <span class="min-w-0 flex-1 text-sm font-semibold">Auto-assign<span class="block text-[11px] font-normal text-slate-400">Someone who gifts or likes without a team joins the smaller team.</span></span>
+          </label>
+          <label class="flex items-center gap-3 rounded-xl bg-slate-950/50 px-3 py-2">
+            <input type="checkbox" class="h-4 w-4 accent-emerald-500" v-model="teamDraft.routeGifts" @change="teamDirty = true" />
+            <lc-icon name="git-fork" :size="15" class="text-tt-cyan"></lc-icon>
+            <span class="min-w-0 flex-1 text-sm font-semibold">Gifts help the sender's team<span class="block text-[11px] font-normal text-slate-400">In Tug of War and Tower Race, "Pull Red" becomes "pull for your team" and "Freeze Blue" becomes "freeze the other team".</span></span>
+          </label>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button class="btn btn-primary !py-1.5 text-sm" :class="fx.saveTeams" :disabled="socketState !== 'open' || !teamDirty || busy.saveTeams" @click="saveTeams()"><lc-icon name="save" :size="15"></lc-icon> Save</button>
+          <span v-if="teamDirty" class="text-xs text-amber-300">unsaved changes</span>
+        </div>
+      </div>
+
+      <div class="card flex flex-col gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 class="flex items-center gap-2 text-lg font-bold"><lc-icon name="trophy" :size="18" class="text-amber-300"></lc-icon> Scoreboard</h3>
+          <span class="rounded-full px-2.5 py-0.5 text-xs font-bold" :class="!teams.enabled ? 'bg-slate-700 text-slate-300' : teams.phase === 'break' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'">
+            {{ !teams.enabled ? 'off' : teams.phase === 'break' ? 'next round soon' : teams.endsAt ? 'ends in ' + fmtClock(teams.endsAt - nowTick) : 'no timer' }}
+          </span>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div v-for="k in ['red', 'blue']" :key="k" class="rounded-xl border p-3" :class="k === 'red' ? 'border-tt-red/40 bg-tt-red/10' : 'border-tt-cyan/40 bg-tt-cyan/10'">
+            <div class="flex items-center justify-between gap-2">
+              <span class="truncate font-black uppercase" :class="k === 'red' ? 'text-tt-red' : 'text-tt-cyan'">{{ teams.names?.[k] || k }}</span>
+              <span class="flex items-center gap-1 text-xs font-bold text-amber-300"><lc-icon name="trophy" :size="12"></lc-icon>{{ teams.rounds?.[k] ?? 0 }}</span>
+            </div>
+            <div class="mt-1 text-3xl font-black tabular-nums">{{ fmt(teams.score?.[k]) }}</div>
+            <div class="flex items-center gap-1 text-xs text-slate-400"><lc-icon name="users" :size="12"></lc-icon>{{ teams.members?.[k] ?? 0 }} players</div>
+            <ol class="mt-2 flex flex-col gap-0.5 text-xs">
+              <li v-for="(m, i) in teams.top?.[k] || []" :key="m.user" class="flex justify-between gap-2"><span class="truncate">{{ i + 1 }}. @{{ m.user }}</span><b class="tabular-nums">{{ fmt(m.points) }}</b></li>
+              <li v-if="!(teams.top?.[k] || []).length" class="text-slate-500">no points yet</li>
+            </ol>
+            <button class="btn btn-ghost mt-2 w-full !py-1 text-xs" :class="fx['tj' + k]" :disabled="socketState !== 'open' || !teams.enabled" @click="testTeam(k)"><lc-icon name="flask-conical" :size="13"></lc-icon> Test: viewer joins + gifts</button>
+          </div>
+        </div>
+        <div class="h-2.5 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+          <div class="flex h-full"><i class="block h-full bg-tt-red transition-all" :style="{ width: teamPct + '%' }"></i><i class="block h-full flex-1 bg-tt-cyan"></i></div>
+        </div>
+        <p v-if="teams.last" class="text-xs text-slate-400">Last round: <b :class="teams.last.winner === 'red' ? 'text-tt-red' : teams.last.winner === 'blue' ? 'text-tt-cyan' : ''">{{ teams.last.winner ? teams.names?.[teams.last.winner] + ' won' : 'draw' }}</b> {{ teams.last.score.red }} – {{ teams.last.score.blue }}<span v-if="teams.last.mvp"> · MVP @{{ teams.last.mvp.user }}</span></p>
+        <div class="flex flex-wrap gap-2">
+          <button class="btn btn-ghost !py-1.5 text-sm" :class="fx.tcnewRound" :disabled="socketState !== 'open' || !teams.enabled" @click="teamControl('newRound')"><lc-icon name="rotate-ccw" :size="15"></lc-icon> New round</button>
+          <button class="btn btn-ghost !py-1.5 text-sm" :class="fx.tcendRound" :disabled="socketState !== 'open' || !teams.enabled || teams.phase !== 'play'" @click="teamControl('endRound')"><lc-icon name="flag" :size="15"></lc-icon> End round now</button>
+          <button class="btn btn-ghost !py-1.5 text-sm" :class="fx.tcclear" :disabled="socketState !== 'open'" @click="teamControl('clear')"><lc-icon name="user-x" :size="15"></lc-icon> Clear teams</button>
+        </div>
+        <p class="text-[11px] text-slate-500">Clear teams empties both teams and the trophies, so everyone picks again. A viewer can switch teams until they score their first point.</p>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
     <!-- STREAM REPORTS                                                        -->
     <!-- ===================================================================== -->
     <section v-show="tab === 'reports'" class="card lg:col-span-2" aria-labelledby="rep-title">
@@ -1050,9 +1134,11 @@ const TABS = [
   { id: 'games', label: 'Games', icon: 'joystick', color: 'text-tt-cyan' },
   { id: 'gifts', label: 'Gifts', icon: 'gift', color: 'text-tt-red' },
   { id: 'chat', label: 'Chat & likes', icon: 'message-square', color: 'text-tt-cyan' },
+  { id: 'teams', label: 'Teams', icon: 'swords', color: 'text-tt-red' },
   { id: 'reports', label: 'Reports', icon: 'chart-column', color: 'text-amber-300' },
   { id: 'settings', label: 'Settings', icon: 'settings', color: 'text-violet-300' },
 ];
+const TEAM_ROUNDS = [[60, '1 minute'], [120, '2 minutes'], [180, '3 minutes'], [300, '5 minutes'], [600, '10 minutes'], [900, '15 minutes'], [0, 'No timer (never ends)']];
 const VOICE_TOGGLES = [
   { key: 'thankGifts', label: 'Thank gifters', help: 'Says thank you with the gifter\'s name (small gifts at most every 4 s).', icon: 'gift', color: 'text-tt-red', num: 'minDiamonds', numLabel: 'from', min: 0 },
   { key: 'welcome', label: 'Welcome new viewers', help: 'Greets people who join, grouped, with a tip about the game.', icon: 'hand', color: 'text-tt-cyan', num: 'welcomeEvery', numLabel: 'every s', min: 5 },
@@ -1192,7 +1278,8 @@ const app = createApp({
     const chatTest = ref('!left');
     const likesTest = ref(100);
     const nowTick = ref(Date.now());
-    setInterval(() => (nowTick.value = Date.now()), 30_000);
+    // Every second while a team round is on (its countdown), otherwise every 30 s (report durations).
+    setInterval(() => { if (teams.enabled || Date.now() - nowTick.value >= 30_000) nowTick.value = Date.now(); }, 1000);
 
     /* ------------------------------------------------------------------
      * Feedback: toasts + button flash
@@ -1316,6 +1403,7 @@ const app = createApp({
           if (!ACTIONS.value.some((a) => a.id === custom.action)) custom.action = ACTIONS.value[0]?.id || custom.action;
           loadOptionsDraft(p.gameOptions || {});
           if (p.settings) applySettings(p.settings);
+          if (p.teams) applyTeams(p.teams);
           voices.value = p.voices || [];
           if (p.voiceEngine) Object.assign(voiceEngine, p.voiceEngine);
           if (p.clientsInfo) Object.assign(clientsInfo, p.clientsInfo);
@@ -1344,6 +1432,11 @@ const app = createApp({
           break;
         case 'GAME_OPTIONS': if (p.game === activeGameId.value) loadOptionsDraft(p.options || {}); break;
         case 'SETTINGS': applySettings(p); break;
+        case 'TEAMS': applyTeams(p); break;
+        case 'TEAM_JOIN': addLog('CHAT', `<span class="text-emerald-300">@${esc(p.user)}</span> joined <b class="${p.team === 'red' ? 'text-tt-red' : 'text-tt-cyan'}">${esc(teams.names?.[p.team] || p.team)}</b>${p.how === 'auto' ? ' <span class="text-slate-500">(auto)</span>' : ''}`, true); break;
+        case 'TEAM_ROUND':
+          if (p.kind === 'end') addLog('SYS', p.winner ? `team round: <b class="${p.winner === 'red' ? 'text-tt-red' : 'text-tt-cyan'}">${esc(p.names?.[p.winner])}</b> won ${p.score.red} – ${p.score.blue}${p.mvp ? ` · MVP @${esc(p.mvp.user)}` : ''}` : `team round: draw ${p.score.red} – ${p.score.blue}`);
+          break;
         case 'CLIENTS': Object.assign(clientsInfo, p); break;
         case 'SAY':
           voiceEngine.engine = p.url ? 'neural' : 'browser';
@@ -1858,6 +1951,38 @@ const app = createApp({
       { label: 'Triggers Fired', icon: 'target', value: fmt(stats.triggers), sub: 'actions sent to game', color: 'text-amber-300' },
     ]);
 
+    /* ------------------------------------------------------------------
+     * Teams
+     * ---------------------------------------------------------------- */
+    const teams = reactive({ enabled: false, names: {}, score: { red: 0, blue: 0 }, rounds: { red: 0, blue: 0 }, members: { red: 0, blue: 0 }, top: { red: [], blue: [] }, phase: 'off', endsAt: 0, last: null });
+    const teamDraft = reactive({ autoAssign: true, routeGifts: true, roundSeconds: 180, likesPerPoint: 10, redName: '', blueName: '' });
+    const teamDirty = ref(false);
+    let teamSkew = 0;
+    function applyTeams(p) {
+      if (p.now) teamSkew = Date.now() - p.now;
+      Object.assign(teams, p, { endsAt: p.endsAt ? p.endsAt + teamSkew : 0 });
+      if (!teamDirty.value && p.config) Object.assign(teamDraft, p.config);
+    }
+    const teamPct = computed(() => { const r = teams.score?.red || 0, b = teams.score?.blue || 0; return r + b ? Math.round((r / (r + b)) * 100) : 50; });
+    const fmtClock = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+    const saveTeams = () => act('saveTeams', 'UPDATE_TEAMS', { ...teamDraft }, 'Team settings saved').then((r) => { teamDirty.value = false; applyTeams(r); }).catch(() => {});
+    const toggleTeams = () => act('teamsOn', 'UPDATE_TEAMS', { ...teamDraft, enabled: !teams.enabled }, (r) => (r.enabled ? 'Teams on: viewers type 1 or 2 to join' : 'Teams off'))
+      .then((r) => { teamDirty.value = false; applyTeams(r); }).catch(() => {});
+    const teamControl = (op) => {
+      if (op === 'clear' && !confirm('Empty both teams and reset the trophies?')) return;
+      act('tc' + op, 'TEAM_CONTROL', { op }, { newRound: 'New round started', endRound: 'Round ended', clear: 'Teams cleared' }[op]).then(applyTeams).catch(() => {});
+    };
+    async function testTeam(k) {
+      const user = `${k}_fan${Math.floor(Math.random() * 90 + 10)}`;
+      try {
+        await send('TEST_CHAT', { comment: k === 'red' ? '1' : '2', user });
+        const gift = firstRuleGift.value && firstRuleGift.value !== '*' ? firstRuleGift.value : 'Rose';
+        await send('TEST_TRIGGER', { giftName: gift, user, repeatCount: 5 });
+        flash('tj' + k, true);
+        toast(`@${user} joined ${teams.names?.[k] || k} and sent 5 × ${gift}`);
+      } catch (err) { flash('tj' + k, false); toast(err.message, 'error'); }
+    }
+
     onMounted(async () => {
       addLog('SYS', 'dashboard ready', true);
       await loadCatalog();
@@ -1865,6 +1990,7 @@ const app = createApp({
     });
 
     return {
+      teams, teamDraft, teamDirty, teamPct, fmtClock, saveTeams, toggleTeams, teamControl, testTeam, TEAM_ROUNDS,
       ACTIONS, TESTS, GAMES, TABS, VOICE_TOGGLES, TEMPLATE_KEYS, STREAM_LANGS, LOG_FILTERS, TAG_COLOR, TAG_STYLE, giftLook, actionLook,
       tab, setTab, activeGameId, activeGame, setGame, gameOptionsDraft, optionsDirty, saveGameOptions, resetGame,
       voices, voiceEngine, voiceDraft, voiceDirty, loadVoiceDraft, saveVoice, setVoiceLang, testVoice, testSocial,

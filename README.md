@@ -181,6 +181,18 @@ Several rules can match the same event (for example, Rose → `spawn_train` at t
 
 Use Export/Import in the rules panel to save a rule set per game or per show as JSON.
 
+## Team battle (Red vs Blue)
+
+Dashboard → **Teams** → *Turn teams on*. It works with every game:
+
+- Viewers type **1** (Red) or **2** (Blue) in chat. They can also type red / blue, أحمر / أزرق, kırmızı / mavi, or `join` for the smaller team. With *Auto-assign* on, anyone who gifts or likes without a team joins the smaller one.
+- Each diamond gifted is 1 point for the sender's team, plus 1 point per N likes (default 10).
+- Rounds are timed (default 3 minutes). The stream shows a battle bar, and the voice warns when 30 s are left. At the end it announces the winner and the team MVP, and a new round starts 10 s later.
+- In Tug of War and Tower Race, gifts help the sender's own team: "Pull Red" becomes "pull for your team" and "Freeze Blue" becomes "freeze the other team". Turn off *Gifts help the sender's team* to keep fixed gift-per-team rules.
+- A viewer can switch teams until they score their first point. *Clear teams* empties both teams.
+
+Protocol: `UPDATE_TEAMS` {enabled, autoAssign, routeGifts, roundSeconds, likesPerPoint, redName, blueName}, `TEAM_CONTROL` {op: newRound | endRound | clear}. The server broadcasts `TEAMS` (state), `TEAM_JOIN` and `TEAM_ROUND` (start / end). Each `GAME_EVENT` carries `team`, plus `originalAction` when it was re-routed.
+
 ## Writing a game client
 
 Read [`schema/PROTOCOL.md`](schema/PROTOCOL.md). In short:

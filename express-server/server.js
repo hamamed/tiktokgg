@@ -129,6 +129,8 @@ const MSG = Object.freeze({
   TEST_VOICE: 'TEST_VOICE',
   TEST_SOCIAL: 'TEST_SOCIAL',
   ANNOUNCE: 'ANNOUNCE',
+  UPDATE_TEAMS: 'UPDATE_TEAMS',
+  TEAM_CONTROL: 'TEAM_CONTROL',
   // outbound
   STATE: 'STATE',
   STATUS: 'STATUS',
@@ -150,6 +152,9 @@ const MSG = Object.freeze({
   SOCIAL: 'SOCIAL',
   CHAT: 'CHAT',
   CLIENTS: 'CLIENTS',
+  TEAMS: 'TEAMS',
+  TEAM_JOIN: 'TEAM_JOIN',
+  TEAM_ROUND: 'TEAM_ROUND',
   RULES_UPDATED: 'RULES_UPDATED',
   LIKES_UPDATE: 'LIKES_UPDATE',
   ACK: 'ACK',
@@ -617,6 +622,7 @@ const Likes = {
     const user = normalizeUser(data);
     this.last = { user, count };
     Session.recordLikes(user, count, simulated);
+    if (!(Session.current().live && simulated)) Teams.likes(user, count);
     GoalStore.check(prev, this.totalLikes, user, simulated);
     this._scheduleBroadcast();
   },
@@ -1242,12 +1248,14 @@ const Engage = (() => {
     const out = [];
     for (const [gift, r] of Object.entries(RuleStore.all())) {
       const a = Catalog.action(game, r.action);
-      if (a && gift !== '*') out.push(lang === 'ar' ? `أرسل ${gift} من أجل ${a.say?.ar ?? a.label}` : lang === 'tr' ? `${a.say?.tr ?? a.label} için ${gift} gönder` : `Send a ${gift} to ${a.say?.en ?? a.label.toLowerCase()}`);
+      const sy = a && Teams.enabled && Teams.state().config.routeGifts && a.teamSay ? a.teamSay : a?.say;
+      if (a && gift !== '*') out.push(lang === 'ar' ? `أرسل ${gift} من أجل ${sy?.ar ?? a.label}` : lang === 'tr' ? `${sy?.tr ?? a.label} için ${gift} gönder` : `Send a ${gift} to ${sy?.en ?? a.label.toLowerCase()}`);
     }
     for (const [cmd, c] of Object.entries(CommandStore.all())) {
       const a = Catalog.action(game, c.action);
       if (a) out.push(lang === 'ar' ? `اكتب ${cmd} في الشات من أجل ${a.say?.ar ?? a.label}` : lang === 'tr' ? `${a.say?.tr ?? a.label} için sohbete ${cmd} yaz` : `Type ${cmd} in chat to ${a.say?.en ?? a.label.toLowerCase()}`);
     }
+    if (Teams.enabled) out.push(Teams.joinHint(), Teams.joinHint()); // teams on: remind people how to join
     const pick = out.length ? out[Math.floor(Math.random() * out.length)] : (Catalog.game(game)?.howTo?.[lang] ?? '');
     return pick.charAt(0).toLocaleUpperCase(lang) + pick.slice(1); // "Ok atmak için…", "Send a Rose…"
   }
@@ -1326,6 +1334,189 @@ function handleSocial(kind, user, simulated = false) {
   else if (kind === 'share') Engage.share(user);
 }
 
+// ============================================================================
+// 8d. TEAMS — split viewers into Red and Blue for any game
+//   • Viewers join by typing 1 / 2 (or red / blue, أحمر / أزرق, kırmızı / mavi) in chat, or !join for
+//     the smaller team. With auto-assign, anyone who sends a gift or likes gets a team automatically.
+//   • Every gift (diamonds) and every N likes give points to the sender's team. Timed rounds:
+//     the team with more points wins, the voice announces the winner and the team MVP.
+//   • In team games (Tug of War, Tower Race) a gift helps the SENDER'S team: "Pull Red" becomes
+//     "pull for your team" and "Freeze Blue" becomes "freeze the other team" (catalog: team + teamRole).
+// ============================================================================
+const TEAM_DEFAULTS = { enabled: false, autoAssign: true, routeGifts: true, roundSeconds: 180, likesPerPoint: 10, redName: '', blueName: '' };
+const TEAM_WORDS = {
+  red: ['1', 'red', 'team red', 'احمر', 'أحمر', 'الاحمر', 'الأحمر', 'kirmizi', 'kırmızı'],
+  blue: ['2', 'blue', 'team blue', 'ازرق', 'أزرق', 'الازرق', 'الأزرق', 'mavi'],
+  any: ['join', 'team', 'انضم', 'فريق', 'katil', 'katıl', 'takim', 'takım'],
+};
+const Teams = (() => {
+  const members = new Map(); // userId -> { team, user, nickname, pic, points, round, likes }
+  const score = { red: 0, blue: 0 };
+  const rounds = { red: 0, blue: 0 };
+  let phase = 'off'; // off | play | break
+  let endsAt = 0;
+  let breakUntil = 0;
+  let warned = false;
+  let lastResult = null;
+  let pushTimer = null;
+  const other = (t) => (t === 'red' ? 'blue' : 'red');
+
+  const cfg = () => ({ ...TEAM_DEFAULTS, ...(Settings.get().teams || {}) });
+  const names = () => {
+    const c = cfg();
+    return { red: c.redName || L('Red', 'الأحمر', 'Kırmızı'), blue: c.blueName || L('Blue', 'الأزرق', 'Mavi') };
+  };
+  const count = (t) => { let n = 0; for (const m of members.values()) if (m.team === t) n++; return n; };
+  const smaller = () => { const r = count('red'), b = count('blue'); return r === b ? (Math.random() < 0.5 ? 'red' : 'blue') : r < b ? 'red' : 'blue'; };
+  const key = (u) => String(u?.uniqueId || '').toLowerCase();
+  function top(team, n = 3) {
+    return [...members.values()].filter((m) => m.team === team && m.round > 0).sort((a, b) => b.round - a.round).slice(0, n)
+      .map((m) => ({ user: m.user, nickname: m.nickname, points: Math.floor(m.round) }));
+  }
+
+  function state() {
+    const c = cfg();
+    return {
+      enabled: c.enabled, config: c, names: names(), phase, score: { red: Math.floor(score.red), blue: Math.floor(score.blue) }, rounds,
+      members: { red: count('red'), blue: count('blue') }, endsAt, breakUntil, now: Date.now(),
+      top: { red: top('red'), blue: top('blue') }, last: lastResult,
+    };
+  }
+  function push() {
+    if (pushTimer) return;
+    pushTimer = setTimeout(() => { pushTimer = null; Hub.broadcast(MSG.TEAMS, state()); }, 250);
+  }
+  const voiceOn = () => StreamSettings.voice().enabled;
+  const say = (text) => { if (voiceOn()) Voice.say(text, { kind: 'game' }); };
+  const joinHint = () => { const n = names(); return L(`Type 1 to join ${n.red} or 2 to join ${n.blue}!`, `اكتب 1 لتنضم إلى ${n.red} أو 2 لتنضم إلى ${n.blue}!`, `${n.red} için 1, ${n.blue} için 2 yaz!`); };
+
+  function startRound(announce = true) {
+    const c = cfg();
+    score.red = 0; score.blue = 0;
+    for (const m of members.values()) m.round = 0;
+    phase = 'play'; warned = false;
+    endsAt = c.roundSeconds > 0 ? Date.now() + c.roundSeconds * 1000 : 0;
+    Hub.broadcast(MSG.TEAM_ROUND, { kind: 'start', names: names() });
+    if (announce) say(L(`New team round! ${joinHint()}`, `جولة فرق جديدة! ${joinHint()}`, `Yeni takım turu! ${joinHint()}`));
+    push();
+  }
+  function endRound() {
+    const n = names();
+    const r = Math.floor(score.red), b = Math.floor(score.blue);
+    if (!r && !b) { startRound(false); return; } // nobody played: start again quietly
+    const winner = r === b ? null : r > b ? 'red' : 'blue';
+    if (winner) rounds[winner]++;
+    const mvp = winner ? top(winner, 1)[0] || null : null;
+    lastResult = { winner, score: { red: r, blue: b }, mvp, names: n, at: Date.now() };
+    phase = 'break'; breakUntil = Date.now() + 10_000;
+    Hub.broadcast(MSG.TEAM_ROUND, { kind: 'end', ...lastResult });
+    const mv = mvp ? mvp.nickname || mvp.user : '';
+    if (!winner) say(L(`It's a draw! ${r} to ${b}.`, `تعادل! ${r} مقابل ${b}.`, `Berabere! ${r}'e ${b}.`));
+    else say(L(`${n[winner]} team wins, ${Math.max(r, b)} to ${Math.min(r, b)}!${mv ? ` MVP: ${mv}!` : ''}`, `فريق ${n[winner]} فاز ${Math.max(r, b)} مقابل ${Math.min(r, b)}!${mv ? ` الأفضل: ${mv}!` : ''}`, `${n[winner]} takımı kazandı, ${Math.max(r, b)}'e ${Math.min(r, b)}!${mv ? ` MVP: ${mv}!` : ''}`));
+    log.info(`Team round over: red ${r} – blue ${b} → ${winner || 'draw'}`);
+    push();
+  }
+  setInterval(() => {
+    if (phase === 'off') return;
+    const now = Date.now();
+    if (phase === 'break') { if (now >= breakUntil) startRound(); return; }
+    if (!endsAt) return;
+    const left = endsAt - now;
+    if (!warned && left <= 30_000 && cfg().roundSeconds >= 60) {
+      warned = true;
+      const n = names(), lead = score.red === score.blue ? null : score.red > score.blue ? 'red' : 'blue';
+      say(lead ? L(`30 seconds left! ${n[lead]} is ahead. ${n[other(lead)]}, send gifts!`, `باقي 30 ثانية! ${n[lead]} في المقدمة. يا ${n[other(lead)]}، أرسلوا الهدايا!`, `30 saniye kaldı! ${n[lead]} önde. ${n[other(lead)]}, hediye gönderin!`)
+        : L('30 seconds left! It\'s a tie!', 'باقي 30 ثانية! النتيجة متعادلة!', '30 saniye kaldı! Berabere!'));
+    }
+    if (left <= 0) endRound();
+  }, 1000).unref();
+
+  function join(u, team, how) {
+    const k = key(u);
+    if (!k) return null;
+    const m = members.get(k);
+    if (m) {
+      if (m.team === team) return m.team;
+      if (m.points > 0) return m.team; // already scored for a team: stays there
+      m.team = team;
+    } else members.set(k, { team, user: u.uniqueId, nickname: u.nickname || u.uniqueId, pic: u.profilePictureUrl ?? null, points: 0, round: 0, likes: 0 });
+    Hub.broadcast(MSG.TEAM_JOIN, { user: u.uniqueId, nickname: u.nickname || u.uniqueId, team, how });
+    push();
+    return team;
+  }
+
+  return {
+    state, names, joinHint,
+    get enabled() { return cfg().enabled; },
+    load() { if (cfg().enabled) startRound(false); },
+    /** The viewer's team; joins the smaller team when auto-assign is on (or `force`). */
+    teamOf(u, { assign = false } = {}) {
+      if (!cfg().enabled) return null;
+      const m = members.get(key(u));
+      if (m) return m.team;
+      return assign && cfg().autoAssign ? join(u, smaller(), 'auto') : null;
+    },
+    /** "1", "red", "أحمر", "!join"… as the whole chat message. Returns the team or null. */
+    chat(u, comment) {
+      if (!cfg().enabled) return null;
+      const w = String(comment ?? '').trim().toLowerCase().replace(/^[!#/]/, '');
+      if (!w || w.length > 20) return null;
+      const n = names();
+      if (TEAM_WORDS.red.includes(w) || w === n.red.toLowerCase()) return join(u, 'red', 'chat');
+      if (TEAM_WORDS.blue.includes(w) || w === n.blue.toLowerCase()) return join(u, 'blue', 'chat');
+      if (TEAM_WORDS.any.includes(w)) return members.get(key(u))?.team || join(u, smaller(), 'chat');
+      return null;
+    },
+    add(u, points) {
+      if (!cfg().enabled || phase !== 'play' || !(points > 0)) return;
+      const team = this.teamOf(u, { assign: true });
+      if (!team) return;
+      const m = members.get(key(u));
+      m.points += points; m.round += points;
+      score[team] += points;
+      push();
+    },
+    likes(u, n) {
+      const c = cfg();
+      if (!c.enabled) return;
+      this.add(u, n / c.likesPerPoint);
+    },
+    /** Team games: turn PULL_RED into PULL_<sender's team>, FREEZE_RED into FREEZE_<other team>. */
+    route(action, team) {
+      if (!team || !cfg().routeGifts) return action;
+      const a = Catalog.action(GameConfig.active(), action);
+      if (!a?.teamRole) return action;
+      const target = a.teamRole === 'own' ? team : other(team);
+      return action.replace(/_(RED|BLUE)$/, '_' + target.toUpperCase());
+    },
+    update(input = {}) {
+      const c = cfg(), was = c.enabled;
+      const bool = (v, d) => (typeof v === 'boolean' ? v : d);
+      const next = {
+        enabled: bool(input.enabled, c.enabled), autoAssign: bool(input.autoAssign, c.autoAssign), routeGifts: bool(input.routeGifts, c.routeGifts),
+        roundSeconds: Math.round(clampNum(input.roundSeconds ?? c.roundSeconds, 0, 3600, 180)),
+        likesPerPoint: Math.round(clampNum(input.likesPerPoint ?? c.likesPerPoint, 1, 10_000, 10)),
+        redName: typeof input.redName === 'string' ? input.redName.trim().slice(0, 20) : c.redName,
+        blueName: typeof input.blueName === 'string' ? input.blueName.trim().slice(0, 20) : c.blueName,
+      };
+      Settings.set({ teams: next });
+      if (next.enabled && !was) startRound();
+      else if (!next.enabled && was) { phase = 'off'; endsAt = 0; }
+      else if (next.enabled && next.roundSeconds !== c.roundSeconds && phase === 'play') { endsAt = next.roundSeconds > 0 ? Date.now() + next.roundSeconds * 1000 : 0; warned = false; }
+      Hub.broadcast(MSG.TEAMS, state());
+      return state();
+    },
+    control(op) {
+      if (op === 'newRound') { if (!cfg().enabled) throw new Error('Turn teams on first'); startRound(); }
+      else if (op === 'endRound') { if (phase !== 'play') throw new Error('No round is running'); endRound(); }
+      else if (op === 'clear') { members.clear(); rounds.red = 0; rounds.blue = 0; lastResult = null; if (cfg().enabled) startRound(false); }
+      else throw new Error(`Unknown team command "${op}"`);
+      Hub.broadcast(MSG.TEAMS, state());
+      return state();
+    },
+  };
+})();
+
 /** Saved setups: { name: { game, rules, commands, goals, options, savedAt } }. */
 const Presets = (() => {
   const f = jsonFile('presets.json');
@@ -1377,6 +1568,11 @@ const Presets = (() => {
 function emitGameEvent(fields) {
   if (Control.paused) { log.info(`Paused: skipped ${fields.action} from @${fields.user}`); return null; }
   const event = { eventId: crypto.randomUUID(), ts: Date.now(), source: 'gift', ...fields };
+  // Teams: tag the sender's team, and in team games point the action at the right team.
+  if (Teams.enabled && event.user && event.source !== 'likes') {
+    const team = Teams.teamOf({ uniqueId: event.user, nickname: event.nickname, profilePictureUrl: event.profilePictureUrl }, { assign: event.source === 'gift' });
+    if (team) { event.team = team; const routed = Teams.route(event.action, team); if (routed !== event.action) { event.originalAction = event.action; event.action = routed; } }
+  }
   Hub.broadcast(MSG.GAME_EVENT, event);
   Session.recordAction(event);
   log.info(`GAME_EVENT ${event.action} value=${event.value} ← ${event.giftName}${event.repeatCount > 1 ? ' x' + event.repeatCount : ''} from @${event.user}${event.simulated ? ' (test)' : ''}`);
@@ -1388,6 +1584,7 @@ function handleChat(user, comment, simulated = false) {
   Session.recordChat(simulated);
   // Every chat line goes to the games too (Word Guess, Vote Path read it).
   Hub.broadcast(MSG.CHAT, { user: user.uniqueId, nickname: user.nickname, profilePictureUrl: user.profilePictureUrl ?? null, comment: String(comment ?? '').slice(0, 200), simulated });
+  if (!(Session.current().live && simulated)) Teams.chat(user, comment); // "1" / "2" / "red" / "أحمر"… joins a team
   const hit = CommandStore.match(comment, user.userId || user.uniqueId);
   if (!hit) return { matched: false };
   if (hit.blocked) return { matched: true, fired: false, command: hit.key, blocked: hit.blocked };
@@ -1433,6 +1630,7 @@ function routeGift(gift, { simulated = false, reason = 'gift' } = {}) {
 function completeGift(gift, opts = {}) {
   Session.recordGift(gift, !!opts.simulated);
   if (!(Session.current().live && opts.simulated)) Engage.gift(gift); // voice thank-you (not for dashboard tests while live)
+  if (!(Session.current().live && opts.simulated)) Teams.add(gift.user, gift.diamondCount * gift.repeatCount); // team points
   const event = routeGift(gift, opts);
   Hub.broadcast(MSG.GIFT_RECEIVED, {
     user: gift.user.uniqueId,
@@ -1755,6 +1953,8 @@ const handlers = {
   [MSG.UPDATE_GAME_OPTIONS]({ options }) { return GameConfig.setOptions(options); },
   [MSG.RESET_GAME]() { return GameConfig.resetDefaults(); },
   [MSG.UPDATE_SETTINGS](p) { return StreamSettings.update(p); },
+  [MSG.UPDATE_TEAMS](p) { return Teams.update(p); },
+  [MSG.TEAM_CONTROL]({ op }) { return Teams.control(String(op ?? '')); },
   async [MSG.TEST_VOICE]({ text } = {}) {
     const line = String(text || '').trim() || L(`Voice test. ${Engage.tip()}`, `اختبار الصوت. ${Engage.tip()}`, `Ses testi. ${Engage.tip()}`);
     const r = await Voice.say(line, { kind: 'test', force: true });
@@ -1869,7 +2069,7 @@ function snapshot() {
     commands: CommandStore.all(), goals: GoalStore.all(), paused: Control.paused, presets: Presets.list(),
     supporters: Session.topGifters(3), session: Session.summary(),
     game: GameConfig.active(), gameOptions: GameConfig.options(), settings: StreamSettings.all(),
-    voices: VOICES, voiceEngine: Voice.status(), clientsInfo: Hub.clientCounts(),
+    voices: VOICES, voiceEngine: Voice.status(), clientsInfo: Hub.clientCounts(), teams: Teams.state(),
   };
 }
 
@@ -1931,6 +2131,7 @@ RuleStore.load();
 CommandStore.load();
 GoalStore.load();
 GameConfig.load();
+Teams.load();
 Session.recordGame(GameConfig.active());
 Presets.load();
 GiftCatalog.load();

@@ -93,6 +93,28 @@
     .tools button { display: inline-flex; align-items: center; gap: .35em; background: rgba(8,10,20,.7); color: var(--text); border: 1px solid rgba(255,255,255,.12); border-radius: 99px; padding: .35em .8em; font: inherit; font-weight: 600; cursor: pointer; }
     .tools button:hover { background: rgba(255,255,255,.12); }
     body.obs .tools, body.preview .tools { display: none; }
+    /* team battle bar (Teams on) */
+    .teambar { position: absolute; left: 3.5%; right: 3.5%; top: 2%; pointer-events: none; font-size: clamp(10px, 2vh, 19px); padding: .45em .7em .4em; }
+    .teambar[hidden] { display: none; }
+    body.teams .hud { top: 10.8%; }
+    body.teams .leftcol, body.teams .rightcol { top: 20%; }
+    .tb-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .6em; }
+    .tb-side { display: flex; align-items: center; gap: .4em; min-width: 0; font-weight: 900; }
+    .tb-side.blue { justify-content: flex-end; }
+    .tb-side .nm { font-size: .95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: .03em; }
+    .tb-side .pts { font-size: 1.35em; font-variant-numeric: tabular-nums; color: #fff; }
+    .tb-side .wins { display: inline-flex; align-items: center; gap: .1em; font-size: .75em; color: #fbbf24; }
+    .tb-mid { font-weight: 900; font-size: 1.05em; font-variant-numeric: tabular-nums; padding: .1em .55em; border-radius: 99px; background: rgba(255,255,255,.08); display: inline-flex; align-items: center; gap: .3em; white-space: nowrap; }
+    .tb-mid.low { color: #fca5a5; background: rgba(239,68,68,.2); animation: blink 1s steps(2) infinite; }
+    @keyframes blink { 50% { opacity: .55; } }
+    .tb-bar { display: flex; height: .65em; border-radius: 99px; overflow: hidden; margin: .35em 0 .3em; background: rgba(255,255,255,.08); }
+    .tb-bar i { display: block; height: 100%; transition: width .5s ease-out; }
+    .tb-bar i:first-child { background: linear-gradient(90deg, #be123c, var(--red)); }
+    .tb-bar i:last-child { background: linear-gradient(90deg, var(--cyan), #0e7490); }
+    .tb-hint { display: flex; justify-content: space-between; align-items: center; gap: .5em; font-size: .78em; color: var(--muted); font-weight: 700; }
+    .tb-hint span { display: inline-flex; align-items: center; gap: .3em; white-space: nowrap; }
+    .tb-hint .join { color: #e2e8f0; overflow: hidden; text-overflow: ellipsis; }
+    .tb-hint kbd { font: inherit; font-weight: 900; padding: 0 .4em; border-radius: 6px; color: #0b1026; }
     .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-weight: 700; }
     .loading[hidden] { display: none; }
   </style>
@@ -104,6 +126,7 @@
     <canvas id="fx" width="540" height="960"></canvas>
     <div class="loading" id="loading">Loading…</div>
 
+    <div class="panel teambar" id="teambar" hidden></div>
     <div class="hud" id="hud"></div>
     <div class="leftcol">
       <div class="effects" id="effects"></div>
@@ -185,7 +208,10 @@ const S = {
   rules: {}, gifts: [], commands: {}, goals: [], likes: 0, supporters: [], paused: false,
   overlay: { legend: true, goals: true, supporters: true, ticker: true, welcome: true, sfx: true },
   lang: 'en', now: 0, roundGifters: {},
+  teams: null, teamOf: new Map(), // Teams: server state + user -> 'red' | 'blue'
 };
+const teamsOn = () => !!S.teams?.enabled;
+const TEAM_COLOR = { red: '#fe2c55', blue: '#25f4ee' };
 // Stream language (Settings → Stream language): 'en' | 'ar' | 'tr'. Games call t(english, arabic, turkish).
 const t = (en, ar, tr) => (S.lang === 'ar' && ar ? ar : S.lang === 'tr' && tr ? tr : en);
 const LANG_IDX = { en: 0, ar: 1, tr: 2 };
@@ -205,7 +231,10 @@ const tx = (k) => TXT[k][LANG_IDX[S.lang] ?? 0] ?? TXT[k][0];
 // ---------- catalog lookups ----------
 const actionLook = (id) => {
   const a = S.gameDef?.actions.find((x) => x.id === id);
-  return a ? { ...a, label: a.l?.[S.lang] || a.label } : { icon: 'circle-help', color: '#94a3b8', label: id };
+  if (!a) return { icon: 'circle-help', color: '#94a3b8', label: id };
+  // Teams on: "Pull Red" reads "Pull for your team" because gifts help the sender's own team.
+  if (teamsOn() && S.teams.config?.routeGifts && a.teamLabel) return { ...a, label: a.teamLabel[S.lang] || a.teamLabel.en, color: a.teamRole === 'own' ? '#fde68a' : '#c4b5fd' };
+  return { ...a, label: a.l?.[S.lang] || a.label };
 };
 const GIFT_ICON = { rose: 'flower', 'ice cream cone': 'ice-cream-cone', 'finger heart': 'hand-heart', doughnut: 'donut', galaxy: 'sparkles', universe: 'orbit' };
 const giftImages = new Map();
@@ -367,7 +396,8 @@ function showAlert(ev, handled) {
   const el = document.createElement('div');
   el.className = 'alert';
   el.style.borderLeftColor = look.color;
-  el.innerHTML = `<div class="ic" style="color:${look.color}">${pic}</div><div style="min-width:0"><div class="who">${ev.source === 'likes' ? tx('likeGoal') : esc(isoAt('@' + ev.user))}</div>
+  const tc = ev.team ? TEAM_COLOR[ev.team] : '';
+  el.innerHTML = `<div class="ic" style="color:${look.color}">${pic}</div><div style="min-width:0"><div class="who"${tc ? ` style="color:${tc}"` : ''}>${ev.source === 'likes' ? tx('likeGoal') : esc(isoAt('@' + ev.user))}</div>
     <div class="what">${what} <span style="color:${look.color};display:inline-flex;align-items:center;gap:.25em">${icon('arrow-right')} ${icon(look.icon)} ${esc(look.label)}${handled ? '' : ' ?'}</span></div></div>`;
   const box = $('alerts');
   box.prepend(el);
@@ -442,6 +472,7 @@ function tickerLines() {
   const lines = [];
   const how = S.gameDef?.howTo?.[S.lang] ?? S.gameDef?.howTo?.en;
   if (how) lines.push(how);
+  if (teamsOn()) lines.push(joinHint());
   for (const r of legendRows()) {
     const look = actionLook(r.rule.action);
     lines.push(r.command ? t(`Type ${r.name} in chat → ${look.label}`, `اكتب ${r.name} في الشات ← ${look.label}`, `Sohbete ${r.name} yaz → ${look.label}`) : t(`Send ${r.name} → ${look.label}`, `أرسل ${r.name} ← ${look.label}`, `${r.name} gönder → ${look.label}`));
@@ -467,9 +498,62 @@ function applyOverlay() {
   renderLegend(); renderGoals(); renderSupporters(); renderTicker();
 }
 
+// ---------- teams: battle bar, join toasts, round results ----------
+const teamName = (k) => S.teams?.names?.[k] || (k === 'red' ? t('Red', 'الأحمر', 'Kırmızı') : t('Blue', 'الأزرق', 'Mavi'));
+const joinHint = () => t(`Type 1 → ${teamName('red')} · 2 → ${teamName('blue')}`, `اكتب 1 ← ${teamName('red')} · 2 ← ${teamName('blue')}`, `${teamName('red')} için 1 · ${teamName('blue')} için 2 yaz`);
+let clockSkew = 0;
+function renderTeams() {
+  const box = $('teambar'), on = teamsOn();
+  document.body.classList.toggle('teams', on);
+  box.hidden = !on;
+  if (!on) return;
+  const T = S.teams, sc = T.score || { red: 0, blue: 0 }, tot = sc.red + sc.blue;
+  const pr = tot ? Math.round((sc.red / tot) * 100) : 50;
+  const side = (k) => `<span class="tb-side ${k}">${k === 'blue' ? `<span class="pts">${sc[k].toLocaleString()}</span>` : ''}<span class="nm" style="color:${TEAM_COLOR[k]}">${esc(teamName(k))}</span>${T.rounds?.[k] ? `<span class="wins">${icon('trophy')}${T.rounds[k]}</span>` : ''}${k === 'red' ? `<span class="pts">${sc[k].toLocaleString()}</span>` : ''}</span>`;
+  const kbd = (n, k) => `<kbd style="background:${TEAM_COLOR[k]}">${n}</kbd>`;
+  box.innerHTML = `<div class="tb-row" dir="ltr">${side('red')}<span class="tb-mid" id="tbClock"></span>${side('blue')}</div>
+    <div class="tb-bar" dir="ltr"><i style="width:${pr}%"></i><i style="width:${100 - pr}%"></i></div>
+    <div class="tb-hint" dir="ltr"><span style="color:${TEAM_COLOR.red}">${icon('users')}${T.members?.red ?? 0}</span>
+    <span class="join" dir="${S.lang === 'ar' ? 'rtl' : 'ltr'}">${t(`Type ${kbd(1, 'red')} or ${kbd(2, 'blue')} to join`, `اكتب ${kbd(1, 'red')} أو ${kbd(2, 'blue')} للانضمام`, `Katılmak için ${kbd(1, 'red')} ya da ${kbd(2, 'blue')} yaz`)}</span>
+    <span style="color:${TEAM_COLOR.blue}">${T.members?.blue ?? 0}${icon('users')}</span></div>`;
+  renderClock();
+}
+function renderClock() {
+  const el = $('tbClock');
+  if (!el || !teamsOn()) return;
+  const T = S.teams, now = Date.now() + clockSkew;
+  if (T.phase === 'break') {
+    const w = T.last?.winner;
+    el.className = 'tb-mid';
+    el.innerHTML = w ? `<span style="color:${TEAM_COLOR[w]}">${icon('trophy')}${esc(teamName(w))}</span>` : esc(t('Draw', 'تعادل', 'Berabere'));
+    return;
+  }
+  if (!T.endsAt) { el.className = 'tb-mid'; el.innerHTML = icon('swords'); return; }
+  const left = Math.max(0, Math.ceil((T.endsAt - now) / 1000));
+  el.className = 'tb-mid' + (left <= 10 ? ' low' : '');
+  el.innerHTML = `${icon('timer')}${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+}
+setInterval(renderClock, 500);
+function onTeams(p) {
+  const was = teamsOn();
+  S.teams = p;
+  if (p.now) clockSkew = p.now - Date.now();
+  renderTeams();
+  if (was !== teamsOn()) { renderLegend(); renderTicker(true); }
+}
+function onTeamRound(p) {
+  if (p.kind === 'start') { banner(t('NEW ROUND!', 'جولة جديدة!', 'YENİ TUR!'), joinHint(), '#fbbf24', 2600); SFX.play('whoosh'); return; }
+  const w = p.winner, sc = p.score || { red: 0, blue: 0 };
+  const mvp = p.mvp ? `${tx('mvp')} @${p.mvp.user}` : '';
+  if (w) banner(t(`${teamName(w)} WINS!`, `${teamName(w)} فاز!`, `${teamName(w)} KAZANDI!`), [`${sc.red.toLocaleString()} – ${sc.blue.toLocaleString()}`, mvp].filter(Boolean).join(' · '), TEAM_COLOR[w], 6000);
+  else banner(t('DRAW!', 'تعادل!', 'BERABERE!'), `${sc.red} – ${sc.blue}`, '#e2e8f0', 5000);
+  SFX.play('win');
+}
+
 function applyLang() {
   document.documentElement.lang = S.lang;
   for (const el of document.querySelectorAll('.alerts, .rightcol, .ticker, .toasts, .banner')) el.dir = S.lang === 'ar' ? 'rtl' : 'ltr';
+  renderTeams();
 }
 
 // ---------- the API each game gets ----------
@@ -478,6 +562,9 @@ const api = {
   W, H, ctx, fx, clamp, rand, icon, esc, t, userColor, giftImage, avatarImage, imgSrc,
   get now() { return S.now; }, get options() { return S.options; }, get lang() { return S.lang; },
   get supporters() { return S.supporters; }, get paused() { return S.paused; },
+  /** Teams: null when off, else { names, score, members, phase… }. teamOf('user') → 'red' | 'blue' | null. */
+  get teams() { return teamsOn() ? S.teams : null; },
+  teamOf: (user) => (teamsOn() ? S.teamOf.get(String(user).toLowerCase()) ?? null : null),
   setHud, setEffects, banner,
   sfx: (name) => SFX.play(name), tone: SFX.tone, noise: SFX.noise,
   /** Ask the server's voice to say something (winner, MVP…). Muted in previews. */
@@ -562,6 +649,7 @@ function connect() {
         S.likes = p.likes?.totalLikes ?? 0; S.supporters = p.supporters || []; S.paused = !!p.paused;
         S.overlay = { ...S.overlay, ...(p.settings?.overlay || {}) }; S.lang = p.settings?.voice?.lang || 'en';
         S.options = p.gameOptions || {};
+        if (p.teams) onTeams(p.teams);
         applyLang();
         setConn(true, tx('live'));
         loadGame(FIXED_GAME || p.game || 'gift-runner');
@@ -575,7 +663,7 @@ function connect() {
       case 'GAME_OPTIONS':
         if (p.game === S.gameId) { S.options = p.options || {}; S.game?.onOptions?.(S.options); }
         break;
-      case 'GAME_EVENT': onGameEvent(p); break;
+      case 'GAME_EVENT': if (p.team) S.teamOf.set(String(p.user).toLowerCase(), p.team); onGameEvent(p); break;
       case 'RULES_UPDATED': S.rules = p.rules || {}; renderLegend(); break;
       case 'GIFTS': S.gifts = p.gifts || []; renderLegend(); break;
       case 'COMMANDS_UPDATED': S.commands = p.commands || {}; renderLegend(); break;
@@ -592,6 +680,17 @@ function connect() {
       }
         break;
       case 'SAY': Voice.say(p); break;
+      case 'TEAMS': onTeams(p); break;
+      case 'TEAM_ROUND': onTeamRound(p); S.game?.onTeamRound?.(p); break;
+      case 'TEAM_JOIN':
+        S.teamOf.set(String(p.user).toLowerCase(), p.team);
+        if (S.teamOf.size > 5000) S.teamOf.delete(S.teamOf.keys().next().value);
+      {
+        const who = `<b>${esc(isoAt('@' + p.user))}</b>`, tm = `<b style="color:${TEAM_COLOR[p.team]}">${esc(teamName(p.team))}</b>`;
+        toast(`${icon('users')}${t(`${who} joined ${tm}`, `${who} انضم إلى ${tm}`, `${who} ${tm} takımına katıldı`)}`, TEAM_COLOR[p.team]);
+        if (p.how === 'chat') SFX.play('blip');
+      }
+        break;
       case 'GIFT_RECEIVED':
         if (p.totalDiamonds > 0) S.roundGifters[p.user] = (S.roundGifters[p.user] || 0) + p.totalDiamonds;
         S.game?.onGift?.(p);
