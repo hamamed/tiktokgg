@@ -59,6 +59,11 @@
     </label>
   </section>
 
+  <section class="card" aria-label="Game">
+    <div class="label mb-2 flex items-center gap-1.5"><span data-icon="joystick" class="text-tt-cyan"></span>Game on stream</div>
+    <div id="games" class="grid grid-cols-3 gap-2"></div>
+  </section>
+
   <section class="card" aria-label="Presets">
     <div class="label mb-2 flex items-center gap-1.5"><span data-icon="bookmark" class="text-violet-300"></span>Presets</div>
     <div id="presets" class="grid grid-cols-2 gap-2"></div>
@@ -67,6 +72,7 @@
   <section class="card" aria-label="Test actions">
     <div class="label mb-2 flex items-center gap-1.5"><span data-icon="flask-conical" class="text-amber-300"></span>Test in the game</div>
     <div id="tests" class="grid grid-cols-3 gap-2"></div>
+    <button id="voiceBtn" class="big mt-2 !py-3 bg-violet-500/15 text-sm ring-1 ring-violet-400/30" type="button"></button>
   </section>
 
   <section class="card" aria-label="Top supporters">
@@ -93,13 +99,9 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
-const TESTS = [
-  ['SPAWN_OBSTACLE', 'construction', 'Barriers', 3, 'text-orange-300'], ['SPEED_BOOST', 'zap', 'Speed up', 1.5, 'text-amber-300'],
-  ['SPEED_SLOW', 'snail', 'Slow', 0.5, 'text-sky-300'], ['SCREEN_SPLATTER', 'droplets', 'Mud', 3, 'text-yellow-600'],
-  ['REVERSE_CONTROLS', 'arrow-left-right', 'Reverse', 5, 'text-violet-300'], ['BOSS_ATTACK', 'skull', 'Boss', 1, 'text-red-400'],
-  ['HEAL_PLAYER', 'heart-pulse', 'Heal', 25, 'text-emerald-300'], ['STEER_LEFT', 'arrow-big-left', 'Left', 1, 'text-cyan-300'],
-  ['STEER_RIGHT', 'arrow-big-right', 'Right', 1, 'text-cyan-300'],
-];
+// Games and their actions (shared with the dashboard and the stream page).
+let CATALOG = { games: [] };
+const activeGame = () => CATALOG.games.find((g) => g.id === state.game) || CATALOG.games[0];
 
 // ---------- connection (token: ?token=… once, then remembered; shared with the dashboard) ----------
 const qs = new URLSearchParams(location.search);
@@ -110,7 +112,7 @@ const hosted = /^https?:$/.test(location.protocol) && !/^(localhost|127\.0\.0\.1
 const SERVER = store.get('tt.server', hosted ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws` : 'ws://localhost:8080');
 const TOKEN = store.get('tt.token', '');
 
-const state = { status: {}, paused: false, presets: [], supporters: [], diamonds: 0, viewers: 0, likes: 0 };
+const state = { status: {}, paused: false, presets: [], supporters: [], diamonds: 0, viewers: 0, likes: 0, game: 'gift-runner' };
 let ws, retry = 0, n = 0;
 const pending = new Map();
 
@@ -147,12 +149,13 @@ function sock(s) {
 function onMessage(type, p) {
   switch (type) {
     case 'STATE':
-      state.status = p.status || {}; state.paused = !!p.paused; state.presets = p.presets || []; state.supporters = p.supporters || [];
+      state.status = p.status || {}; state.paused = !!p.paused; state.game = p.game || state.game; state.presets = p.presets || []; state.supporters = p.supporters || [];
       state.diamonds = p.session?.diamonds ?? 0; state.viewers = p.viewerCount ?? 0; state.likes = Math.max(p.likes?.totalLikes ?? 0, p.likes?.streamTotalLikes ?? 0);
       if (!$('user').value) $('user').value = p.status?.autoConnect?.username || p.status?.username || store.get('tt.username', '');
       render(); break;
     case 'STATUS': state.status = p; render(); break;
     case 'PAUSED': state.paused = !!p.paused; render(); break;
+    case 'GAME_CHANGED': state.game = p.game; render(); break;
     case 'PRESETS': state.presets = p.presets || []; render(); break;
     case 'SUPPORTERS': state.supporters = p.top || []; render(); break;
     case 'SESSION': state.diamonds = p.diamonds ?? 0; render(); break;
@@ -188,12 +191,14 @@ function render() {
     ? state.presets.map((p) => `<button class="big !py-3 bg-violet-500/15 text-sm ring-1 ring-violet-400/30" data-preset="${esc(p.name)}">${icon('folder-open')}<span class="truncate">${esc(p.name)}</span></button>`).join('')
     : '<p class="col-span-2 text-xs text-slate-500">No presets yet. Save one in the dashboard.</p>';
 
+  const g = activeGame();
+  $('games').innerHTML = CATALOG.games.map((x) => `<button class="big !flex-col !gap-1 !py-3 text-xs ring-1 ${x.id === state.game ? 'bg-tt-red/20 ring-tt-red/60' : 'bg-white/5 ring-white/10'}" data-game="${x.id}"><span class="text-xl ${x.id === state.game ? 'text-tt-red' : ''}">${icon(x.icon)}</span>${esc(x.name)}</button>`).join('');
+  $('tests').innerHTML = (g?.actions || []).map((a) => `<button class="big !flex-col !gap-1 !py-3 text-xs ring-1 ring-white/10" style="background:${a.color}22" data-action="${a.id}" data-value="${a.default}"><span class="text-xl" style="color:${a.color}">${icon(a.icon)}</span>${esc(a.label)}</button>`).join('');
   $('sup').innerHTML = state.supporters.length
     ? state.supporters.map((u, i) => `<li class="flex items-center gap-3"><span class="w-5 text-center font-black ${['text-amber-300', 'text-slate-300', 'text-amber-600'][i]}">${i + 1}</span>${u.avatar ? `<img src="${esc(u.avatar)}" alt="" class="h-8 w-8 rounded-full object-cover" referrerpolicy="no-referrer">` : `<span class="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-xs font-bold">${esc((u.nickname || u.uniqueId || '?')[0].toUpperCase())}</span>`}<span class="min-w-0 flex-1 truncate font-semibold">${esc(u.nickname || u.uniqueId)}</span><span class="flex items-center gap-1 text-tt-cyan">${icon('gem')}${fmt(u.diamonds)}</span></li>`).join('')
     : '<li class="text-xs text-slate-500">Nobody has sent a gift yet.</li>';
 }
-$('tests').innerHTML = TESTS.map(([action, ic, label, value, color]) =>
-  `<button class="big !flex-col !gap-1 !py-3 bg-white/5 text-xs ring-1 ring-white/10" data-action="${action}" data-value="${value}"><span class="${color} text-xl">${icon(ic)}</span>${label}</button>`).join('');
+$('voiceBtn').innerHTML = `${icon('megaphone')}<span>Test the voice</span>`;
 
 function toast(text, error = false) {
   const t = $('toast');
@@ -228,10 +233,16 @@ $('presets').onclick = (e) => {
   const b = e.target.closest('[data-preset]');
   if (b) run(b, 'LOAD_PRESET', { name: b.dataset.preset }, `Preset "${b.dataset.preset}" loaded`).catch(() => {});
 };
+$('games').onclick = (e) => {
+  const b = e.target.closest('[data-game]');
+  if (b && b.dataset.game !== state.game) run(b, 'SET_GAME', { game: b.dataset.game }, `Now playing ${b.textContent.trim()}`).catch(() => {});
+};
+$('voiceBtn').onclick = (e) => run(e.currentTarget, 'TEST_VOICE', {}, (r) => (r?.engine === 'off' ? 'The voice is off' : 'Voice sent to the stream')).catch(() => {});
 $('tests').onclick = (e) => {
   const b = e.target.closest('[data-action]');
   if (b) run(b, 'TEST_TRIGGER', { action: b.dataset.action, value: Number(b.dataset.value), user: 'remote' }, `${b.textContent.trim()} sent`).catch(() => {});
 };
+fetch('games/catalog.json').then((r) => r.json()).then((c) => { CATALOG = c; render(); }).catch(() => {});
 render();
 connect();
 </script>

@@ -22,7 +22,10 @@
  *   SET_PAUSED         { paused }                       SET_AUTO_CONNECT { enabled, username }
  *   SAVE_PRESET / LOAD_PRESET / DELETE_PRESET { name }
  *   TEST_CHAT          { comment, user? }               TEST_LIKES { count, user? }
- *   GET_REPORTS {}  ·  GET_REPORT { id | "current" }   GAME_STATS { distance }  (sent by the game on crash)
+ *   GET_REPORTS {}  ·  GET_REPORT { id | "current" }   GAME_STATS { distance | score }  (sent by games)
+ *   SET_GAME { game }   UPDATE_GAME_OPTIONS { options }   RESET_GAME {}   (per-game setups, see games/catalog.json)
+ *   UPDATE_SETTINGS { voice?, overlay? }   TEST_VOICE { text? }   TEST_SOCIAL { kind: join|follow|share }
+ *   ANNOUNCE { text }   (games ask the voice to announce winners etc.)
  *
  * Server → client
  *   STATE        full snapshot (sent on connect and for GET_STATE)
@@ -34,6 +37,9 @@
  *   COMMANDS_UPDATED { commands } · GOALS_UPDATED { goals } · PAUSED { paused } · PRESETS { presets }
  *   SUPPORTERS   { top: [{ uniqueId, nickname, avatar, diamonds, gifts }] }   top 3 gifters this stream
  *   SESSION      { summary of the current stream }      REPORTS { reports }   (CSV: /api/reports/<id>.csv)
+ *   GAME_CHANGED { game, options } · GAME_OPTIONS { game, options } · SETTINGS { voice, overlay }
+ *   SAY          { text, url|null, kind, lang, volume }   voice line (url = MP3; null = use the browser voice)
+ *   SOCIAL       { kind: join|follow|share, user, nickname }      CHAT { user, nickname, comment }
  *   RULES_UPDATED{ rules }
  *   LIKES_UPDATE { totalLikes, streamTotalLikes, lastUser, lastCount }
  *   ACK / ERROR  reply to a client message (carries `requestId` if the client sent `id`)
@@ -116,6 +122,13 @@ const MSG = Object.freeze({
   GET_REPORTS: 'GET_REPORTS',
   GET_REPORT: 'GET_REPORT',
   GAME_STATS: 'GAME_STATS',
+  SET_GAME: 'SET_GAME',
+  UPDATE_GAME_OPTIONS: 'UPDATE_GAME_OPTIONS',
+  RESET_GAME: 'RESET_GAME',
+  UPDATE_SETTINGS: 'UPDATE_SETTINGS',
+  TEST_VOICE: 'TEST_VOICE',
+  TEST_SOCIAL: 'TEST_SOCIAL',
+  ANNOUNCE: 'ANNOUNCE',
   // outbound
   STATE: 'STATE',
   STATUS: 'STATUS',
@@ -130,6 +143,13 @@ const MSG = Object.freeze({
   SUPPORTERS: 'SUPPORTERS',
   SESSION: 'SESSION',
   REPORTS: 'REPORTS',
+  GAME_CHANGED: 'GAME_CHANGED',
+  GAME_OPTIONS: 'GAME_OPTIONS',
+  SETTINGS: 'SETTINGS',
+  SAY: 'SAY',
+  SOCIAL: 'SOCIAL',
+  CHAT: 'CHAT',
+  CLIENTS: 'CLIENTS',
   RULES_UPDATED: 'RULES_UPDATED',
   LIKES_UPDATE: 'LIKES_UPDATE',
   ACK: 'ACK',
@@ -516,12 +536,14 @@ const Hub = {
       ws.isAlive = true;
       this.clients.add(ws);
       log.info(`WS client connected (${ws.role}) — ${this.clients.size} total`);
+      this.clientsChanged();
 
       ws.on('pong', () => (ws.isAlive = true));
       ws.on('message', (raw) => handleClientMessage(ws, raw));
       ws.on('close', () => {
         this.clients.delete(ws);
         log.info(`WS client disconnected (${ws.role}) — ${this.clients.size} total`);
+        this.clientsChanged();
       });
       ws.on('error', (err) => log.warn(`WS client error: ${err.message}`));
 
@@ -538,6 +560,19 @@ const Hub = {
       }
     }, CONFIG.heartbeatMs);
     this.heartbeat.unref();
+  },
+
+  /** How many stream pages (role=game), dashboards and phone remotes are connected. */
+  clientCounts() {
+    const c = { games: 0, dashboards: 0, remotes: 0, other: 0 };
+    for (const ws of this.clients) {
+      if (ws.role === 'game') c.games++; else if (ws.role === 'dashboard') c.dashboards++; else if (ws.role === 'remote') c.remotes++; else c.other++;
+    }
+    return c;
+  },
+  clientsChanged() {
+    clearTimeout(this._cTimer);
+    this._cTimer = setTimeout(() => this.broadcast(MSG.CLIENTS, this.clientCounts()), 300);
   },
 
   send(ws, type, payload, requestId) {
@@ -770,6 +805,9 @@ const GoalStore = (() => {
  * disconnect / stream end; it is saved to DATA_DIR/reports/<id>.json. Outside a live stream a
  * "rehearsal" session collects dashboard tests (never saved). Live sessions ignore dashboard tests.
  */
+// Session is created before GameConfig exists (startup order), so look the game up lazily.
+function currentGameSafe() { try { return [GameConfig.active()]; } catch { return []; } }
+
 const Session = (() => {
   const DIR = path.join(CONFIG.dataDir, 'reports');
   const ID_RE = /^[\w.-]{1,120}$/;
@@ -781,7 +819,8 @@ const Session = (() => {
   function fresh(username = null, live = false) {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     return { id: username ? `${stamp}-${username}` : 'rehearsal', username, live, startedAt: Date.now(), endedAt: null,
-      diamonds: 0, gifts: 0, likes: 0, chats: 0, commands: 0, peakViewers: 0, bestRun: 0, runs: 0, users: {}, giftCounts: {}, actions: {} };
+      diamonds: 0, gifts: 0, likes: 0, chats: 0, commands: 0, peakViewers: 0, bestRun: 0, runs: 0, joins: 0, follows: 0, shares: 0,
+      games: currentGameSafe(), users: {}, giftCounts: {}, actions: {} };
   }
   const counts = (simulated) => !(cur.live && simulated);
   function userRec(u) {
@@ -837,7 +876,8 @@ const Session = (() => {
       ['TikTok LIVE report', r.username ? '@' + r.username : 'rehearsal'],
       ['Started', new Date(r.startedAt).toISOString()], ['Ended', r.endedAt ? new Date(r.endedAt).toISOString() : 'live'],
       ['Diamonds', r.diamonds], ['Gifts', r.gifts], ['Gifters', r.gifters], ['Likes', r.likes], ['Chat messages', r.chats],
-      ['Chat commands used', r.commands], ['Peak viewers', r.peakViewers], ['Runs', r.runs], ['Best run (distance)', r.bestRun], [],
+      ['Chat commands used', r.commands], ['Peak viewers', r.peakViewers], ['Viewers joined', r.joins ?? 0], ['Follows', r.follows ?? 0],
+      ['Shares', r.shares ?? 0], ['Games played', (r.games || []).join(' / ')], ['Rounds', r.runs], ['Best score', r.bestRun], [],
       ['Rank', 'Username', 'Nickname', 'Diamonds', 'Gifts'],
       ...r.topGifters.map((u, i) => [i + 1, '@' + u.uniqueId, u.nickname, u.diamonds, u.gifts]), [],
       ['Gift', 'Count', 'Diamonds'], ...r.giftList.map((g) => [g.name, g.count, g.diamonds]), [],
@@ -884,16 +924,399 @@ const Session = (() => {
     recordChat(simulated) { if (!counts(simulated)) return; cur.chats++; changed(); },
     recordAction(ev) { if (!counts(ev.simulated)) return; cur.actions[ev.action] = (cur.actions[ev.action] ?? 0) + 1; if (ev.source === 'chat') cur.commands++; changed(); },
     recordViewers(n) { if (n > cur.peakViewers) { cur.peakViewers = n; changed(); } },
+    recordSocial(kind, simulated) { if (!counts(simulated)) return; const k = { join: 'joins', follow: 'follows', share: 'shares' }[kind]; if (k) { cur[k]++; changed(); } },
+    recordGame(id) { if (!cur.games.includes(id)) { cur.games.push(id); changed(); } },
     recordRun(distance) { const d = Math.max(0, Math.floor(Number(distance) || 0)); cur.runs++; if (d > cur.bestRun) cur.bestRun = d; changed(); },
   };
 })();
 
-/** Saved setups: { name: { rules, commands, goals, savedAt } }. */
+// ============================================================================
+// 8c. GAMES, VOICE AND ENGAGEMENT
+//   • Catalog: web-dashboard/games/catalog.json (shared with the dashboard and the stream page)
+//   • GameConfig: the active game + each game's own rules, chat commands, like goals and options
+//   • StreamSettings: voice + on-stream overlay switches (saved in settings.json)
+//   • Voice: server-side neural TTS (msedge-tts) → /tts/<hash>.mp3 so OBS captures it
+//   • Engage: welcomes, thank-yous and reminders that keep viewers watching
+// ============================================================================
+const Catalog = (() => {
+  let data = { games: [] };
+  return {
+    load() {
+      const file = path.join(CONFIG.dashboardDir, 'games', 'catalog.json');
+      try { data = JSON.parse(fs.readFileSync(file, 'utf8')); log.info(`Game catalog: ${data.games.map((g) => g.id).join(', ')}`); }
+      catch (err) { log.warn(`Could not read ${file}: ${err.message}`); }
+    },
+    games: () => data.games,
+    game: (id) => data.games.find((g) => g.id === id) || null,
+    action: (gameId, actionId) => data.games.find((g) => g.id === gameId)?.actions.find((a) => a.id === actionId) || null,
+  };
+})();
+
+const VOICES = [
+  ['en-US-AriaNeural', 'English (US) · Aria ♀'], ['en-US-GuyNeural', 'English (US) · Guy ♂'], ['en-GB-SoniaNeural', 'English (UK) · Sonia ♀'],
+  ['ar-SA-HamedNeural', 'Arabic (Saudi) · Hamed ♂'], ['ar-SA-ZariyahNeural', 'Arabic (Saudi) · Zariyah ♀'], ['ar-EG-ShakirNeural', 'Arabic (Egypt) · Shakir ♂'],
+  ['ar-EG-SalmaNeural', 'Arabic (Egypt) · Salma ♀'], ['ar-MA-JamalNeural', 'Arabic (Morocco) · Jamal ♂'], ['ar-MA-MounaNeural', 'Arabic (Morocco) · Mouna ♀'],
+  ['ar-DZ-IsmaelNeural', 'Arabic (Algeria) · Ismael ♂'], ['ar-TN-HediNeural', 'Arabic (Tunisia) · Hedi ♂'], ['ar-AE-FatimaNeural', 'Arabic (UAE) · Fatima ♀'],
+  ['fr-FR-DeniseNeural', 'French · Denise ♀'], ['fr-FR-HenriNeural', 'French · Henri ♂'], ['tr-TR-EmelNeural', 'Turkish · Emel ♀'],
+  ['tr-TR-AhmetNeural', 'Turkish · Ahmet ♂'], ['es-ES-ElviraNeural', 'Spanish · Elvira ♀'], ['es-MX-JorgeNeural', 'Spanish (MX) · Jorge ♂'],
+];
+const VOICE_IDS = VOICES.map((v) => v[0]);
+
+const VOICE_DEFAULTS = {
+  enabled: true, voice: 'en-US-AriaNeural', rate: 0, volume: 0.9, lang: 'en',
+  thankGifts: true, minDiamonds: 1, bigGiftDiamonds: 100,
+  welcome: true, welcomeEvery: 20, thankFollows: true, thankShares: true, announceGame: true,
+  reminders: true, reminderEvery: 4,
+  templates: {
+    gift: 'Thank you {user} for the {gift}!',
+    bigGift: 'Wow! {user} sent {count} {gift}! Thank you so much!',
+    welcome: 'Welcome {names}! {tip}',
+    follow: 'Thanks for the follow, {user}!',
+    share: 'Thanks for sharing the live, {user}!',
+  },
+  reminderLines: ['{tip}', 'Our top supporter right now is {top}. Can you beat them?', 'Only {likesLeft} more likes until {goal}!', '{howTo}'],
+};
+// Arabic versions of the default texts: used automatically when the language is Arabic and the text wasn't edited.
+const VOICE_DEFAULTS_AR = {
+  templates: {
+    gift: 'شكراً {user} على {gift}!',
+    bigGift: 'واو! {user} أرسل {count} {gift}! شكراً جزيلاً!',
+    welcome: 'أهلاً وسهلاً {names}! {tip}',
+    follow: 'شكراً على المتابعة يا {user}!',
+    share: 'شكراً على مشاركة البث يا {user}!',
+  },
+  reminderLines: ['{tip}', 'أكبر داعم الآن هو {top}. هل تستطيع أن تسبقه؟', 'باقي {likesLeft} لايك فقط حتى {goal}!', '{howTo}'],
+};
+const OVERLAY_DEFAULTS = { legend: true, goals: true, supporters: true, ticker: true, welcome: true, sfx: true };
+
+/** Voice + overlay settings, validated, saved in settings.json and pushed to every client. */
+const StreamSettings = (() => {
+  const str = (v, max, d) => (typeof v === 'string' ? v.slice(0, max) : d);
+  const bool = (v, d) => (typeof v === 'boolean' ? v : d);
+  function cleanVoice(input = {}, cur = VOICE_DEFAULTS) {
+    const v = { ...cur };
+    v.enabled = bool(input.enabled, v.enabled);
+    if (input.voice !== undefined) { if (!VOICE_IDS.includes(input.voice)) throw new Error('Unknown voice'); v.voice = input.voice; }
+    v.rate = Math.round(clampNum(input.rate ?? v.rate, -50, 60, 0));
+    v.volume = clampNum(input.volume ?? v.volume, 0, 1, 0.9);
+    v.lang = ['en', 'ar'].includes(input.lang) ? input.lang : v.lang;
+    for (const k of ['thankGifts', 'welcome', 'thankFollows', 'thankShares', 'announceGame', 'reminders']) v[k] = bool(input[k], v[k]);
+    v.minDiamonds = Math.round(clampNum(input.minDiamonds ?? v.minDiamonds, 0, 1e6, 1));
+    v.bigGiftDiamonds = Math.round(clampNum(input.bigGiftDiamonds ?? v.bigGiftDiamonds, 1, 1e7, 100));
+    v.welcomeEvery = Math.round(clampNum(input.welcomeEvery ?? v.welcomeEvery, 5, 600, 20));
+    v.reminderEvery = clampNum(input.reminderEvery ?? v.reminderEvery, 1, 120, 4);
+    v.templates = { ...v.templates };
+    for (const k of Object.keys(VOICE_DEFAULTS.templates)) v.templates[k] = str(input.templates?.[k], 200, v.templates[k]);
+    if (Array.isArray(input.reminderLines)) v.reminderLines = input.reminderLines.map((l) => String(l).slice(0, 200)).filter((l) => l.trim()).slice(0, 20);
+    return v;
+  }
+  return {
+    voice() {
+      const saved = Settings.get().voice || {};
+      const v = { ...VOICE_DEFAULTS, ...saved, templates: { ...VOICE_DEFAULTS.templates, ...(saved.templates || {}) } };
+      if (v.lang === 'ar') {
+        for (const k of Object.keys(v.templates)) if (v.templates[k] === VOICE_DEFAULTS.templates[k]) v.templates[k] = VOICE_DEFAULTS_AR.templates[k];
+        if (JSON.stringify(v.reminderLines) === JSON.stringify(VOICE_DEFAULTS.reminderLines)) v.reminderLines = VOICE_DEFAULTS_AR.reminderLines;
+      } else {
+        for (const k of Object.keys(v.templates)) if (v.templates[k] === VOICE_DEFAULTS_AR.templates[k]) v.templates[k] = VOICE_DEFAULTS.templates[k];
+        if (JSON.stringify(v.reminderLines) === JSON.stringify(VOICE_DEFAULTS_AR.reminderLines)) v.reminderLines = VOICE_DEFAULTS.reminderLines;
+      }
+      return v;
+    },
+    overlay: () => ({ ...OVERLAY_DEFAULTS, ...(Settings.get().overlay || {}) }),
+    update({ voice, overlay } = {}) {
+      const patch = {};
+      if (voice) patch.voice = cleanVoice(voice, this.voice());
+      if (overlay) {
+        const o = this.overlay();
+        for (const k of Object.keys(OVERLAY_DEFAULTS)) o[k] = bool(overlay[k], o[k]);
+        patch.overlay = o;
+      }
+      Settings.set(patch);
+      const out = { voice: this.voice(), overlay: this.overlay() };
+      Hub.broadcast(MSG.SETTINGS, out);
+      return out;
+    },
+    all() { return { voice: this.voice(), overlay: this.overlay() }; },
+  };
+})();
+
+/** The active game and each game's own setup. Switching games swaps rules, commands, goals and options. */
+const GameConfig = (() => {
+  const f = jsonFile('games.json');
+  let games = {}; // id -> { rules, commands, goals, options }
+  let active = 'gift-runner';
+
+  function defaultsFor(id) {
+    const g = Catalog.game(id);
+    return { rules: g?.defaults?.rules || {}, commands: g?.defaults?.commands || {}, goals: g?.defaults?.goals || [], options: {} };
+  }
+  function options(id = active) {
+    const g = Catalog.game(id);
+    const saved = games[id]?.options || {};
+    return Object.fromEntries((g?.options || []).map((o) => [o.key, saved[o.key] ?? o.default]));
+  }
+  function cleanOptions(id, input) {
+    const out = { ...options(id) };
+    for (const o of Catalog.game(id)?.options || []) {
+      if (!(o.key in input)) continue;
+      const v = input[o.key];
+      if (o.type === 'number') out[o.key] = clampNum(v, o.min ?? -1e9, o.max ?? 1e9, o.default);
+      else if (o.type === 'text') out[o.key] = String(v ?? '').slice(0, 40) || o.default;
+      else if (o.type === 'lines') {
+        const list = (Array.isArray(v) ? v : String(v ?? '').split('\n')).map((s) => String(s).trim().slice(0, 80)).filter(Boolean).slice(0, 100);
+        out[o.key] = list.length ? list : o.default;
+      }
+    }
+    return out;
+  }
+  function remember() {
+    games[active] = { rules: RuleStore.all(), commands: CommandStore.all(), goals: GoalStore.all(), options: games[active]?.options || {} };
+    f.write(games);
+  }
+  function apply(cfg) {
+    RuleStore.update(cfg.rules || {}, 'replace');
+    CommandStore.update(cfg.commands || {});
+    GoalStore.update(cfg.goals || []);
+  }
+  function broadcastAll(reason) {
+    Hub.broadcast(MSG.GAME_CHANGED, { game: active, options: options() });
+    Hub.broadcast(MSG.RULES_UPDATED, { rules: RuleStore.all(), reason, game: active });
+    Hub.broadcast(MSG.COMMANDS_UPDATED, { commands: CommandStore.all(), reason });
+    Hub.broadcast(MSG.GOALS_UPDATED, { goals: GoalStore.all(), reason });
+  }
+
+  return {
+    load() {
+      games = f.read({}) || {};
+      active = Settings.get().activeGame || 'gift-runner';
+      if (!Catalog.game(active)) active = Catalog.games()[0]?.id || 'gift-runner';
+      // First run of this version: the existing rules belong to the active game; a brand-new install gets its defaults.
+      if (!games[active]) {
+        const empty = !Object.keys(RuleStore.all()).length && !Object.keys(CommandStore.all()).length && !GoalStore.all().length;
+        if (empty) apply(defaultsFor(active));
+        remember();
+      }
+    },
+    active: () => active,
+    options,
+    remember,
+    switchTo(id) {
+      if (!Catalog.game(id)) throw new Error(`Unknown game "${id}"`);
+      remember();
+      active = id;
+      Settings.set({ activeGame: id });
+      apply(games[id] ? games[id] : defaultsFor(id));
+      remember();
+      Session.recordGame(id);
+      broadcastAll('game');
+      log.info(`Game switched to ${id}`);
+      return { game: id, options: options() };
+    },
+    resetDefaults() {
+      apply(defaultsFor(active));
+      games[active] = { ...defaultsFor(active), options: {} };
+      remember();
+      broadcastAll('game');
+      return { game: active };
+    },
+    setOptions(input) {
+      if (!input || typeof input !== 'object') throw new Error('options must be an object');
+      const next = cleanOptions(active, input);
+      games[active] = { ...(games[active] || {}), options: next };
+      f.write(games);
+      Hub.broadcast(MSG.GAME_OPTIONS, { game: active, options: next });
+      return { game: active, options: next };
+    },
+    snapshotFor(id) { return games[id] ? { ...games[id], options: options(id) } : { ...defaultsFor(id), options: options(id) }; },
+  };
+})();
+
+/** Neural TTS on the server, cached as MP3; falls back to the browser's voice when the service can't be reached. */
+const Voice = (() => {
+  const DIR = path.join(CONFIG.dataDir, 'tts');
+  const FILE_RE = /^[a-f0-9]{24}\.mp3$/;
+  let chain = Promise.resolve();
+  let pending = 0;
+  let downUntil = 0; // after a failure, skip the service for a minute (no 20s waits per message)
+  let status = { engine: 'neural', error: null };
+
+  const clean = (s, max = 220) => String(s ?? '')
+    .replace(/[\p{Extended_Pictographic}‍️⃣]/gu, '').replace(/[\u{1F1E6}-\u{1F1FF}]/gu, '')
+    .replace(/https?:\/\/\S+/g, '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+  const xml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+  function synth(text, voice, rate) {
+    const hash = crypto.createHash('sha256').update(`${voice}|${rate}|${text}`).digest('hex').slice(0, 24);
+    const file = path.join(DIR, `${hash}.mp3`);
+    const url = `/tts/${hash}.mp3`;
+    if (fs.existsSync(file)) return Promise.resolve(url);
+    if (Date.now() < downUntil) return Promise.reject(new Error(status.error || 'voice service unavailable'));
+    if (pending >= 6) return Promise.reject(new Error('voice queue full'));
+    pending++;
+    const job = chain.then(async () => {
+      const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
+      const tts = new MsEdgeTTS();
+      try {
+        await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+        const { audioStream } = tts.toStream(xml(text), { rate: `${rate >= 0 ? '+' : ''}${rate}%` });
+        const chunks = [];
+        await new Promise((resolve, reject) => {
+          const t = setTimeout(() => reject(new Error('voice service timed out')), 15_000);
+          audioStream.on('data', (c) => chunks.push(c));
+          audioStream.on('end', () => { clearTimeout(t); resolve(); });
+          audioStream.on('close', () => { clearTimeout(t); resolve(); });
+          audioStream.on('error', (e) => { clearTimeout(t); reject(e); });
+        });
+        const buf = Buffer.concat(chunks);
+        if (buf.length < 500) throw new Error('voice service returned no audio');
+        fs.mkdirSync(DIR, { recursive: true });
+        fs.writeFileSync(file, buf);
+        prune();
+        return url;
+      } finally { try { tts.close(); } catch { /* ignore */ } }
+    });
+    chain = job.catch(() => {}).finally(() => { pending--; });
+    return job;
+  }
+  function prune() {
+    try {
+      const names = fs.readdirSync(DIR);
+      if (names.length <= 500) return;
+      names.map((n) => ({ n, t: fs.statSync(path.join(DIR, n)).mtimeMs })).sort((a, b) => a.t - b.t)
+        .slice(0, names.length - 500).forEach(({ n }) => fs.rmSync(path.join(DIR, n), { force: true }));
+    } catch { /* ignore */ }
+  }
+
+  return {
+    DIR, FILE_RE, clean,
+    status: () => status,
+    /** Speak a server-built sentence on every stream page. Returns { text, url } (url null = browser voice). */
+    async say(text, { kind = 'info', force = false } = {}) {
+      const v = StreamSettings.voice();
+      if (!v.enabled && !force) return null;
+      const t = clean(text);
+      if (!t) return null;
+      let url = null;
+      try { url = await synth(t, v.voice, v.rate); status = { engine: 'neural', error: null }; }
+      catch (err) {
+        if (!status.error) log.warn(`Neural voice unavailable (${err.message}); stream pages will use the browser voice`);
+        status = { engine: 'browser', error: err.message };
+        downUntil = Date.now() + 60_000;
+      }
+      Hub.broadcast(MSG.SAY, { text: t, url, kind, lang: v.voice.slice(0, 5), volume: v.volume });
+      return { text: t, url, engine: status.engine };
+    },
+  };
+})();
+
+/** Welcomes, thank-yous and reminders. Only speaks sentences built here (templates + viewer names). */
+const Engage = (() => {
+  let joinNames = [];
+  let joinTimer = null;
+  let lastJoin = 0;
+  const lastKind = new Map();
+  let lastReminder = Date.now();
+  let reminderIdx = 0;
+  const v = () => StreamSettings.voice();
+  const fill = (tpl, vars) => String(tpl || '').replace(/\{(\w+)\}/g, (_, k) => Voice.clean(vars[k] ?? '', 60));
+  const throttled = (kind, ms) => { const now = Date.now(); if (now - (lastKind.get(kind) ?? 0) < ms) return true; lastKind.set(kind, now); return false; };
+
+  /** "Send a Rose to drop barriers" from the active game's rules and chat commands. */
+  function tip() {
+    const lang = v().lang;
+    const game = GameConfig.active();
+    const out = [];
+    for (const [gift, r] of Object.entries(RuleStore.all())) {
+      const a = Catalog.action(game, r.action);
+      if (a && gift !== '*') out.push(lang === 'ar' ? `أرسل ${gift} من أجل ${a.say?.ar ?? a.label}` : `Send a ${gift} to ${a.say?.en ?? a.label.toLowerCase()}`);
+    }
+    for (const [cmd, c] of Object.entries(CommandStore.all())) {
+      const a = Catalog.action(game, c.action);
+      if (a) out.push(lang === 'ar' ? `اكتب ${cmd} في الشات من أجل ${a.say?.ar ?? a.label}` : `Type ${cmd} in chat to ${a.say?.en ?? a.label.toLowerCase()}`);
+    }
+    return out.length ? out[Math.floor(Math.random() * out.length)] : (Catalog.game(game)?.howTo?.[lang] ?? '');
+  }
+  function names(list) {
+    const lang = v().lang;
+    const and = lang === 'ar' ? ' و' : ' and ';
+    if (list.length <= 3) return list.join(lang === 'ar' ? ' و' : list.length > 2 ? ', ' : and);
+    const more = list.length - 2;
+    return lang === 'ar' ? `${list.slice(0, 2).join(' و')} و${more} آخرين` : `${list.slice(0, 2).join(', ')} and ${more} others`;
+  }
+  function vars() {
+    const lang = v().lang;
+    const top = Session.topGifters(1)[0];
+    const goal = GoalStore.all()[0];
+    const likesLeft = goal ? goal.every - (Likes.totalLikes % goal.every) : null;
+    const goalAction = goal && Catalog.action(GameConfig.active(), goal.action);
+    return {
+      tip: tip(), top: top ? top.nickname || top.uniqueId : '', likesLeft: likesLeft ?? '',
+      goal: goal ? goal.label || goalAction?.label || '' : '', howTo: Catalog.game(GameConfig.active())?.howTo?.[lang] ?? '',
+      game: Catalog.game(GameConfig.active())?.name ?? '',
+    };
+  }
+
+  // Reminders: only while live on TikTok, every N minutes, rotating through the lines.
+  setInterval(() => {
+    const s = v();
+    if (!s.enabled || !s.reminders || TikTok.status().status !== STATUS.CONNECTED) return;
+    if (Date.now() - lastReminder < s.reminderEvery * 60_000) return;
+    lastReminder = Date.now();
+    const vv = vars();
+    const lines = s.reminderLines.filter((l) => !(/\{top\}/.test(l) && !vv.top) && !(/\{likesLeft\}|\{goal\}/.test(l) && vv.likesLeft === ''));
+    if (!lines.length) return;
+    const line = lines[reminderIdx++ % lines.length];
+    Voice.say(fill(line, vv), { kind: 'reminder' });
+  }, 15_000).unref();
+
+  return {
+    tip, vars,
+    gift(gift) {
+      const s = v();
+      if (!s.enabled || !s.thankGifts) return;
+      const total = gift.diamondCount * gift.repeatCount;
+      if (total < s.minDiamonds) return;
+      const big = total >= s.bigGiftDiamonds;
+      if (!big && throttled('gift', 4000)) return; // small gifts: at most one thank-you every 4 s
+      Voice.say(fill(big ? s.templates.bigGift : s.templates.gift, { user: gift.user.nickname || gift.user.uniqueId, gift: gift.giftName, count: gift.repeatCount }), { kind: big ? 'bigGift' : 'gift' });
+    },
+    join(user) {
+      const s = v();
+      if (!s.enabled || !s.welcome) return;
+      const n = Voice.clean(user.nickname || user.uniqueId, 30);
+      if (n && !joinNames.includes(n)) joinNames.push(n);
+      if (joinTimer) return;
+      const wait = Math.max(1500, s.welcomeEvery * 1000 - (Date.now() - lastJoin));
+      joinTimer = setTimeout(() => {
+        joinTimer = null;
+        lastJoin = Date.now();
+        const list = joinNames.splice(0);
+        if (list.length) Voice.say(fill(s.templates.welcome, { names: names(list), ...vars() }), { kind: 'welcome' });
+      }, wait);
+    },
+    follow(user) { const s = v(); if (s.enabled && s.thankFollows && !throttled('follow', 5000)) Voice.say(fill(s.templates.follow, { user: user.nickname || user.uniqueId }), { kind: 'follow' }); },
+    share(user) { const s = v(); if (s.enabled && s.thankShares && !throttled('share', 8000)) Voice.say(fill(s.templates.share, { user: user.nickname || user.uniqueId }), { kind: 'share' }); },
+    announce(text) { const s = v(); if (s.enabled && s.announceGame && !throttled('announce', 2500)) return Voice.say(text, { kind: 'game' }); return null; },
+  };
+})();
+
+/** join / follow / share from TikTok (or the dashboard test): toast + voice + report. */
+function handleSocial(kind, user, simulated = false) {
+  Session.recordSocial(kind, simulated);
+  Hub.broadcast(MSG.SOCIAL, { kind, user: user.uniqueId, nickname: user.nickname, profilePictureUrl: user.profilePictureUrl ?? null, simulated });
+  if (Session.current().live && simulated) return;
+  if (kind === 'join') Engage.join(user);
+  else if (kind === 'follow') Engage.follow(user);
+  else if (kind === 'share') Engage.share(user);
+}
+
+/** Saved setups: { name: { game, rules, commands, goals, options, savedAt } }. */
 const Presets = (() => {
   const f = jsonFile('presets.json');
   let presets = {};
   const list = () => Object.entries(presets).map(([name, p]) => ({
-    name, savedAt: p.savedAt, rules: Object.keys(p.rules || {}).length, commands: Object.keys(p.commands || {}).length, goals: (p.goals || []).length,
+    name, savedAt: p.savedAt, game: p.game || 'gift-runner', rules: Object.keys(p.rules || {}).length, commands: Object.keys(p.commands || {}).length, goals: (p.goals || []).length,
   })).sort((a, b) => a.name.localeCompare(b.name));
   const cleanName = (n) => { const s = String(n ?? '').trim().slice(0, 40); if (!s) throw new Error('Give the preset a name'); return s; };
   const broadcast = () => Hub.broadcast(MSG.PRESETS, { presets: list() });
@@ -903,7 +1326,7 @@ const Presets = (() => {
     save(name) {
       const n = cleanName(name);
       if (!presets[n] && Object.keys(presets).length >= 30) throw new Error('At most 30 presets');
-      presets[n] = { rules: RuleStore.all(), commands: CommandStore.all(), goals: GoalStore.all(), savedAt: Date.now() };
+      presets[n] = { game: GameConfig.active(), rules: RuleStore.all(), commands: CommandStore.all(), goals: GoalStore.all(), options: GameConfig.options(), savedAt: Date.now() };
       f.write(presets); broadcast();
       log.info(`Preset saved: ${n}`);
       return { name: n };
@@ -912,9 +1335,13 @@ const Presets = (() => {
       const n = cleanName(name);
       const p = presets[n];
       if (!p) throw new Error(`No preset called "${n}"`);
+      // A preset belongs to a game: switch to it first so the rules match that game's actions.
+      if (p.game && p.game !== GameConfig.active() && Catalog.game(p.game)) GameConfig.switchTo(p.game);
       const rules = RuleStore.update(p.rules || {}, 'replace');
       const commands = CommandStore.update(p.commands || {});
       const goals = GoalStore.update(p.goals || []);
+      if (p.options) GameConfig.setOptions(p.options);
+      GameConfig.remember();
       Hub.broadcast(MSG.RULES_UPDATED, { rules, reason: 'preset', preset: n });
       Hub.broadcast(MSG.COMMANDS_UPDATED, { commands, reason: 'preset' });
       Hub.broadcast(MSG.GOALS_UPDATED, { goals, reason: 'preset' });
@@ -944,6 +1371,8 @@ function emitGameEvent(fields) {
 /** A chat message: counts it and fires a chat command if one matches (and is off cooldown). */
 function handleChat(user, comment, simulated = false) {
   Session.recordChat(simulated);
+  // Every chat line goes to the games too (Word Guess, Vote Path read it).
+  Hub.broadcast(MSG.CHAT, { user: user.uniqueId, nickname: user.nickname, profilePictureUrl: user.profilePictureUrl ?? null, comment: String(comment ?? '').slice(0, 200), simulated });
   const hit = CommandStore.match(comment, user.userId || user.uniqueId);
   if (!hit) return { matched: false };
   if (hit.blocked) return { matched: true, fired: false, command: hit.key, blocked: hit.blocked };
@@ -988,6 +1417,7 @@ function routeGift(gift, { simulated = false, reason = 'gift' } = {}) {
  */
 function completeGift(gift, opts = {}) {
   Session.recordGift(gift, !!opts.simulated);
+  if (!(Session.current().live && opts.simulated)) Engage.gift(gift); // voice thank-you (not for dashboard tests while live)
   const event = routeGift(gift, opts);
   Hub.broadcast(MSG.GIFT_RECEIVED, {
     user: gift.user.uniqueId,
@@ -1085,6 +1515,8 @@ const TikTok = (() => {
       // A new stream report starts on the first successful connect (auto-reconnects keep the same one).
       const cur = Session.current();
       if (!cur.live || cur.username !== username) Session.start(username);
+      // Greet the stream once connected (only when the voice is on).
+      setTimeout(() => { const vv = Engage.vars(); Engage.announce(StreamSettings.voice().lang === 'ar' ? `أهلاً بالجميع! نلعب الآن ${vv.game}. ${vv.howTo}` : `Hello everyone! We're playing ${vv.game}. ${vv.howTo}`); }, 3000);
       const auto = Settings.get().autoConnect;
       if (auto.enabled && auto.username !== username) Settings.set({ autoConnect: { ...auto, username } });
       setStatus({ status: STATUS.CONNECTED, roomId: String(info?.roomId ?? '') || null, error: null, reconnecting: false, attempt: 0 });
@@ -1130,6 +1562,9 @@ const TikTok = (() => {
     on('like', (data) => Likes.add(data));
 
     on('chat', (data) => handleChat(normalizeUser(data), first(data.comment, data.content, '')));
+    on('member', (data) => handleSocial('join', normalizeUser(data)));
+    on('follow', (data) => handleSocial('follow', normalizeUser(data)));
+    on('share', (data) => handleSocial('share', normalizeUser(data)));
 
     on('roomUser', (data) => Viewers.set(Number(first(data.viewerCount, data.total, data.totalUser))));
 
@@ -1266,6 +1701,7 @@ const handlers = {
 
   [MSG.UPDATE_COMMANDS]({ commands }) {
     const updated = CommandStore.update(commands);
+    GameConfig.remember();
     Hub.broadcast(MSG.COMMANDS_UPDATED, { commands: updated });
     log.info(`Chat commands updated: ${Object.keys(updated).join(', ') || '(none)'}`);
     return { commands: updated };
@@ -1273,6 +1709,7 @@ const handlers = {
 
   [MSG.UPDATE_GOALS]({ goals }) {
     const updated = GoalStore.update(goals);
+    GameConfig.remember();
     Hub.broadcast(MSG.GOALS_UPDATED, { goals: updated });
     log.info(`Like goals updated: ${updated.map((g) => `${g.every}→${g.action}`).join(', ') || '(none)'}`);
     return { goals: updated };
@@ -1297,11 +1734,30 @@ const handlers = {
   },
   [MSG.GET_REPORTS]() { return { reports: Session.list(), current: Session.summary() }; },
   [MSG.GET_REPORT]({ id }) { return Session.get(id); },
-  [MSG.GAME_STATS]({ distance }) { Session.recordRun(distance); return { ok: true }; },
+  [MSG.GAME_STATS]({ distance, score }) { Session.recordRun(distance ?? score); return { ok: true }; },
+
+  [MSG.SET_GAME]({ game }) { return GameConfig.switchTo(String(game ?? '')); },
+  [MSG.UPDATE_GAME_OPTIONS]({ options }) { return GameConfig.setOptions(options); },
+  [MSG.RESET_GAME]() { return GameConfig.resetDefaults(); },
+  [MSG.UPDATE_SETTINGS](p) { return StreamSettings.update(p); },
+  async [MSG.TEST_VOICE]({ text } = {}) {
+    const lang = StreamSettings.voice().lang;
+    const line = String(text || '').trim() || (lang === 'ar' ? `اختبار الصوت. ${Engage.tip()}` : `Voice test. ${Engage.tip()}`);
+    const r = await Voice.say(line, { kind: 'test', force: true });
+    return r || { text: line, url: null, engine: 'off' };
+  },
+  [MSG.TEST_SOCIAL]({ kind = 'join', user = 'new_viewer' } = {}) {
+    if (!['join', 'follow', 'share'].includes(kind)) throw new Error('kind must be join, follow or share');
+    const u = String(user).slice(0, 40);
+    handleSocial(kind, { userId: 'test-' + u, uniqueId: u, nickname: u, profilePictureUrl: null }, true);
+    return { kind, user: u };
+  },
+  async [MSG.ANNOUNCE]({ text }) { return (await Engage.announce(String(text ?? '').slice(0, 200))) || { skipped: true }; },
 
   [MSG.UPDATE_RULES]({ rules, mode = 'replace' }) {
     if (!['replace', 'merge'].includes(mode)) throw new Error('mode must be "replace" or "merge"');
     const updated = RuleStore.update(rules, mode);
+    GameConfig.remember();
     Hub.broadcast(MSG.RULES_UPDATED, { rules: updated });
     log.info(`Rules updated (${mode}): ${Object.keys(updated).join(', ') || '(none)'}`);
     return { rules: updated };
@@ -1398,6 +1854,8 @@ function snapshot() {
     status: TikTok.status(), rules: RuleStore.all(), likes: Likes.toJSON(), viewerCount: Viewers.viewerCount, clients: Hub.clients.size, gifts: GiftCatalog.list(),
     commands: CommandStore.all(), goals: GoalStore.all(), paused: Control.paused, presets: Presets.list(),
     supporters: Session.topGifters(3), session: Session.summary(),
+    game: GameConfig.active(), gameOptions: GameConfig.options(), settings: StreamSettings.all(),
+    voices: VOICES, voiceEngine: Voice.status(), clientsInfo: Hub.clientCounts(),
   };
 }
 
@@ -1427,6 +1885,12 @@ app.get('/api/reports/:id.csv', (req, res) => {
   }
 });
 
+// Generated voice lines (public: file names are content hashes).
+app.get('/tts/:file', (req, res) => {
+  if (!Voice.FILE_RE.test(req.params.file)) return res.status(404).end();
+  res.sendFile(path.join(Voice.DIR, req.params.file), { maxAge: '7d', dotfiles: 'deny' }, (err) => err && !res.headersSent && res.status(404).end());
+});
+
 // Cached TikTok gift images (public, long cache: file names are gift ids).
 app.get('/gift-img/:file', (req, res) => {
   if (!GiftCatalog.IMG_FILE_RE.test(req.params.file)) return res.status(404).end();
@@ -1448,9 +1912,12 @@ app.use((err, _req, res, _next) => {
 // 13. BOOT + PROCESS SAFETY + GRACEFUL SHUTDOWN
 // ============================================================================
 Settings.load();
+Catalog.load();
 RuleStore.load();
 CommandStore.load();
 GoalStore.load();
+GameConfig.load();
+Session.recordGame(GameConfig.active());
 Presets.load();
 GiftCatalog.load();
 GiftCatalog.onChange((gifts) => Hub.broadcast(MSG.GIFTS, { gifts }));

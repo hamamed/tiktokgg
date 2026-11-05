@@ -46,6 +46,15 @@ Dashboard → server:
 { "type": "TEST_CHAT", "payload": { "comment": "!left" } }       { "type": "TEST_LIKES", "payload": { "count": 500 } }
 { "type": "GET_REPORTS" }   { "type": "GET_REPORT", "payload": { "id": "current" } }
 ```
+Games, voice and settings:
+```json
+{ "type": "SET_GAME", "payload": { "game": "tug-of-war" } }          (ids in web-dashboard/games/catalog.json)
+{ "type": "UPDATE_GAME_OPTIONS", "payload": { "options": { "redName": "Lions" } } }   { "type": "RESET_GAME" }
+{ "type": "UPDATE_SETTINGS", "payload": { "voice": { "lang": "ar", "voice": "ar-SA-HamedNeural" }, "overlay": { "ticker": false } } }
+{ "type": "TEST_VOICE" }   { "type": "TEST_SOCIAL", "payload": { "kind": "join" } }   { "type": "ANNOUNCE", "payload": { "text": "…" } }
+```
+The server also sends `GAME_CHANGED`, `GAME_OPTIONS`, `SETTINGS`, `SAY` (`{ text, url }`: `url` is an MP3 at `/tts/<hash>.mp3`, or null to use the browser voice), `SOCIAL` (join/follow/share), `CHAT` (every chat line, for the chat games) and `CLIENTS` (connected stream pages, dashboards and remotes).
+
 `GAME_EVENT` has a `source` field: `gift`, `chat`, `likes` or `test`. The server also sends `COMMANDS_UPDATED`, `GOALS_UPDATED`, `PAUSED`, `PRESETS`, `SUPPORTERS` (top 3 gifters), `SESSION` (current stream totals) and `REPORTS`. Reports download as CSV from `GET /api/reports/<id>.csv?token=…`, where `id` can be `current`.
 
 `FETCH_GIFTS` loads TikTok's full gift list (names, diamond prices, images). Leave out `username` to use the stream you're connected to. TikTok only returns the list for an account that is LIVE at that moment.

@@ -1,0 +1,248 @@
+{
+  "version": 1,
+  "teams": {
+    "red":  { "color": "#fe2c55", "tw": "text-rose-400" },
+    "blue": { "color": "#25f4ee", "tw": "text-cyan-300" }
+  },
+  "games": [
+    {
+      "id": "gift-runner",
+      "name": "Gift Runner",
+      "icon": "car-front",
+      "tagline": "Night-highway runner",
+      "description": "A three-lane runner. The car drives itself and viewers make the ride harder or easier with gifts.",
+      "howTo": { "en": "Gifts make the road harder or heal the car.", "ar": "الهدايا تصعّب الطريق أو تعالج السيارة." },
+      "actions": [
+        { "id": "SPAWN_OBSTACLE",   "label": "Barriers",         "icon": "construction",     "color": "#fdba74", "tw": "text-orange-300",  "hint": "Barriers",   "default": 1,   "effect": "Drops road barriers ahead of the car",          "say": { "en": "drop barriers", "ar": "وضع حواجز" } },
+        { "id": "SPEED_BOOST",      "label": "Speed boost",      "icon": "zap",              "color": "#fcd34d", "tw": "text-amber-300",   "hint": "Speed ×",    "default": 1.5, "effect": "Traffic rushes faster for a few seconds",      "say": { "en": "speed things up", "ar": "زيادة السرعة" } },
+        { "id": "SPEED_SLOW",       "label": "Slow motion",      "icon": "snail",            "color": "#7dd3fc", "tw": "text-sky-300",     "hint": "Speed ×",    "default": 0.6, "effect": "Everything slows down for a few seconds",      "say": { "en": "slow everything down", "ar": "إبطاء اللعبة" } },
+        { "id": "SCREEN_SPLATTER",  "label": "Mud splatter",     "icon": "droplets",         "color": "#ca8a04", "tw": "text-yellow-600",  "hint": "Seconds",    "default": 3,   "effect": "Mud covers the screen",                        "say": { "en": "splash mud on the screen", "ar": "رش الطين على الشاشة" } },
+        { "id": "REVERSE_CONTROLS", "label": "Reverse controls", "icon": "arrow-left-right", "color": "#c4b5fd", "tw": "text-violet-300",  "hint": "Seconds",    "default": 5,   "effect": "Left becomes right",                           "say": { "en": "reverse the controls", "ar": "عكس الاتجاهات" } },
+        { "id": "BOSS_ATTACK",      "label": "Boss attack",      "icon": "skull",            "color": "#f87171", "tw": "text-red-400",     "hint": "Boss level", "default": 1,   "effect": "A boss flies in and shoots at the car (1–5)",  "say": { "en": "summon the boss", "ar": "استدعاء الزعيم" } },
+        { "id": "HEAL_PLAYER",      "label": "Heal",             "icon": "heart-pulse",      "color": "#6ee7b7", "tw": "text-emerald-300", "hint": "HP",         "default": 10,  "effect": "Gives the car health back",                    "say": { "en": "heal the car", "ar": "علاج السيارة" } },
+        { "id": "STEER_LEFT",       "label": "Move left",        "icon": "arrow-big-left",   "color": "#67e8f9", "tw": "text-cyan-300",    "hint": "Lanes",      "default": 1,   "effect": "Moves the car one lane left",                  "say": { "en": "steer left", "ar": "التوجه يساراً" } },
+        { "id": "STEER_RIGHT",      "label": "Move right",       "icon": "arrow-big-right",  "color": "#67e8f9", "tw": "text-cyan-300",    "hint": "Lanes",      "default": 1,   "effect": "Moves the car one lane right",                 "say": { "en": "steer right", "ar": "التوجه يميناً" } }
+      ],
+      "defaults": {
+        "rules": { "Rose": { "action": "SPAWN_OBSTACLE", "value": 1 }, "Ice Cream Cone": { "action": "SPEED_SLOW", "value": 0.8 }, "Finger Heart": { "action": "HEAL_PLAYER", "value": 10 }, "Doughnut": { "action": "SCREEN_SPLATTER", "value": 3 }, "Galaxy": { "action": "REVERSE_CONTROLS", "value": 10 }, "Universe": { "action": "BOSS_ATTACK", "value": 1 } },
+        "commands": { "!left": { "action": "STEER_LEFT", "value": 1, "cooldown": 1, "userCooldown": 5 }, "!right": { "action": "STEER_RIGHT", "value": 1, "cooldown": 1, "userCooldown": 5 } },
+        "goals": [{ "every": 1000, "action": "HEAL_PLAYER", "value": 20, "label": "Free heal" }]
+      },
+      "options": []
+    },
+    {
+      "id": "tug-of-war",
+      "name": "Tug of War",
+      "icon": "swords",
+      "tagline": "Two teams, one rope",
+      "description": "Red and blue pull a rope. Each team has its own gifts. The first team to drag the rope over the line wins the round.",
+      "howTo": { "en": "Pick a side: every gift pulls the rope for your team.", "ar": "اختر فريقك: كل هدية تسحب الحبل لفريقك." },
+      "actions": [
+        { "id": "PULL_RED",    "label": "Pull for Red",      "icon": "chevrons-left",  "color": "#fe2c55", "tw": "text-rose-400",    "hint": "Strength", "default": 1, "effect": "Pulls the rope toward the red side",          "say": { "en": "pull for the red team", "ar": "السحب للفريق الأحمر" } },
+        { "id": "PULL_BLUE",   "label": "Pull for Blue",     "icon": "chevrons-right", "color": "#25f4ee", "tw": "text-cyan-300",    "hint": "Strength", "default": 1, "effect": "Pulls the rope toward the blue side",         "say": { "en": "pull for the blue team", "ar": "السحب للفريق الأزرق" } },
+        { "id": "FREEZE_RED",  "label": "Freeze Red",        "icon": "snowflake",      "color": "#bae6fd", "tw": "text-sky-200",     "hint": "Seconds",  "default": 5, "effect": "Red can't pull for a few seconds",            "say": { "en": "freeze the red team", "ar": "تجميد الفريق الأحمر" } },
+        { "id": "FREEZE_BLUE", "label": "Freeze Blue",       "icon": "snowflake",      "color": "#bae6fd", "tw": "text-sky-200",     "hint": "Seconds",  "default": 5, "effect": "Blue can't pull for a few seconds",           "say": { "en": "freeze the blue team", "ar": "تجميد الفريق الأزرق" } },
+        { "id": "HELP_LOSER",  "label": "Help the underdog", "icon": "hand-helping",   "color": "#fcd34d", "tw": "text-amber-300",   "hint": "Strength", "default": 3, "effect": "Pulls for whichever team is losing",          "say": { "en": "help the losing team", "ar": "مساعدة الفريق الخاسر" } }
+      ],
+      "defaults": {
+        "rules": { "Rose": { "action": "PULL_RED", "value": 1 }, "Ice Cream Cone": { "action": "PULL_BLUE", "value": 1 }, "Finger Heart": { "action": "PULL_RED", "value": 5 }, "Heart Me": { "action": "PULL_BLUE", "value": 5 }, "Galaxy": { "action": "FREEZE_BLUE", "value": 8 }, "Universe": { "action": "FREEZE_RED", "value": 8 } },
+        "commands": { "!red": { "action": "PULL_RED", "value": 0.2, "cooldown": 0, "userCooldown": 4 }, "!blue": { "action": "PULL_BLUE", "value": 0.2, "cooldown": 0, "userCooldown": 4 } },
+        "goals": [{ "every": 500, "action": "HELP_LOSER", "value": 5, "label": "Underdog boost" }]
+      },
+      "options": [
+        { "key": "redName", "label": "Red team name", "type": "text", "default": "Red" },
+        { "key": "blueName", "label": "Blue team name", "type": "text", "default": "Blue" },
+        { "key": "winAt", "label": "Pull needed to win", "type": "number", "default": 50, "min": 5, "max": 5000 }
+      ]
+    },
+    {
+      "id": "tower-race",
+      "name": "Tower Race",
+      "icon": "castle",
+      "tagline": "Build to the clouds",
+      "description": "Two teams stack blocks. Gifts add blocks, wind knocks the other team's blocks off. The first tower to reach the clouds wins.",
+      "howTo": { "en": "Gifts add blocks to your team's tower. Reach the clouds first!", "ar": "الهدايا تضيف طوابق لبرج فريقك. اوصل للغيوم أولاً!" },
+      "actions": [
+        { "id": "BUILD_RED",  "label": "Build Red",         "icon": "blocks",       "color": "#fe2c55", "tw": "text-rose-400",  "hint": "Blocks", "default": 1, "effect": "Adds blocks to the red tower",               "say": { "en": "build the red tower", "ar": "بناء البرج الأحمر" } },
+        { "id": "BUILD_BLUE", "label": "Build Blue",        "icon": "blocks",       "color": "#25f4ee", "tw": "text-cyan-300",  "hint": "Blocks", "default": 1, "effect": "Adds blocks to the blue tower",              "say": { "en": "build the blue tower", "ar": "بناء البرج الأزرق" } },
+        { "id": "WIND_RED",   "label": "Wind on Red",       "icon": "wind",         "color": "#e2e8f0", "tw": "text-slate-200", "hint": "Blocks", "default": 2, "effect": "Blows blocks off the red tower",             "say": { "en": "blow wind at the red tower", "ar": "رياح على البرج الأحمر" } },
+        { "id": "WIND_BLUE",  "label": "Wind on Blue",      "icon": "wind",         "color": "#e2e8f0", "tw": "text-slate-200", "hint": "Blocks", "default": 2, "effect": "Blows blocks off the blue tower",            "say": { "en": "blow wind at the blue tower", "ar": "رياح على البرج الأزرق" } },
+        { "id": "HELP_LOSER", "label": "Help the underdog", "icon": "hand-helping", "color": "#fcd34d", "tw": "text-amber-300", "hint": "Blocks", "default": 2, "effect": "Adds blocks to the shorter tower",           "say": { "en": "help the shorter tower", "ar": "مساعدة البرج الأقصر" } }
+      ],
+      "defaults": {
+        "rules": { "Rose": { "action": "BUILD_RED", "value": 1 }, "Ice Cream Cone": { "action": "BUILD_BLUE", "value": 1 }, "Finger Heart": { "action": "BUILD_RED", "value": 3 }, "Heart Me": { "action": "BUILD_BLUE", "value": 3 }, "Galaxy": { "action": "WIND_BLUE", "value": 4 }, "Universe": { "action": "WIND_RED", "value": 4 } },
+        "commands": {},
+        "goals": [{ "every": 500, "action": "HELP_LOSER", "value": 3, "label": "Underdog blocks" }]
+      },
+      "options": [
+        { "key": "redName", "label": "Red team name", "type": "text", "default": "Red" },
+        { "key": "blueName", "label": "Blue team name", "type": "text", "default": "Blue" },
+        { "key": "goalHeight", "label": "Blocks to win", "type": "number", "default": 25, "min": 5, "max": 200 }
+      ]
+    },
+    {
+      "id": "castle-defense",
+      "name": "Castle Defense",
+      "icon": "shield",
+      "tagline": "Hold the walls",
+      "description": "Monsters march on the castle in waves. Some gifts send more monsters, others fire arrows, raise shields or call the dragon.",
+      "howTo": { "en": "Defend the castle, or send monsters to break it!", "ar": "دافع عن القلعة، أو أرسل الوحوش لتهدمها!" },
+      "actions": [
+        { "id": "SPAWN_MONSTERS", "label": "Monsters",      "icon": "ghost",        "color": "#a3e635", "tw": "text-lime-400",    "hint": "Monsters", "default": 2, "effect": "Sends small monsters at the castle",      "say": { "en": "send monsters", "ar": "إرسال الوحوش" } },
+        { "id": "BIG_MONSTER",    "label": "Ogre",          "icon": "skull",        "color": "#f87171", "tw": "text-red-400",     "hint": "Ogres",    "default": 1, "effect": "Sends a big, tough ogre",                 "say": { "en": "send an ogre", "ar": "إرسال الغول" } },
+        { "id": "ARROW_VOLLEY",   "label": "Arrows",        "icon": "crosshair",    "color": "#fcd34d", "tw": "text-amber-300",   "hint": "Arrows",   "default": 3, "effect": "Fires arrows at the nearest monsters",    "say": { "en": "fire arrows", "ar": "إطلاق السهام" } },
+        { "id": "DRAGON",         "label": "Dragon fire",   "icon": "flame",        "color": "#fb923c", "tw": "text-orange-400",  "hint": "Times",    "default": 1, "effect": "Burns every monster on screen",           "say": { "en": "call the dragon", "ar": "استدعاء التنين" } },
+        { "id": "SHIELD",         "label": "Shield",        "icon": "shield",       "color": "#7dd3fc", "tw": "text-sky-300",     "hint": "Seconds",  "default": 5, "effect": "The castle takes no damage for a while",  "say": { "en": "raise the shield", "ar": "رفع الدرع" } },
+        { "id": "REPAIR",         "label": "Repair walls",  "icon": "hammer",       "color": "#6ee7b7", "tw": "text-emerald-300", "hint": "HP",       "default": 10, "effect": "Repairs the castle walls",               "say": { "en": "repair the walls", "ar": "إصلاح الأسوار" } }
+      ],
+      "defaults": {
+        "rules": { "Rose": { "action": "ARROW_VOLLEY", "value": 3 }, "Ice Cream Cone": { "action": "SPAWN_MONSTERS", "value": 2 }, "Finger Heart": { "action": "REPAIR", "value": 10 }, "Doughnut": { "action": "SHIELD", "value": 5 }, "Galaxy": { "action": "BIG_MONSTER", "value": 2 }, "Universe": { "action": "DRAGON", "value": 1 } },
+        "commands": { "!fire": { "action": "ARROW_VOLLEY", "value": 1, "cooldown": 1, "userCooldown": 8 } },
+        "goals": [{ "every": 1000, "action": "REPAIR", "value": 25, "label": "Wall repair" }]
+      },
+      "options": []
+    },
+    {
+      "id": "boat-storm",
+      "name": "Boat Storm",
+      "icon": "sailboat",
+      "tagline": "Survive the sea",
+      "description": "A little boat crosses a stormy sea. Gifts bring waves, lightning and a whale, or a sail boost, repairs and calm water.",
+      "howTo": { "en": "Help the boat sail on, or bring the storm!", "ar": "ساعد القارب على الإبحار، أو اجلب العاصفة!" },
+      "actions": [
+        { "id": "WAVE",       "label": "Big wave",    "icon": "waves",       "color": "#38bdf8", "tw": "text-sky-400",     "hint": "Size",    "default": 1, "effect": "Sends a wave that rocks the boat",        "say": { "en": "send a big wave", "ar": "إرسال موجة كبيرة" } },
+        { "id": "LIGHTNING",  "label": "Lightning",   "icon": "cloud-lightning", "color": "#fde047", "tw": "text-yellow-300", "hint": "Strikes", "default": 1, "effect": "Lightning strikes the boat",              "say": { "en": "strike lightning", "ar": "ضرب البرق" } },
+        { "id": "WHALE",      "label": "Whale",       "icon": "fish",        "color": "#818cf8", "tw": "text-indigo-400",  "hint": "Whales",  "default": 1, "effect": "A whale bumps the boat hard",             "say": { "en": "send the whale", "ar": "إرسال الحوت" } },
+        { "id": "SAIL_BOOST", "label": "Sail boost",  "icon": "wind",        "color": "#fcd34d", "tw": "text-amber-300",   "hint": "Seconds", "default": 3, "effect": "Strong wind: the boat sails faster",      "say": { "en": "fill the sails", "ar": "دفع الشراع" } },
+        { "id": "REPAIR",     "label": "Repair boat", "icon": "hammer",      "color": "#6ee7b7", "tw": "text-emerald-300", "hint": "HP",      "default": 10, "effect": "Patches up the boat",                    "say": { "en": "repair the boat", "ar": "إصلاح القارب" } },
+        { "id": "CALM_SEA",   "label": "Calm sea",    "icon": "sun",         "color": "#fdba74", "tw": "text-orange-300",  "hint": "Seconds", "default": 10, "effect": "No waves or lightning for a while",     "say": { "en": "calm the sea", "ar": "تهدئة البحر" } }
+      ],
+      "defaults": {
+        "rules": { "Rose": { "action": "WAVE", "value": 1 }, "Ice Cream Cone": { "action": "SAIL_BOOST", "value": 3 }, "Finger Heart": { "action": "REPAIR", "value": 10 }, "Doughnut": { "action": "LIGHTNING", "value": 1 }, "Galaxy": { "action": "CALM_SEA", "value": 10 }, "Universe": { "action": "WHALE", "value": 1 } },
+        "commands": { "!row": { "action": "SAIL_BOOST", "value": 1, "cooldown": 2, "userCooldown": 15 } },
+        "goals": [{ "every": 1000, "action": "REPAIR", "value": 30, "label": "Big repair" }]
+      },
+      "options": []
+    },
+    {
+      "id": "spin-wheel",
+      "name": "Spin the Wheel",
+      "icon": "ferris-wheel",
+      "tagline": "Gifts spin for prizes",
+      "description": "Every spin gift turns a prize wheel with the sender's name. You write the prizes in Settings.",
+      "howTo": { "en": "Send a spin gift and see what the wheel gives!", "ar": "أرسل هدية الدوران وشاهد ماذا تعطيك العجلة!" },
+      "actions": [
+        { "id": "SPIN", "label": "Spin the wheel", "icon": "ferris-wheel", "color": "#f472b6", "tw": "text-pink-400", "hint": "Spins", "default": 1, "effect": "Spins the wheel once per unit", "say": { "en": "spin the wheel", "ar": "تدوير العجلة" } }
+      ],
+      "defaults": {
+        "rules": { "Finger Heart": { "action": "SPIN", "value": 1 }, "Doughnut": { "action": "SPIN", "value": 1 }, "Galaxy": { "action": "SPIN", "value": 3 } },
+        "commands": {},
+        "goals": [{ "every": 1000, "action": "SPIN", "value": 1, "label": "Free spin" }]
+      },
+      "options": [
+        { "key": "prizes", "label": "Prizes (one per line)", "type": "lines", "default": ["10 push-ups", "Sing a song", "Dance for 15s", "Shout-out", "Nothing!", "Spin again", "Funny face", "Tell a joke"] }
+      ]
+    },
+    {
+      "id": "bomb-pass",
+      "name": "Bomb Pass",
+      "icon": "bomb",
+      "tagline": "Don't hold it at zero",
+      "description": "Viewers join with !join or a gift. A ticking bomb sits on one player; gifts pass it on or add time. Whoever holds it at zero is out. Last one standing wins.",
+      "howTo": { "en": "Type !join to play. Gifts pass the bomb!", "ar": "اكتب !join للعب. الهدايا تمرر القنبلة!" },
+      "actions": [
+        { "id": "JOIN",      "label": "Join the game", "icon": "user-plus", "color": "#6ee7b7", "tw": "text-emerald-300", "hint": "-",       "default": 1, "effect": "Adds the viewer to the next or current round", "say": { "en": "join the game", "ar": "الانضمام للعبة" } },
+        { "id": "PASS_BOMB", "label": "Pass the bomb", "icon": "bomb",      "color": "#f87171", "tw": "text-red-400",     "hint": "Passes",  "default": 1, "effect": "Passes the bomb to another player",            "say": { "en": "pass the bomb", "ar": "تمرير القنبلة" } },
+        { "id": "ADD_TIME",  "label": "Add time",      "icon": "timer",     "color": "#fcd34d", "tw": "text-amber-300",   "hint": "Seconds", "default": 5, "effect": "Adds seconds to the fuse",                     "say": { "en": "add time to the fuse", "ar": "إضافة وقت للفتيل" } }
+      ],
+      "defaults": {
+        "rules": { "Rose": { "action": "PASS_BOMB", "value": 1 }, "Ice Cream Cone": { "action": "PASS_BOMB", "value": 1 }, "Finger Heart": { "action": "ADD_TIME", "value": 5 }, "Doughnut": { "action": "ADD_TIME", "value": 10 } },
+        "commands": { "!join": { "action": "JOIN", "value": 1, "cooldown": 0, "userCooldown": 20 } },
+        "goals": [{ "every": 500, "action": "ADD_TIME", "value": 10, "label": "Longer fuse" }]
+      },
+      "options": [
+        { "key": "fuse", "label": "Fuse length (seconds)", "type": "number", "default": 25, "min": 5, "max": 300 },
+        { "key": "minPlayers", "label": "Players needed to start", "type": "number", "default": 3, "min": 2, "max": 50 }
+      ]
+    },
+    {
+      "id": "claw-machine",
+      "name": "Claw Machine",
+      "icon": "gift",
+      "tagline": "Grab a prize",
+      "description": "Each gift drops the claw for the sender. Bigger gifts make a stronger claw. Prizes won go on the winners' shelf.",
+      "howTo": { "en": "Send a gift to drop the claw and grab a prize!", "ar": "أرسل هدية لإنزال المخلب والفوز بجائزة!" },
+      "actions": [
+        { "id": "DROP_CLAW", "label": "Drop the claw", "icon": "magnet", "color": "#f472b6", "tw": "text-pink-400", "hint": "Strength 1–5", "default": 1, "effect": "Drops the claw; higher strength grabs better", "say": { "en": "drop the claw", "ar": "إنزال المخلب" } }
+      ],
+      "defaults": {
+        "rules": { "Rose": { "action": "DROP_CLAW", "value": 1 }, "Finger Heart": { "action": "DROP_CLAW", "value": 2 }, "Doughnut": { "action": "DROP_CLAW", "value": 3 }, "Galaxy": { "action": "DROP_CLAW", "value": 5 } },
+        "commands": {},
+        "goals": [{ "every": 1000, "action": "DROP_CLAW", "value": 2, "label": "Free claw" }]
+      },
+      "options": []
+    },
+    {
+      "id": "fish-catch",
+      "name": "Fish Catch",
+      "icon": "fish",
+      "tagline": "Who lands the biggest fish?",
+      "description": "Gifts cast a line for the sender and catch a random fish, from tiny minnows to the legendary golden koi. Bigger gifts bring better luck.",
+      "howTo": { "en": "Type !fish for a free cast. Gifts bring better luck!", "ar": "اكتب !fish لرمية مجانية. الهدايا تجلب حظاً أفضل!" },
+      "actions": [
+        { "id": "CAST", "label": "Cast a line", "icon": "fish", "color": "#38bdf8", "tw": "text-sky-400", "hint": "Luck", "default": 1, "effect": "Catches a fish; more luck means rarer fish", "say": { "en": "cast a line", "ar": "رمي الصنارة" } }
+      ],
+      "defaults": {
+        "rules": { "Rose": { "action": "CAST", "value": 1 }, "Finger Heart": { "action": "CAST", "value": 2 }, "Doughnut": { "action": "CAST", "value": 3 }, "Galaxy": { "action": "CAST", "value": 5 }, "Universe": { "action": "CAST", "value": 10 } },
+        "commands": { "!fish": { "action": "CAST", "value": 0.5, "cooldown": 1, "userCooldown": 60 } },
+        "goals": [{ "every": 500, "action": "CAST", "value": 2, "label": "Lucky cast" }]
+      },
+      "options": []
+    },
+    {
+      "id": "word-guess",
+      "name": "Word Guess",
+      "icon": "spell-check",
+      "tagline": "First to type it wins",
+      "description": "A hidden word shows a letter at a time. The first viewer to type it in chat scores. Gifts reveal letters or double the points.",
+      "howTo": { "en": "Guess the word in chat. First correct answer scores!", "ar": "خمّن الكلمة في الشات. أول إجابة صحيحة تفوز!" },
+      "chat": true,
+      "actions": [
+        { "id": "REVEAL_LETTER", "label": "Reveal a letter", "icon": "eye",          "color": "#fcd34d", "tw": "text-amber-300",  "hint": "Letters", "default": 1,  "effect": "Shows another letter of the word",    "say": { "en": "reveal a letter", "ar": "كشف حرف" } },
+        { "id": "DOUBLE_POINTS", "label": "Double points",   "icon": "badge-plus",   "color": "#6ee7b7", "tw": "text-emerald-300","hint": "Seconds", "default": 30, "effect": "Correct answers score double for a while", "say": { "en": "double the points", "ar": "مضاعفة النقاط" } },
+        { "id": "SKIP_WORD",     "label": "Skip word",       "icon": "skip-forward", "color": "#c4b5fd", "tw": "text-violet-300", "hint": "-",       "default": 1,  "effect": "Skips to a new word",                 "say": { "en": "skip the word", "ar": "تخطي الكلمة" } }
+      ],
+      "defaults": {
+        "rules": { "Rose": { "action": "REVEAL_LETTER", "value": 1 }, "Doughnut": { "action": "DOUBLE_POINTS", "value": 30 }, "Galaxy": { "action": "SKIP_WORD", "value": 1 } },
+        "commands": {},
+        "goals": [{ "every": 300, "action": "REVEAL_LETTER", "value": 1, "label": "Free letter" }]
+      },
+      "options": [
+        { "key": "words", "label": "Words (one per line, optional hint after |)", "type": "lines", "default": ["rainbow|weather", "giraffe|animal", "pizza|food", "guitar|music", "rocket|space", "dolphin|animal", "volcano|nature", "football|sport", "castle|place", "diamond|treasure", "penguin|animal", "chocolate|food"] },
+        { "key": "letterEvery", "label": "Seconds per free letter", "type": "number", "default": 12, "min": 3, "max": 120 }
+      ]
+    },
+    {
+      "id": "vote-path",
+      "name": "Vote Path",
+      "icon": "split",
+      "tagline": "Chat picks the way",
+      "description": "An explorer walks a path full of forks. Chat votes left or right; one side hides treasure, the other a trap. Gifts add many votes.",
+      "howTo": { "en": "Type left or right to vote. Gifts add extra votes!", "ar": "اكتب left أو right للتصويت. الهدايا تضيف أصواتاً!" },
+      "chat": true,
+      "actions": [
+        { "id": "VOTE_LEFT",  "label": "Votes for left",  "icon": "arrow-big-left",  "color": "#67e8f9", "tw": "text-cyan-300",  "hint": "Votes",   "default": 5, "effect": "Adds votes for the left path",   "say": { "en": "vote left", "ar": "التصويت لليسار" } },
+        { "id": "VOTE_RIGHT", "label": "Votes for right", "icon": "arrow-big-right", "color": "#f472b6", "tw": "text-pink-400",  "hint": "Votes",   "default": 5, "effect": "Adds votes for the right path",  "say": { "en": "vote right", "ar": "التصويت لليمين" } },
+        { "id": "EXTRA_TIME", "label": "More voting time","icon": "timer",           "color": "#fcd34d", "tw": "text-amber-300","hint": "Seconds", "default": 5, "effect": "Keeps the vote open longer",     "say": { "en": "add voting time", "ar": "إضافة وقت للتصويت" } }
+      ],
+      "defaults": {
+        "rules": { "Rose": { "action": "VOTE_LEFT", "value": 5 }, "Ice Cream Cone": { "action": "VOTE_RIGHT", "value": 5 }, "Finger Heart": { "action": "VOTE_LEFT", "value": 20 }, "Heart Me": { "action": "VOTE_RIGHT", "value": 20 }, "Doughnut": { "action": "EXTRA_TIME", "value": 5 } },
+        "commands": {},
+        "goals": [{ "every": 500, "action": "EXTRA_TIME", "value": 10, "label": "Longer vote" }]
+      },
+      "options": [
+        { "key": "voteSeconds", "label": "Voting time (seconds)", "type": "number", "default": 12, "min": 5, "max": 120 }
+      ]
+    }
+  ]
+}

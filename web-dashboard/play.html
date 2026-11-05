@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>LIVE Game</title>
+  <meta name="description" content="TikTok LIVE interactive game. Add as an OBS Browser Source (1080×1920); it follows the game picked in the dashboard." />
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <style>
+    :root { --red: #fe2c55; --cyan: #25f4ee; --text: #f1f5f9; --muted: #94a3b8; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #05060d; color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif; }
+    #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+    #frame { position: relative; height: 100vh; aspect-ratio: 9 / 16; max-width: 100vw; overflow: hidden; }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #fx { pointer-events: none; }
+    svg.i { width: 1em; height: 1em; flex: none; }
+    .panel { background: rgba(8,10,20,.72); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: .55em .8em; backdrop-filter: blur(6px); }
+    .sub { color: var(--muted); font-size: .7em; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+    .big { font-weight: 800; font-size: 1.5em; display: flex; align-items: center; gap: .35em; font-variant-numeric: tabular-nums; }
+    .bar { height: .6em; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: .35em; }
+    .bar > i { display: block; height: 100%; transition: width .25s, background .25s; }
+
+    .hud { position: absolute; left: 3.5%; right: 3.5%; top: 2.5%; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; pointer-events: none; font-size: clamp(11px, 2.3vh, 22px); }
+    .hud:empty { display: none; }
+    .leftcol { position: absolute; left: 3.5%; top: 12%; width: 55%; display: flex; flex-direction: column; gap: .5em; pointer-events: none; }
+    body.nolegend .leftcol { width: 70%; }
+    .effects { display: flex; flex-wrap: wrap; gap: .4em; font-size: clamp(10px, 2vh, 19px); }
+    .fxchip { display: flex; align-items: center; gap: .45em; padding: .35em .7em; border-radius: 99px; font-weight: 700; background: rgba(8,10,20,.75); border: 1px solid rgba(255,255,255,.1); }
+    .fxchip b { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 600; }
+    .alerts { display: flex; flex-direction: column; gap: .5em; align-items: flex-start; font-size: clamp(10px, 2.1vh, 20px); }
+    .alert { display: flex; align-items: center; gap: .6em; padding: .55em .8em; border-radius: 14px; background: rgba(8,10,20,.82); border: 1px solid rgba(255,255,255,.1); border-left: 4px solid var(--red); max-width: 100%; animation: pop .25s ease-out; }
+    .alert.out { animation: fade .4s ease-in forwards; }
+    .alert .ic { display: grid; place-items: center; width: 2.1em; height: 2.1em; border-radius: 10px; background: rgba(255,255,255,.06); font-size: 1.1em; flex: none; }
+    .alert .who { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .alert .what { color: var(--muted); font-size: .8em; display: flex; align-items: center; gap: .3em; white-space: nowrap; }
+    @keyframes pop { from { opacity: 0; transform: translateX(-20px) scale(.96); } }
+    @keyframes fade { to { opacity: 0; transform: translateX(-20px); } }
+
+    .rightcol { position: absolute; right: 3.5%; top: 12%; width: 37%; display: flex; flex-direction: column; gap: .5em; pointer-events: none; font-size: clamp(9px, 1.75vh, 17px); }
+    .rpanel { background: rgba(8,10,20,.78); border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: .55em .5em .45em; backdrop-filter: blur(6px); }
+    .rpanel[hidden], body.nolegend .legend, body.nogoals .goals, body.nosupporters .sup, body.noticker .ticker, body.nowelcome .toasts { display: none !important; }
+    .rpanel h3 { margin: 0 0 .35em; padding: 0 .3em; display: flex; align-items: center; gap: .35em; font-size: .78em; letter-spacing: .06em; text-transform: uppercase; color: var(--red); }
+    .legend ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .2em; transition: opacity .35s; }
+    .legend ul.fading { opacity: 0; }
+    .legend li { display: grid; grid-template-columns: 2em 1fr; align-items: center; gap: .45em; padding: .25em .3em; border-radius: 9px; transition: background .3s, box-shadow .3s; }
+    .legend li.hit { background: rgba(254,44,85,.25); box-shadow: 0 0 0 1px rgba(254,44,85,.7), 0 0 18px rgba(254,44,85,.45); }
+    .legend .gimg { width: 2em; height: 2em; display: grid; place-items: center; }
+    .legend .gimg img { width: 100%; height: 100%; object-fit: contain; }
+    .legend .cmd { display: grid; place-items: center; width: 1.7em; height: 1.7em; border-radius: 8px; background: rgba(37,244,238,.12); color: var(--cyan); }
+    .legend .gname { font-weight: 800; font-size: .86em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: .3em; }
+    .legend .gname small { color: var(--muted); font-weight: 600; font-size: .85em; display: inline-flex; align-items: center; gap: .1em; flex: none; }
+    .legend .gact { font-size: .78em; font-weight: 700; display: flex; align-items: center; gap: .3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dots { display: flex; justify-content: center; gap: .3em; margin-top: .35em; }
+    .dots i { width: .4em; height: .4em; border-radius: 50%; background: rgba(255,255,255,.25); }
+    .dots i.on { background: var(--red); }
+    .goals h3 { color: #f472b6; }
+    .goal { padding: .2em .3em .35em; }
+    .goal .gl { display: flex; align-items: center; gap: .3em; font-size: .8em; font-weight: 800; white-space: nowrap; overflow: hidden; }
+    .goal .gl b { margin-inline-start: auto; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .goal .bar { height: .5em; margin-top: .3em; }
+    .goal .bar i { background: linear-gradient(90deg, #ec4899, #fe2c55); transition: width .6s; }
+    .goals.hit { box-shadow: 0 0 0 1px rgba(244,114,182,.8), 0 0 24px rgba(244,114,182,.5); }
+    .sup h3 { color: #fbbf24; }
+    .sup ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .25em; }
+    .sup li { display: grid; grid-template-columns: 1.3em 1.9em 1fr; align-items: center; gap: .4em; padding: .15em .3em; }
+    .sup .rank { font-weight: 900; font-size: .85em; text-align: center; }
+    .sup .av { width: 1.9em; height: 1.9em; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,.08); display: grid; place-items: center; font-weight: 800; font-size: .85em; }
+    .sup .nm { font-weight: 800; font-size: .82em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+    .sup .dm { color: var(--muted); font-size: .75em; font-weight: 600; display: flex; align-items: center; gap: .15em; }
+
+    .banner { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: 90%; text-align: center; pointer-events: none; font-size: clamp(14px, 3vh, 30px); z-index: 5; }
+    .banner h2 { margin: 0; font-size: 2.1em; font-weight: 900; letter-spacing: .02em; text-shadow: 0 4px 30px rgba(0,0,0,.85); }
+    .banner p { margin: .3em 0 0; color: #e2e8f0; font-weight: 700; text-shadow: 0 2px 12px rgba(0,0,0,.9); }
+    .flashbanner { animation: pulse .9s ease-out; }
+    @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(.6); opacity: 0; } 30% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+
+    .ticker { position: absolute; left: 3.5%; right: 3.5%; bottom: 5.2%; display: flex; align-items: center; gap: .5em; padding: .45em .8em; border-radius: 12px; background: rgba(8,10,20,.78); border: 1px solid rgba(255,255,255,.1); font-size: clamp(10px, 1.9vh, 18px); font-weight: 700; pointer-events: none; }
+    .ticker .ic { color: var(--cyan); }
+    .ticker span { transition: opacity .4s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ticker:empty, .ticker[hidden] { display: none; }
+    .toasts { position: absolute; left: 50%; bottom: 10.5%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: .35em; pointer-events: none; font-size: clamp(10px, 1.9vh, 18px); width: 80%; }
+    .toast { display: flex; align-items: center; gap: .45em; padding: .4em .9em; border-radius: 99px; background: rgba(8,10,20,.85); border: 1px solid rgba(255,255,255,.14); font-weight: 700; animation: rise .3s ease-out; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .toast.out { animation: fadeup .4s ease-in forwards; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+    @keyframes fadeup { to { opacity: 0; transform: translateY(-8px); } }
+
+    .conn { position: absolute; left: 3.5%; bottom: 1.8%; display: flex; align-items: center; gap: .4em; font-size: clamp(9px, 1.5vh, 14px); color: var(--muted); pointer-events: none; }
+    .dot { width: .6em; height: .6em; border-radius: 50%; background: #ef4444; }
+    .dot.on { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+    .tools { position: absolute; right: 3.5%; bottom: 1.5%; display: flex; gap: .4em; font-size: clamp(10px, 1.7vh, 16px); }
+    .tools button { display: inline-flex; align-items: center; gap: .35em; background: rgba(8,10,20,.7); color: var(--text); border: 1px solid rgba(255,255,255,.12); border-radius: 99px; padding: .35em .8em; font: inherit; font-weight: 600; cursor: pointer; }
+    .tools button:hover { background: rgba(255,255,255,.12); }
+    body.obs .tools, body.preview .tools { display: none; }
+    .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-weight: 700; }
+    .loading[hidden] { display: none; }
+  </style>
+</head>
+<body>
+<div id="stage">
+  <div id="frame">
+    <canvas id="game" width="540" height="960"></canvas>
+    <canvas id="fx" width="540" height="960"></canvas>
+    <div class="loading" id="loading">Loading…</div>
+
+    <div class="hud" id="hud"></div>
+    <div class="leftcol">
+      <div class="effects" id="effects"></div>
+      <div class="alerts" id="alerts"></div>
+    </div>
+    <div class="rightcol">
+      <aside class="rpanel legend" id="legend" hidden>
+        <h3><span data-icon="gift"></span><span id="legendTitle"></span></h3>
+        <ul id="legendList"></ul>
+        <div class="dots" id="legendDots"></div>
+      </aside>
+      <section class="rpanel goals" id="goalsBox" hidden>
+        <h3><span data-icon="heart"></span><span id="goalsTitle"></span></h3>
+        <div id="goalsList"></div>
+      </section>
+      <section class="rpanel sup" id="supBox" hidden>
+        <h3><span data-icon="crown"></span><span id="supTitle"></span></h3>
+        <ol id="supList"></ol>
+      </section>
+    </div>
+    <div class="banner" id="banner"></div>
+    <div class="toasts" id="toasts"></div>
+    <div class="ticker" id="ticker" hidden><span class="ic" data-icon="lightbulb"></span><span id="tickerText"></span></div>
+
+    <div class="conn"><span class="dot" id="dot"></span><span id="connText">connecting…</span></div>
+    <div class="tools" id="tools">
+      <button id="soundBtn" type="button"><span></span><span></span></button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+/* ===========================================================================
+ * play.html: the stream page. One OBS Browser Source for every game.
+ *
+ * It connects to the control server, shows the shared overlays (alerts, gift/command
+ * list, like goals, top supporters, tips ticker, welcome toasts), plays sound effects and
+ * voice lines, and runs the game picked in the dashboard (games/<id>.js), switching
+ * automatically when you change game.
+ *
+ * URL options: ?token=…   ?server=wss://…/ws   ?game=<id> (stick to one game)
+ *              ?obs=1 (hide buttons)   ?preview=1 (dashboard preview: muted)   ?sound=0  ?voice=0
+ * ======================================================================== */
+
+// ---------- small helpers ----------
+const qs = new URLSearchParams(location.search);
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const readStore = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+const pascal = (s) => s.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());
+function icon(name, cls = 'i') {
+  const node = window.lucide?.icons?.[pascal(name)];
+  const kids = !node ? [] : Array.isArray(node[0]) ? node : node[2] ?? [];
+  return `<svg class="${cls}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${kids.map(([t, a]) => `<${t} ${Object.entries(a).map(([k, v]) => `${k}="${v}"`).join(' ')}/>`).join('')}</svg>`;
+}
+document.querySelectorAll('[data-icon]').forEach((el) => (el.innerHTML = icon(el.dataset.icon)));
+
+// ---------- options ----------
+const hosted = /^https?:$/.test(location.protocol) && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+const SERVER = qs.get('server') || readStore('tt.server') || (hosted ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws` : 'ws://localhost:8080');
+const TOKEN = qs.get('token') || readStore('tt.token') || '';
+const PREVIEW = qs.get('preview') === '1';
+const FIXED_GAME = qs.get('game');
+const HTTP_BASE = SERVER.replace(/^ws(s?):/, 'http$1:').replace(/\/ws\/?$/, '').replace(/\/$/, '');
+const imgSrc = (u) => (!u ? '' : u.startsWith('/') ? HTTP_BASE + u : u);
+if (qs.get('obs') === '1') document.body.classList.add('obs');
+if (PREVIEW) document.body.classList.add('preview');
+
+// ---------- shared state ----------
+const W = 540, H = 960;
+const cvs = $('game'), ctx = cvs.getContext('2d');
+const fxCvs = $('fx'), fx = fxCvs.getContext('2d');
+const S = {
+  catalog: null, gameId: null, game: null, gameDef: null, options: {},
+  rules: {}, gifts: [], commands: {}, goals: [], likes: 0, supporters: [], paused: false,
+  overlay: { legend: true, goals: true, supporters: true, ticker: true, welcome: true, sfx: true },
+  lang: 'en', now: 0, roundGifters: {},
+};
+const t = (en, ar) => (S.lang === 'ar' && ar ? ar : en);
+
+// ---------- text for the overlays (English / Arabic, follows the voice language) ----------
+const TXT = {
+  send: ['Send a gift', 'أرسل هدية'], sendOrType: ['Send a gift or type', 'أرسل هدية أو اكتب'], type: ['Type in chat', 'اكتب في الشات'],
+  goals: ['Like goals', 'أهداف اللايكات'], top: ['Top supporters', 'أكبر الداعمين'], free: ['free', 'مجاناً'],
+  likeGoal: ['Like goal', 'هدف اللايكات'], likes: ['likes!', 'لايك!'], typed: ['typed', 'كتب'], test: ['test', 'تجربة'],
+  welcome: ['Welcome', 'أهلاً'], followed: ['followed!', 'تابع!'], shared: ['shared the live!', 'شارك البث!'],
+  live: ['live · waiting for gifts', 'متصل · بانتظار الهدايا'], offline: ['server offline, retrying…', 'الخادم غير متصل…'],
+  token: ['access token missing: add ?token=… to the URL', 'رمز الدخول مفقود'], paused: ['PAUSED', 'متوقف'], back: ['back in a moment', 'نعود بعد قليل'],
+  soundOn: ['Sound on', 'الصوت مفعل'], soundOff: ['Sound off', 'الصوت متوقف'], mvp: ['MVP', 'الأفضل'],
+};
+const tx = (k) => TXT[k][S.lang === 'ar' ? 1 : 0];
+
+// ---------- catalog lookups ----------
+const actionLook = (id) => S.gameDef?.actions.find((a) => a.id === id) ?? { icon: 'circle-help', color: '#94a3b8', label: id };
+const GIFT_ICON = { rose: 'flower', 'ice cream cone': 'ice-cream-cone', 'finger heart': 'hand-heart', doughnut: 'donut', galaxy: 'sparkles', universe: 'orbit' };
+const giftImages = new Map();
+/** <img> for a gift name (for drawing on canvas); null until loaded. */
+function giftImage(name) {
+  const g = S.gifts.find((x) => x.name.toLowerCase() === String(name).toLowerCase());
+  if (!g?.image) return null;
+  let img = giftImages.get(g.image);
+  if (!img) { img = new Image(); img.src = imgSrc(g.image); giftImages.set(g.image, img); }
+  return img.complete && img.naturalWidth ? img : null;
+}
+const avatars = new Map();
+function avatarImage(url) {
+  if (!url) return null;
+  let img = avatars.get(url);
+  if (!img) { img = new Image(); img.referrerPolicy = 'no-referrer'; img.src = url; avatars.set(url, img); }
+  return img.complete && img.naturalWidth ? img : null;
+}
+function userColor(name) {
+  let h = 0;
+  for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${h} 85% 62%)`;
+}
+
+// ---------- sound effects (Web Audio, no files) ----------
+const SFX = (() => {
+  let ac = null, master = null;
+  let enabled = qs.get('sound') !== '0' && !PREVIEW && readStore('gr.sound') !== false;
+  function ctxA() {
+    if (!ac) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ac = new AC(); master = ac.createGain(); master.gain.value = 0.35; master.connect(ac.destination);
+    }
+    if (ac.state === 'suspended') ac.resume().catch(() => {});
+    return ac;
+  }
+  function tone({ type = 'sine', f0 = 440, f1 = f0, dur = 0.2, vol = 0.5, delay = 0 } = {}) {
+    if (!enabled || !S.overlay.sfx) return;
+    const c = ctxA(); if (!c) return;
+    const t0 = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(master); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  function noise({ dur = 0.3, vol = 0.5, freq = 800, delay = 0 } = {}) {
+    if (!enabled || !S.overlay.sfx) return;
+    const c = ctxA(); if (!c) return;
+    const t0 = c.currentTime + delay, len = Math.floor(c.sampleRate * dur), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    src.buffer = buf; f.type = 'lowpass'; f.frequency.value = freq; g.gain.value = vol;
+    src.connect(f).connect(g).connect(master); src.start(t0);
+  }
+  const preset = {
+    alert: () => tone({ f0: 1320, f1: 1760, dur: 0.12, vol: 0.12 }),
+    good: () => [523, 659, 784].forEach((f, i) => tone({ f0: f, dur: 0.22, vol: 0.28, delay: i * 0.07 })),
+    bad: () => { noise({ dur: 0.25, vol: 0.7, freq: 500 }); tone({ type: 'square', f0: 180, f1: 90, dur: 0.2, vol: 0.2 }); },
+    hit: () => noise({ dur: 0.2, vol: 0.8, freq: 900 }),
+    boom: () => { noise({ dur: 0.9, vol: 1, freq: 450 }); tone({ type: 'sawtooth', f0: 200, f1: 40, dur: 0.8, vol: 0.3 }); },
+    win: () => [523, 659, 784, 1046, 1318].forEach((f, i) => tone({ type: 'square', f0: f, dur: 0.18, vol: 0.16, delay: i * 0.12 })),
+    goal: () => [523, 659, 784, 1046].forEach((f, i) => tone({ type: 'square', f0: f, dur: 0.16, vol: 0.16, delay: i * 0.11 })),
+    tick: () => tone({ type: 'square', f0: 880, dur: 0.05, vol: 0.08 }),
+    whoosh: () => tone({ type: 'sawtooth', f0: 220, f1: 880, dur: 0.45, vol: 0.2 }),
+    down: () => tone({ type: 'sawtooth', f0: 660, f1: 110, dur: 0.6, vol: 0.18 }),
+    splash: () => { noise({ dur: 0.35, vol: 0.9, freq: 300 }); noise({ dur: 0.25, vol: 0.6, freq: 600, delay: 0.12 }); },
+    blip: () => tone({ type: 'triangle', f0: 600, f1: 450, dur: 0.08, vol: 0.18 }),
+  };
+  return {
+    get enabled() { return enabled; },
+    toggle() { enabled = !enabled; try { localStorage.setItem('gr.sound', JSON.stringify(enabled)); } catch {} if (enabled) { ctxA(); preset.alert(); } return enabled; },
+    unlock() { if (enabled) ctxA(); },
+    tone, noise,
+    play(name) { try { (typeof name === 'function' ? name : preset[name] || preset.alert)(); } catch { /* no audio */ } },
+  };
+})();
+
+// ---------- voice lines from the server (MP3, or the browser voice as a fallback) ----------
+const Voice = (() => {
+  const queue = [];
+  let playing = false;
+  const enabled = () => qs.get('voice') !== '0' && !PREVIEW && SFX.enabled;
+  function next() {
+    if (playing || !queue.length) return;
+    const item = queue.shift();
+    playing = true;
+    const done = () => { playing = false; setTimeout(next, 250); };
+    if (item.url) {
+      const a = new Audio(imgSrc(item.url));
+      a.volume = clamp(item.volume ?? 0.9, 0, 1);
+      a.onended = done; a.onerror = () => { item.url = null; playing = false; speakBrowser(item, done); };
+      a.play().catch(() => { playing = false; speakBrowser(item, done); });
+    } else speakBrowser(item, done);
+  }
+  function speakBrowser(item, done) {
+    if (!('speechSynthesis' in window)) return done();
+    playing = true;
+    const u = new SpeechSynthesisUtterance(item.text);
+    u.lang = item.lang || 'en-US';
+    u.volume = clamp(item.volume ?? 0.9, 0, 1);
+    const v = speechSynthesis.getVoices().find((x) => x.lang?.toLowerCase().startsWith(u.lang.slice(0, 2).toLowerCase()));
+    if (v) u.voice = v;
+    u.onend = done; u.onerror = done;
+    speechSynthesis.speak(u);
+    setTimeout(() => playing && done(), 12000); // never get stuck
+  }
+  return {
+    say(item) {
+      if (!enabled()) return;
+      if (queue.length >= 4) queue.splice(queue.findIndex((q) => q.kind === 'reminder' || q.kind === 'welcome') >= 0 ? queue.findIndex((q) => q.kind === 'reminder' || q.kind === 'welcome') : 0, 1);
+      queue.push(item);
+      next();
+    },
+  };
+})();
+
+// ---------- overlays ----------
+let hudKey = '';
+function setHud(left = '', right = '') {
+  const k = left + '|' + right;
+  if (k === hudKey) return;
+  hudKey = k;
+  $('hud').innerHTML = left || right ? `<div class="panel">${left}</div>${right ? `<div class="panel" style="min-width:9em">${right}</div>` : ''}` : '';
+}
+let effKey = '';
+function setEffects(list = []) {
+  const k = list.map((e) => e.label + Math.ceil(e.secs ?? 0)).join('|');
+  if (k === effKey) return;
+  effKey = k;
+  $('effects').innerHTML = list.map((e) => `<div class="fxchip" style="color:${e.color}">${icon(e.icon)}<span>${esc(e.label)}</span>${e.secs != null ? `<b>${Math.ceil(e.secs)}s</b>` : ''}</div>`).join('');
+}
+let bannerTimer;
+function banner(title, sub = '', color = '#fff', ms = 2600) {
+  const b = $('banner');
+  clearTimeout(bannerTimer);
+  if (!title) { b.innerHTML = ''; return; }
+  b.innerHTML = `<h2 style="color:${color}">${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}`;
+  b.classList.remove('flashbanner'); void b.offsetWidth; b.classList.add('flashbanner');
+  bannerTimer = setTimeout(() => (b.innerHTML = ''), ms);
+}
+function toast(html, color = '#25f4ee') {
+  if (!S.overlay.welcome) return;
+  const box = $('toasts');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.style.borderColor = color;
+  el.innerHTML = html;
+  box.append(el);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 400); }, 3500);
+}
+function showAlert(ev, handled) {
+  const look = actionLook(ev.action);
+  const giftIcon = ev.source === 'chat' ? 'message-square' : ev.source === 'likes' ? 'heart' : GIFT_ICON[String(ev.giftName).toLowerCase()] ?? (ev.giftId === 'test' && !ev.matchedRule ? 'flask-conical' : 'gift');
+  const what = ev.source === 'chat' ? `${tx('typed')} ${esc(ev.command || ev.giftName)}`
+    : ev.source === 'likes' ? `${Number(ev.likes || 0).toLocaleString()} ${tx('likes')}`
+    : ev.giftId === 'test' && !ev.matchedRule ? tx('test') : `${esc(ev.giftName)}${ev.repeatCount > 1 ? ' ×' + ev.repeatCount : ''}`;
+  const pic = ev.giftImage ? `<img src="${esc(imgSrc(ev.giftImage))}" alt="" style="width:1.7em;height:1.7em;object-fit:contain">` : icon(giftIcon);
+  const el = document.createElement('div');
+  el.className = 'alert';
+  el.style.borderLeftColor = look.color;
+  el.innerHTML = `<div class="ic" style="color:${look.color}">${pic}</div><div style="min-width:0"><div class="who">${ev.source === 'likes' ? tx('likeGoal') : '@' + esc(ev.user)}</div>
+    <div class="what">${what} <span style="color:${look.color};display:inline-flex;align-items:center;gap:.25em">${icon('arrow-right')} ${icon(look.icon)} ${esc(look.label)}${handled ? '' : ' ?'}</span></div></div>`;
+  const box = $('alerts');
+  box.prepend(el);
+  while (box.children.length > 4) box.lastChild.remove();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 400); }, 4200);
+}
+
+// gift + command list
+const LEG = { page: 0, pages: 1, timer: null };
+const PER_PAGE = 7;
+function legendRows() {
+  const byName = new Map(S.gifts.map((g) => [g.name.toLowerCase(), g]));
+  const valid = (a) => S.gameDef?.actions.some((x) => x.id === a);
+  return Object.entries(S.rules).filter(([, r]) => r && valid(r.action)).map(([name, r]) => {
+    const g = byName.get(name.toLowerCase());
+    return { key: name.toLowerCase(), name: name === '*' ? t('Any other gift', 'أي هدية أخرى') : g?.name ?? name, diamonds: name === '*' ? Infinity : g?.diamonds ?? Infinity, image: g?.image, rule: r };
+  }).sort((a, b) => a.diamonds - b.diamonds || a.name.localeCompare(b.name))
+    .concat(Object.entries(S.commands).filter(([, c]) => valid(c.action)).map(([key, c]) => ({ key, name: key, command: true, diamonds: Infinity, rule: c })));
+}
+function renderLegend() {
+  const rows = legendRows();
+  $('legend').hidden = !rows.length || !S.overlay.legend;
+  const hasGifts = rows.some((r) => !r.command), hasCmds = rows.some((r) => r.command);
+  $('legendTitle').textContent = hasGifts && hasCmds ? tx('sendOrType') : hasCmds ? tx('type') : tx('send');
+  LEG.pages = Math.max(1, Math.ceil(rows.length / PER_PAGE));
+  LEG.page %= LEG.pages;
+  $('legendList').innerHTML = rows.slice(LEG.page * PER_PAGE, LEG.page * PER_PAGE + PER_PAGE).map((r) => {
+    const look = actionLook(r.rule.action);
+    const pic = r.command ? `<span class="cmd">${icon('message-square')}</span>` : r.image ? `<img src="${esc(imgSrc(r.image))}" alt="">` : icon(GIFT_ICON[r.key] ?? 'gift');
+    const price = Number.isFinite(r.diamonds) ? `<small>${icon('gem')}${r.diamonds.toLocaleString()}</small>` : r.command ? `<small>${tx('free')}</small>` : '';
+    return `<li data-key="${esc(r.key)}"><span class="gimg">${pic}</span><span style="min-width:0"><span class="gname"><span style="overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>${price}</span><span class="gact" style="color:${look.color}">${icon(look.icon)}${esc(look.label)}</span></span></li>`;
+  }).join('');
+  $('legendDots').innerHTML = LEG.pages > 1 ? Array.from({ length: LEG.pages }, (_, i) => `<i class="${i === LEG.page ? 'on' : ''}"></i>`).join('') : '';
+  clearInterval(LEG.timer);
+  if (LEG.pages > 1) LEG.timer = setInterval(() => { $('legendList').classList.add('fading'); setTimeout(() => { LEG.page = (LEG.page + 1) % LEG.pages; renderLegend(); $('legendList').classList.remove('fading'); }, 350); }, 6000);
+  renderTicker(true);
+}
+function flashLegend(key) {
+  if (!key) return;
+  key = String(key).toLowerCase();
+  const idx = legendRows().findIndex((r) => r.key === key);
+  if (idx < 0) return;
+  const page = Math.floor(idx / PER_PAGE);
+  if (page !== LEG.page) { LEG.page = page; renderLegend(); }
+  const li = [...$('legendList').children].find((el) => el.dataset.key === key);
+  if (!li) return;
+  li.classList.remove('hit'); void li.offsetWidth; li.classList.add('hit');
+  setTimeout(() => li.classList.remove('hit'), 1400);
+}
+function renderGoals() {
+  $('goalsTitle').textContent = tx('goals');
+  $('goalsBox').hidden = !S.goals.length || !S.overlay.goals;
+  $('goalsList').innerHTML = S.goals.slice(0, 3).map((g) => {
+    const look = actionLook(g.action);
+    const into = S.likes % g.every;
+    return `<div class="goal"><div class="gl" style="color:${look.color}">${icon(look.icon)}<span style="overflow:hidden;text-overflow:ellipsis">${esc(g.label || look.label)}</span><b>${into.toLocaleString()} / ${g.every.toLocaleString()}</b></div><div class="bar"><i style="width:${Math.round((into / g.every) * 100)}%"></i></div></div>`;
+  }).join('');
+}
+function renderSupporters() {
+  $('supTitle').textContent = tx('top');
+  $('supBox').hidden = !S.supporters.length || !S.overlay.supporters;
+  const medal = ['#fbbf24', '#cbd5e1', '#d97706'];
+  $('supList').innerHTML = S.supporters.slice(0, 3).map((u, i) => {
+    const av = u.avatar ? `<img class="av" src="${esc(u.avatar)}" alt="" referrerpolicy="no-referrer">` : `<span class="av">${esc((u.nickname || u.uniqueId || '?')[0].toUpperCase())}</span>`;
+    return `<li><span class="rank" style="color:${medal[i]}">${i === 0 ? icon('crown') : i + 1}</span>${av}<span style="min-width:0"><span class="nm">${esc(u.nickname || u.uniqueId)}</span><span class="dm">${icon('gem')}${Number(u.diamonds).toLocaleString()}</span></span></li>`;
+  }).join('');
+}
+
+// tips ticker: rotates through "Send a Rose → Barriers", "Type !fish …", the game's how-to and like goals
+let tickIdx = 0, tickTimer = null;
+function tickerLines() {
+  const lines = [];
+  const how = S.gameDef?.howTo?.[S.lang] ?? S.gameDef?.howTo?.en;
+  if (how) lines.push(how);
+  for (const r of legendRows()) {
+    const look = actionLook(r.rule.action);
+    lines.push(r.command ? t(`Type ${r.name} in chat → ${look.label}`, `اكتب ${r.name} في الشات ← ${look.label}`) : t(`Send ${r.name} → ${look.label}`, `أرسل ${r.name} ← ${look.label}`));
+  }
+  for (const g of S.goals.slice(0, 1)) lines.push(t(`${(g.every - (S.likes % g.every)).toLocaleString()} likes to go: ${g.label || actionLook(g.action).label}`, `باقي ${(g.every - (S.likes % g.every)).toLocaleString()} لايك: ${g.label || actionLook(g.action).label}`));
+  return lines;
+}
+function renderTicker(reset = false) {
+  const box = $('ticker');
+  const lines = tickerLines();
+  box.hidden = !S.overlay.ticker || !lines.length;
+  if (reset) tickIdx = 0;
+  $('tickerText').textContent = lines[tickIdx % Math.max(1, lines.length)] || '';
+  clearInterval(tickTimer);
+  tickTimer = setInterval(() => {
+    const span = $('tickerText');
+    span.style.opacity = 0;
+    setTimeout(() => { const l = tickerLines(); tickIdx = (tickIdx + 1) % Math.max(1, l.length); span.textContent = l[tickIdx] || ''; span.style.opacity = 1; }, 400);
+  }, 7000);
+}
+function applyOverlay() {
+  for (const k of ['legend', 'goals', 'supporters', 'ticker', 'welcome']) document.body.classList.toggle('no' + k, !S.overlay[k]);
+  renderLegend(); renderGoals(); renderSupporters(); renderTicker();
+}
+
+// ---------- the API each game gets ----------
+const tools = [];
+const api = {
+  W, H, ctx, fx, clamp, rand, icon, esc, t, userColor, giftImage, avatarImage, imgSrc,
+  get now() { return S.now; }, get options() { return S.options; }, get lang() { return S.lang; },
+  get supporters() { return S.supporters; }, get paused() { return S.paused; },
+  setHud, setEffects, banner,
+  sfx: (name) => SFX.play(name), tone: SFX.tone, noise: SFX.noise,
+  /** Ask the server's voice to say something (winner, MVP…). Muted in previews. */
+  announce: (text) => { if (!PREVIEW) send('ANNOUNCE', { text }); },
+  reportScore: (score) => { if (!PREVIEW) send('GAME_STATS', { score: Math.floor(score) }); },
+  /** Biggest gifter (diamonds) since the last resetRound(). */
+  mvp() { const e = Object.entries(S.roundGifters).sort((a, b) => b[1] - a[1])[0]; return e ? { user: e[0], diamonds: e[1] } : null; },
+  resetRound() { S.roundGifters = {}; },
+  addTool(label, iconName, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = `${icon(iconName)}<span>${esc(label)}</span>`;
+    b.addEventListener('click', (e) => { e.stopPropagation(); onClick(b); });
+    $('tools').prepend(b);
+    tools.push(b);
+    return { set(labelText, ic) { b.innerHTML = `${icon(ic || iconName)}<span>${esc(labelText)}</span>`; } };
+  },
+  /** Draw a round avatar (TikTok picture or coloured initial). */
+  drawAvatar(c, user, x, y, r, pic) {
+    const img = avatarImage(pic);
+    c.save();
+    c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.closePath();
+    c.fillStyle = userColor(user); c.fill();
+    if (img) { c.clip(); c.drawImage(img, x - r, y - r, r * 2, r * 2); }
+    else { c.fillStyle = '#0b1026'; c.font = `900 ${Math.round(r * 1.05)}px system-ui`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(user || '?')[0].toUpperCase(), x, y + 1); }
+    c.restore();
+  },
+  roundRect(c, x, y, w, h, r) { c.beginPath(); c.roundRect(x, y, w, h, r); },
+};
+
+// ---------- game loading ----------
+async function loadGame(id) {
+  if (S.gameId === id && S.game) return;
+  const def = S.catalog?.games.find((g) => g.id === id) || S.catalog?.games[0];
+  if (!def) return;
+  try { S.game?.dispose?.(); } catch { /* ignore */ }
+  tools.splice(0).forEach((b) => b.remove());
+  S.game = null; S.gameId = def.id; S.gameDef = def;
+  setHud(); setEffects(); banner('');
+  $('alerts').innerHTML = '';
+  ctx.clearRect(0, 0, W, H); fx.clearRect(0, 0, W, H);
+  $('loading').hidden = false;
+  document.title = def.name;
+  try {
+    const mod = await import(`./games/${def.id}.js`);
+    if (S.gameId !== def.id) return; // switched again meanwhile
+    S.roundGifters = {};
+    S.game = mod.default(api);
+    S.game.onOptions?.(S.options);
+  } catch (err) {
+    console.error(err);
+    banner(def.name, 'could not load this game', '#f87171', 60000);
+  }
+  $('loading').hidden = true;
+  applyOverlay();
+}
+
+// ---------- events from the server ----------
+function onGameEvent(ev) {
+  const fn = S.game?.actions?.[ev.action];
+  showAlert(ev, !!fn);
+  flashLegend(ev.matchedRule);
+  if (ev.source === 'likes') { SFX.play('goal'); const b = $('goalsBox'); b.classList.remove('hit'); void b.offsetWidth; b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 1500); }
+  const snd = S.game?.sounds?.[ev.action];
+  SFX.play(snd || (fn ? 'alert' : 'alert'));
+  if (fn) { try { fn(ev); } catch (err) { console.error(err); } }
+}
+
+let ws, retry = 0;
+function send(type, payload) { if (ws?.readyState === 1) ws.send(JSON.stringify({ type, payload })); }
+function connect() {
+  const sep = SERVER.includes('?') ? '&' : '?';
+  const setConn = (on, text) => { $('dot').classList.toggle('on', on); $('connText').textContent = text; };
+  try { ws = new WebSocket(`${SERVER}${sep}role=game${TOKEN ? '&token=' + encodeURIComponent(TOKEN) : ''}`); } catch { setConn(false, 'bad server address'); return; }
+  ws.onopen = () => { retry = 0; setConn(true, tx('live')); };
+  ws.onmessage = (m) => {
+    let msg; try { msg = JSON.parse(m.data); } catch { return; }
+    const p = msg.payload || {};
+    switch (msg.type) {
+      case 'STATE':
+        S.rules = p.rules || {}; S.gifts = p.gifts || []; S.commands = p.commands || {}; S.goals = p.goals || [];
+        S.likes = p.likes?.totalLikes ?? 0; S.supporters = p.supporters || []; S.paused = !!p.paused;
+        S.overlay = { ...S.overlay, ...(p.settings?.overlay || {}) }; S.lang = p.settings?.voice?.lang || 'en';
+        S.options = p.gameOptions || {};
+        setConn(true, tx('live'));
+        loadGame(FIXED_GAME || p.game || 'gift-runner');
+        break;
+      case 'GAME_CHANGED':
+        if (FIXED_GAME) break;
+        S.options = p.options || {};
+        S.gameId = S.gameId === p.game ? S.gameId : null;
+        loadGame(p.game);
+        break;
+      case 'GAME_OPTIONS':
+        if (p.game === S.gameId) { S.options = p.options || {}; S.game?.onOptions?.(S.options); }
+        break;
+      case 'GAME_EVENT': onGameEvent(p); break;
+      case 'RULES_UPDATED': S.rules = p.rules || {}; renderLegend(); break;
+      case 'GIFTS': S.gifts = p.gifts || []; renderLegend(); break;
+      case 'COMMANDS_UPDATED': S.commands = p.commands || {}; renderLegend(); break;
+      case 'GOALS_UPDATED': S.goals = p.goals || []; renderGoals(); renderTicker(); break;
+      case 'LIKES_UPDATE': S.likes = p.totalLikes ?? S.likes; renderGoals(); break;
+      case 'SUPPORTERS': S.supporters = p.top || []; renderSupporters(); break;
+      case 'PAUSED': S.paused = !!p.paused; break;
+      case 'SETTINGS':
+        S.overlay = { ...S.overlay, ...(p.overlay || {}) }; S.lang = p.voice?.lang || S.lang;
+        applyOverlay(); syncSoundBtn();
+        break;
+      case 'SAY': Voice.say(p); break;
+      case 'GIFT_RECEIVED':
+        if (p.totalDiamonds > 0) S.roundGifters[p.user] = (S.roundGifters[p.user] || 0) + p.totalDiamonds;
+        S.game?.onGift?.(p);
+        break;
+      case 'CHAT': S.game?.onChat?.(p); break;
+      case 'SOCIAL':
+        if (p.kind === 'join') toast(`${icon('hand')}${tx('welcome')} <b>@${esc(p.user)}</b>`, '#25f4ee');
+        else if (p.kind === 'follow') { toast(`${icon('user-plus')}<b>@${esc(p.user)}</b> ${tx('followed')}`, '#fe2c55'); SFX.play('good'); }
+        else if (p.kind === 'share') { toast(`${icon('share-2')}<b>@${esc(p.user)}</b> ${tx('shared')}`, '#fcd34d'); SFX.play('good'); }
+        S.game?.onSocial?.(p);
+        break;
+    }
+  };
+  ws.onclose = (e) => {
+    if (e.code === 4401) { setConn(false, tx('token')); return; }
+    setConn(false, tx('offline'));
+    setTimeout(connect, Math.min(10000, 700 * 2 ** retry++));
+  };
+}
+
+// ---------- loop ----------
+let last = performance.now();
+function tick(t0) {
+  const dt = Math.min(0.05, (t0 - last) / 1000);
+  last = t0;
+  fx.clearRect(0, 0, W, H);
+  if (S.game) {
+    try {
+      if (!S.paused) { S.now += dt; S.game.update?.(dt); }
+      S.game.draw?.(ctx, fx);
+    } catch (err) { console.error(err); }
+  }
+  if (S.paused) {
+    fx.fillStyle = 'rgba(5,6,13,.6)'; fx.fillRect(0, 0, W, H);
+    fx.fillStyle = '#fff'; fx.textAlign = 'center'; fx.font = '900 64px system-ui, sans-serif'; fx.fillText(tx('paused'), W / 2, H / 2 - 10);
+    fx.font = '600 22px system-ui, sans-serif'; fx.fillStyle = '#94a3b8'; fx.fillText(tx('back'), W / 2, H / 2 + 30);
+  }
+  requestAnimationFrame(tick);
+}
+
+// ---------- input: games may handle taps/keys ----------
+$('frame').addEventListener('pointerdown', (e) => {
+  SFX.unlock();
+  if (e.target.closest('.tools')) return;
+  const r = cvs.getBoundingClientRect();
+  S.game?.onPointer?.((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H);
+});
+addEventListener('keydown', (e) => S.game?.onKey?.(e.key));
+const soundBtn = $('soundBtn');
+function syncSoundBtn() { soundBtn.firstElementChild.innerHTML = icon(SFX.enabled ? 'volume-2' : 'volume-x'); soundBtn.lastElementChild.textContent = SFX.enabled ? tx('soundOn') : tx('soundOff'); }
+soundBtn.addEventListener('click', (e) => { e.stopPropagation(); SFX.toggle(); syncSoundBtn(); });
+syncSoundBtn();
+
+// ---------- boot ----------
+fetch('games/catalog.json').then((r) => r.json()).then((c) => { S.catalog = c; connect(); requestAnimationFrame(tick); })
+  .catch(() => { $('loading').textContent = 'Could not load games/catalog.json'; });
+</script>
+</body>
+</html>

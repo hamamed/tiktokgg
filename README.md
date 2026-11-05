@@ -33,7 +33,7 @@ tiktokGame/
 │   ├── web/index.html          playable demo game "Lane Rush" (served at /demo)
 │   └── unity/                  TikTokGameListener.cs + TrainGameExample.cs
 ├── express-server/         single-file Express + ws trigger server (server.js), a simpler alternative to server/
-├── web-dashboard/          Vue 3 + Tailwind control panel (index.html) and the Gift Runner game (game.html), served by express-server
+├── web-dashboard/          control panel (index.html), stream page (play.html), phone remote (remote.html) and games/*.js, served by express-server
 └── deploy/                 install.sh / update.sh for the VPS (tiktokgg.koydam.com)
 ```
 
@@ -58,13 +58,33 @@ curl -fsSL https://raw.githubusercontent.com/hamamed/tiktokgg/main/deploy/instal
 The installer runs the server on `127.0.0.1` (a free port in 3200-3299) and adds **one** nginx/Apache/Caddy site for the domain, with HTTPS from Let's Encrypt. It doesn't touch your other sites. At the end it prints an **access token** and a link `https://tiktokgg.koydam.com/?token=…`. Open that link once and the browser remembers the token.
 
 * Game clients connect to `wss://tiktokgg.koydam.com/ws?token=…`
-* The built-in game **Gift Runner** is at `https://tiktokgg.koydam.com/game.html?token=…`. Copy the link from the dashboard's **Games** panel and add it to OBS as a Browser Source (1080×1920). The game shows viewers a small **Send a gift** list in the top right (each mapped gift with its image, price and effect). It updates when you apply rules, and the row glows when that gift arrives. Turn it off in the Games panel, or add `&legend=0` to the link
+* The stream page is `https://tiktokgg.koydam.com/play.html?token=…&obs=1`. Add it to OBS once as a Browser Source (1080×1920, tick **Control audio via OBS**). It always shows the game you pick in the dashboard and switches by itself. The old `game.html` link still works and redirects there
 * Update: `sudo bash /opt/tiktokgg/deploy/update.sh`
 * Logs: `journalctl -u tiktokgg -f`
 * New token: `sudo NEW_TOKEN=1 bash /opt/tiktokgg/deploy/install.sh`
 * Settings (port, token, allowed origins) are in `/etc/tiktokgg/env`
 
 **Gifts:** the dashboard shows every TikTok gift with its real image. Tap a gift to choose what it does in the game. Press **Load TikTok gifts** while you're connected, or enter any account that is LIVE right now. On the VPS the installer also copies the gift list and images that `koydam-tiktok` has already downloaded (`/opt/koydam-tiktok/data`).
+
+**Games** (`web-dashboard/games/`, listed in `games/catalog.json`). Each game keeps its own gifts, chat commands, like goals and options:
+
+| Game | Viewers… |
+|---|---|
+| Gift Runner | make a self-driving car's ride harder (barriers, mud, boss) or easier (heal, slow) |
+| Tug of War | pull a rope for red or blue (`!red` / `!blue` are free small pulls); freezes and an underdog boost |
+| Tower Race | stack blocks for their team; wind knocks the other tower down |
+| Castle Defense | send monsters and ogres, or defend with arrows (`!fire`), shields, repairs and the dragon |
+| Boat Storm | bring waves, lightning and a whale, or sail boosts (`!row`), repairs and calm sea |
+| Spin the Wheel | spin a prize wheel you fill in Settings ("10 push-ups", "Sing a song"…) |
+| Bomb Pass | join with `!join`; gifts pass a ticking bomb or add time; last player standing wins |
+| Claw Machine | drop a claw to grab a prize; bigger gifts grab better |
+| Fish Catch | cast for fish (`!fish` is a free cast every minute), from minnows to the legendary golden koi |
+| Word Guess | type the hidden word in chat; gifts reveal letters or double the points |
+| Vote Path | type left or right at each fork; gifts add votes; treasure or trap |
+
+**Voice and keeping viewers** (Settings → Voice): a neural voice on the stream welcomes people who join (grouped, with a tip like "Send a Rose to pull for red"), thanks gifters, followers and sharers, announces winners and MVPs, and plays reminders every few minutes while you're live. English and Arabic texts are built in, and you can edit every sentence. The voice is generated on the server with Microsoft Edge's neural voices (`msedge-tts`) and played inside the stream page, so OBS records it. If the server can't reach the voice service, the stream page uses the browser's voice instead. The stream page also shows a tips ticker and "Welcome @name" pop-ups (Settings → On the stream).
+
+**Dashboard tabs:** **Start here** (the step-by-step setup), **Live** (stats, tests, log, presets, phone remote), **Games**, **Gifts**, **Chat & likes**, **Reports** and **Settings**.
 
 **Stream features** (all saved in `DATA_DIR` on the server):
 * **Chat commands:** for example `!left → Move left`, with a shared wait and a per-viewer wait. Viewers can type `!left` or just `left`.

@@ -106,14 +106,133 @@
     <div v-if="tiktok.error && badge.key !== 'live'" class="border-t border-red-500/20 bg-red-500/10">
       <p class="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2 text-xs text-red-300"><lc-icon name="triangle-alert" :size="14"></lc-icon> {{ tiktok.error }}</p>
     </div>
+    <!-- tabs -->
+    <nav class="border-t border-white/5" aria-label="Sections">
+      <div class="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-3 py-1.5" role="tablist">
+        <button v-for="tb in TABS" :key="tb.id" role="tab" :aria-selected="tab === tb.id" @click="setTab(tb.id)"
+                class="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition"
+                :class="tab === tb.id ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'">
+          <lc-icon :name="tb.icon" :size="15" :class="tab === tb.id ? tb.color : ''"></lc-icon>{{ tb.label }}
+          <span v-if="tb.id === 'start' && setupDone < setupSteps" class="rounded-full bg-tt-red px-1.5 text-[10px] font-bold text-white">{{ setupSteps - setupDone }}</span>
+        </button>
+        <span class="ml-auto hidden shrink-0 items-center gap-1.5 self-center rounded-full bg-white/5 px-3 py-1 text-xs text-slate-300 sm:inline-flex" v-if="activeGame">
+          <lc-icon :name="activeGame.icon" :size="13" class="text-tt-cyan"></lc-icon>{{ activeGame.name }}
+          <span class="text-slate-500">·</span>
+          <lc-icon name="monitor" :size="12" :class="clientsInfo.games ? 'text-emerald-400' : 'text-slate-500'"></lc-icon>{{ clientsInfo.games }}
+        </span>
+      </div>
+    </nav>
   </header>
 
   <main class="mx-auto grid max-w-7xl gap-5 px-4 py-5 lg:grid-cols-[1.35fr_1fr]">
+    <!-- ===================================================================== -->
+    <!-- START HERE: step-by-step setup                                        -->
+    <!-- ===================================================================== -->
+    <section v-show="tab === 'start'" class="lg:col-span-2" aria-labelledby="start-title">
+      <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 id="start-title" class="flex items-center gap-2 text-2xl font-extrabold"><lc-icon name="rocket" :size="24" class="text-tt-red"></lc-icon> Start here</h2>
+          <p class="text-sm text-slate-400">Five steps from zero to a live interactive stream. Each step turns green when it's done.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="h-2 w-40 overflow-hidden rounded-full bg-white/10"><div class="h-full rounded-full bg-gradient-to-r from-tt-red to-tt-cyan transition-all" :style="{ width: (setupDone / setupSteps * 100) + '%' }"></div></div>
+          <span class="text-sm font-bold tabular-nums">{{ setupDone }} / {{ setupSteps }}</span>
+        </div>
+      </div>
+
+      <ol class="grid gap-4 lg:grid-cols-2">
+        <!-- 1 -->
+        <li class="card flex gap-4" :class="steps.server ? '!border-emerald-500/30' : ''">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg font-black" :class="steps.server ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10'"><lc-icon v-if="steps.server" name="check" :size="20"></lc-icon><template v-else>1</template></span>
+          <div class="min-w-0 flex-1">
+            <h3 class="font-bold">Control server</h3>
+            <p class="text-sm text-slate-400" v-if="steps.server">Connected to <code class="text-slate-300">{{ serverUrl }}</code>.</p>
+            <template v-else>
+              <p class="text-sm text-slate-400">The dashboard can't reach the server yet. If it runs on your VPS, check the access token. If it runs on this PC, start it with <code class="text-slate-300">npm start</code> in <code>express-server</code>.</p>
+              <button class="btn btn-ghost mt-2 !py-1.5 text-xs" @click="showServer = true"><lc-icon name="settings" :size="14"></lc-icon> Server address &amp; token</button>
+            </template>
+          </div>
+        </li>
+        <!-- 2 -->
+        <li class="card flex gap-4" :class="steps.tiktok ? '!border-emerald-500/30' : ''">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg font-black" :class="steps.tiktok ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10'"><lc-icon v-if="steps.tiktok" name="check" :size="20"></lc-icon><template v-else>2</template></span>
+          <div class="min-w-0 flex-1">
+            <h3 class="font-bold">Connect your TikTok LIVE</h3>
+            <p class="text-sm text-slate-400">Go live on TikTok first, then connect. Or turn on auto-connect and it connects by itself every time you go live.</p>
+            <form class="mt-2 flex flex-wrap gap-2" @submit.prevent="connectTikTok">
+              <label class="relative min-w-[160px] flex-1"><span class="sr-only">TikTok username</span>
+                <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500"><lc-icon name="at-sign" :size="14"></lc-icon></span>
+                <input v-model.trim="username" class="field !py-1.5 pl-8" placeholder="your_tiktok" autocomplete="off" spellcheck="false" />
+              </label>
+              <button class="btn btn-primary !py-1.5" :disabled="!username || socketState !== 'open' || badge.key === 'connecting'"><lc-icon :name="badge.key === 'connecting' ? 'loader-circle' : 'radio'" :size="15" :class="badge.key === 'connecting' ? 'animate-spin' : ''"></lc-icon> {{ steps.tiktok ? 'Reconnect' : 'Connect' }}</button>
+            </form>
+            <label class="mt-2 flex cursor-pointer items-center gap-2 text-sm">
+              <input type="checkbox" class="h-4 w-4 accent-emerald-500" :checked="auto.enabled" :disabled="socketState !== 'open'" @change="toggleAuto($event.target.checked)" />
+              Auto-connect when I go live <span class="text-xs text-slate-500">({{ autoText }})</span>
+            </label>
+            <p v-if="tiktok.error && !steps.tiktok" class="mt-1 text-xs text-red-300">{{ tiktok.error }}</p>
+          </div>
+        </li>
+        <!-- 3 -->
+        <li class="card flex gap-4 lg:col-span-2" :class="steps.game ? '!border-emerald-500/30' : ''">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg font-black" :class="steps.game ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10'"><lc-icon v-if="steps.game" name="check" :size="20"></lc-icon><template v-else>3</template></span>
+          <div class="min-w-0 flex-1">
+            <h3 class="font-bold">Pick a game</h3>
+            <p class="text-sm text-slate-400">Each game comes ready with gift actions, chat commands and a like goal. You can change them later in Gifts and Chat &amp; likes.</p>
+            <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <button v-for="gm in GAMES" :key="gm.id" @click="setGame(gm.id)" class="flex flex-col items-center gap-1 rounded-xl border p-3 text-center transition active:scale-95"
+                      :class="gm.id === activeGameId ? 'border-tt-red/60 bg-tt-red/10' : 'border-white/5 bg-slate-950/50 hover:border-white/20'">
+                <lc-icon :name="gm.icon" :size="24" :class="gm.id === activeGameId ? 'text-tt-red' : 'text-slate-300'"></lc-icon>
+                <span class="text-sm font-bold">{{ gm.name }}</span>
+                <span class="text-[11px] text-slate-400">{{ gm.tagline }}</span>
+              </button>
+            </div>
+          </div>
+        </li>
+        <!-- 4 -->
+        <li class="card flex gap-4" :class="steps.obs ? '!border-emerald-500/30' : ''">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg font-black" :class="steps.obs ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10'"><lc-icon v-if="steps.obs" name="check" :size="20"></lc-icon><template v-else>4</template></span>
+          <div class="min-w-0 flex-1">
+            <h3 class="font-bold">Add the game to OBS / TikTok LIVE Studio</h3>
+            <ol class="mt-1 list-decimal space-y-0.5 pl-5 text-sm text-slate-400">
+              <li>Sources → <b class="text-slate-200">+</b> → <b class="text-slate-200">Browser</b>, and paste this link.</li>
+              <li>Width <b class="text-slate-200">1080</b>, height <b class="text-slate-200">1920</b>.</li>
+              <li>Tick <b class="text-slate-200">Control audio via OBS</b> so viewers hear the voice and sounds.</li>
+            </ol>
+            <div class="mt-2 flex gap-2">
+              <input :value="gameUrl(false)" readonly class="field min-w-0 flex-1 !py-1.5 font-mono text-xs" @focus="$event.target.select()" />
+              <button class="btn btn-ghost !py-1.5 text-xs" :class="fx.copy" @click="copyGameUrl"><lc-icon name="copy" :size="14"></lc-icon> Copy</button>
+            </div>
+            <p class="mt-1 text-xs" :class="steps.obs ? 'text-emerald-300' : 'text-slate-500'">{{ steps.obs ? `${clientsInfo.games} game screen${clientsInfo.games === 1 ? '' : 's'} connected` : 'Waiting for the game screen to connect…' }} One link for every game: it changes by itself when you pick another game.</p>
+          </div>
+        </li>
+        <!-- 5 -->
+        <li class="card flex gap-4" :class="steps.tested ? '!border-emerald-500/30' : ''">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg font-black" :class="steps.tested ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10'"><lc-icon v-if="steps.tested" name="check" :size="20"></lc-icon><template v-else>5</template></span>
+          <div class="min-w-0 flex-1">
+            <h3 class="font-bold">Try it</h3>
+            <p class="text-sm text-slate-400">Watch the game in OBS (or the preview in Games) while you press these.</p>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button class="btn btn-ghost !py-1.5 text-xs" :class="fx.tryGift" :disabled="socketState !== 'open' || !firstRuleGift" @click="tryGift"><lc-icon name="gift" :size="14"></lc-icon> Send a test {{ firstRuleGift || 'gift' }}</button>
+              <button class="btn btn-ghost !py-1.5 text-xs" :class="fx.testVoice" :disabled="socketState !== 'open'" @click="testVoice()"><lc-icon name="megaphone" :size="14"></lc-icon> Test the voice</button>
+              <button class="btn btn-ghost !py-1.5 text-xs" :class="fx.testJoin" :disabled="socketState !== 'open'" @click="testSocial('join')"><lc-icon name="hand" :size="14"></lc-icon> Welcome a viewer</button>
+              <button class="btn btn-ghost !py-1.5 text-xs" @click="remoteOpen = true"><lc-icon name="smartphone" :size="14"></lc-icon> Phone remote</button>
+            </div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="card mt-4 flex flex-wrap items-center gap-3 !py-3">
+        <lc-icon name="lightbulb" :size="18" class="text-amber-300"></lc-icon>
+        <p class="min-w-0 flex-1 text-sm text-slate-300">Tip: to keep viewers watching, leave the <b>voice</b> on (it welcomes new viewers, thanks gifters and reminds people what to send) and switch games every 20–30 minutes. Both are in <button class="font-semibold text-tt-cyan underline-offset-2 hover:underline" @click="setTab('settings')">Settings</button>.</p>
+      </div>
+    </section>
+
 
     <!-- ===================================================================== -->
     <!-- 3a. ANALYTICS COUNTERS                                                -->
     <!-- ===================================================================== -->
-    <section class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:col-span-2" aria-label="Stream metrics">
+    <section v-show="tab === 'live'" class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:col-span-2" aria-label="Stream metrics">
       <div v-for="m in metrics" :key="m.label" class="card !p-4">
         <div class="flex items-center justify-between">
           <span class="label">{{ m.label }}</span>
@@ -127,10 +246,10 @@
     <!-- ===================================================================== -->
     <!-- 2. GIFT RULE CONFIGURATOR                                             -->
     <!-- ===================================================================== -->
-    <section class="card flex flex-col gap-4">
+    <section v-show="tab === 'gifts'" class="card flex flex-col gap-4 lg:col-span-2">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 class="flex items-center gap-2 text-lg font-bold"><lc-icon name="gift" :size="18" class="text-tt-red"></lc-icon> Gift → Action Rules</h2>
+          <h2 class="flex items-center gap-2 text-lg font-bold"><lc-icon name="gift" :size="18" class="text-tt-red"></lc-icon> Gift → Action Rules <span v-if="activeGame" class="rounded-full bg-white/5 px-2 py-0.5 text-xs font-semibold text-slate-300">{{ activeGame.name }}</span></h2>
           <p class="text-xs text-slate-400">Tap a gift to choose what it does in the game. Value × combo count is sent to the game.</p>
         </div>
         <div class="flex items-center gap-2">
@@ -180,8 +299,8 @@
       </form>
 
       <!-- gift grid -->
-      <div class="min-h-[420px] max-h-[70vh] flex-1 overflow-y-auto overscroll-contain pr-1 lg:max-h-none lg:basis-0">
-        <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-5">
+      <div class="min-h-[420px] max-h-[72vh] overflow-y-auto overscroll-contain pr-1">
+        <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
           <li v-for="g in visibleGifts" :key="g.key" class="relative">
             <button v-if="g.rule" class="absolute left-1.5 top-1.5 z-10 grid h-6 w-6 place-items-center rounded-full bg-slate-900/90 text-slate-400 ring-1 ring-white/15 hover:bg-red-500/30 hover:text-red-200"
                     @click.stop="removeRule(g.name)" :aria-label="'Remove the rule for ' + g.name" title="Remove rule"><lc-icon name="trash-2" :size="12"></lc-icon></button>
@@ -215,7 +334,7 @@
         </div>
       </div>
     </section>
-    <div class="flex flex-col gap-5">
+    <div v-show="tab === 'live'" class="grid gap-5 lg:col-span-2 lg:grid-cols-2 lg:items-start">
       <!-- ===================================================================== -->
       <!-- LIVE CONTROLS: pause, auto-connect, presets, phone remote             -->
       <!-- ===================================================================== -->
@@ -263,16 +382,16 @@
       <section class="card">
         <div class="mb-3">
           <h2 class="flex items-center gap-2 text-lg font-bold"><lc-icon name="flask-conical" :size="18" class="text-amber-300"></lc-icon> Test Triggers</h2>
-          <p class="text-xs text-slate-400">Fire actions straight at the game. No stream needed.</p>
+          <p class="text-xs text-slate-400">Fire {{ activeGame ? activeGame.name : 'game' }} actions straight at the game. No stream needed.</p>
         </div>
         <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <button v-for="t in TESTS" :key="t.id"
                   class="btn relative flex-col !gap-1 !py-3 ring-1 ring-white/10 hover:ring-white/25"
-                  :class="[t.bg, fx['test' + t.id]]"
+                  :class="fx['test' + t.id]" :style="{ background: t.hex + '22' }"
                   :disabled="socketState !== 'open'"
                   @click="fireTest(t)">
-            <lc-icon :name="t.icon" :size="22" :class="t.fg"></lc-icon>
-            <span>{{ t.label }}</span>
+            <lc-icon :name="t.icon" :size="22" :style="{ color: t.hex }"></lc-icon>
+            <span class="text-center">{{ t.label }}</span>
             <span class="font-mono text-[10px] font-normal opacity-70">{{ t.action }} · {{ t.value }}</span>
             <span v-if="busy['test' + t.id]" class="absolute right-2 top-2 h-2 w-2 animate-ping rounded-full bg-white"></span>
           </button>
@@ -294,6 +413,11 @@
           </label>
           <button class="btn btn-ghost" :class="fx.custom" :disabled="socketState !== 'open'"><lc-icon name="zap"></lc-icon> Fire</button>
         </form>
+        <div class="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">
+          <button class="btn btn-ghost !py-1.5 text-xs" :class="fx.testJoin" :disabled="socketState !== 'open'" @click="testSocial('join')"><lc-icon name="hand" :size="14"></lc-icon> Viewer joins</button>
+          <button class="btn btn-ghost !py-1.5 text-xs" :class="fx.testFollow" :disabled="socketState !== 'open'" @click="testSocial('follow')"><lc-icon name="user-plus" :size="14"></lc-icon> New follower</button>
+          <button class="btn btn-ghost !py-1.5 text-xs" :class="fx.testVoice" :disabled="socketState !== 'open'" @click="testVoice()"><lc-icon name="megaphone" :size="14"></lc-icon> Test voice</button>
+        </div>
         <div class="mt-3 grid gap-2 border-t border-white/10 pt-3 sm:grid-cols-2">
           <form class="flex items-end gap-2" @submit.prevent="testChat">
             <label class="flex min-w-0 flex-1 flex-col gap-1"><span class="label">Test chat message</span><input v-model="chatTest" class="field !py-1.5 font-mono text-sm" placeholder="!left" /></label>
@@ -309,7 +433,7 @@
       <!-- ===================================================================== -->
       <!-- 3b. LIVE EVENT LOG (terminal)                                         -->
       <!-- ===================================================================== -->
-      <section class="card relative flex min-h-[380px] flex-1 flex-col !p-0">
+      <section class="card relative flex min-h-[380px] flex-col !p-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
           <h2 class="flex items-center gap-2 font-mono text-sm font-bold text-slate-300"><lc-icon name="square-terminal" :size="16" class="text-emerald-400"></lc-icon> live-events.log</h2>
           <div class="flex items-center gap-1">
@@ -319,7 +443,7 @@
             <button class="ml-1 inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-slate-400 hover:bg-white/5 hover:text-white" @click="clearLog"><lc-icon name="eraser" :size="12"></lc-icon> clear</button>
           </div>
         </div>
-        <div ref="logBox" class="log h-[420px] flex-1 overflow-y-auto bg-black/60 px-4 py-3 font-mono text-[12.5px] leading-relaxed" @scroll="onLogScroll">
+        <div ref="logBox" class="log h-[520px] flex-1 overflow-y-auto bg-black/60 px-4 py-3 font-mono text-[12.5px] leading-relaxed" @scroll="onLogScroll">
           <p v-if="!visibleLog.length" class="text-slate-600">$ waiting for events… <span class="animate-pulse">▋</span></p>
           <p v-for="l in visibleLog" :key="l.id" class="whitespace-pre-wrap break-words">
             <span class="text-slate-600">{{ l.time }}</span>
@@ -334,7 +458,7 @@
     <!-- ===================================================================== -->
     <!-- CHAT COMMANDS + LIKE GOALS                                            -->
     <!-- ===================================================================== -->
-    <section class="grid gap-5 lg:col-span-2 lg:grid-cols-2">
+    <section v-show="tab === 'chat'" class="grid gap-5 lg:col-span-2 lg:grid-cols-2">
       <div class="card flex flex-col gap-3" aria-labelledby="cmd-title">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -364,7 +488,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <button class="btn btn-ghost !py-1.5 text-xs" @click="addCommand()"><lc-icon name="plus" :size="14"></lc-icon> Add command</button>
-          <button v-if="!cmdDraft.length" class="btn btn-ghost !py-1.5 text-xs" @click="addSuggestedCommands"><lc-icon name="wand-sparkles" :size="14"></lc-icon> Add !left and !right</button>
+          <button v-if="!cmdDraft.length && suggestedCommands.length" class="btn btn-ghost !py-1.5 text-xs" @click="addSuggestedCommands"><lc-icon name="wand-sparkles" :size="14"></lc-icon> Add {{ suggestedCommands.map((c) => c[0]).join(' and ') }}</button>
         </div>
       </div>
 
@@ -403,24 +527,26 @@
     <!-- ===================================================================== -->
     <!-- 5. GAMES                                                              -->
     <!-- ===================================================================== -->
-    <section class="card lg:col-span-2" aria-labelledby="games-title">
-      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 id="games-title" class="flex items-center gap-2 text-lg font-bold"><lc-icon name="joystick" :size="18" class="text-tt-cyan"></lc-icon> Games</h2>
-          <p class="text-xs text-slate-400">Each game listens to the same server. Add it to OBS as a Browser Source (1080×1920) or open it on a second screen.</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button v-for="gm in GAMES" :key="gm.id" class="btn !py-1.5" :class="game.id === gm.id ? 'btn-primary' : 'btn-ghost'" @click="selectGame(gm)">
-            <lc-icon :name="gm.icon"></lc-icon> {{ gm.name }}
-          </button>
-        </div>
+    <section v-show="tab === 'games'" class="card lg:col-span-2" aria-labelledby="games-title">
+      <div class="mb-4">
+        <h2 id="games-title" class="flex items-center gap-2 text-lg font-bold"><lc-icon name="joystick" :size="18" class="text-tt-cyan"></lc-icon> Games</h2>
+        <p class="text-xs text-slate-400">Pick what's on stream. The game screen in OBS switches by itself. Each game keeps its own gifts, chat commands and like goals.</p>
+      </div>
+      <div class="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <button v-for="gm in GAMES" :key="gm.id" @click="setGame(gm.id)" class="relative flex flex-col items-center gap-1 rounded-xl border p-3 text-center transition active:scale-95"
+                :class="gm.id === activeGameId ? 'border-tt-red/60 bg-tt-red/10' : 'border-white/5 bg-slate-950/50 hover:border-white/20'">
+          <span v-if="gm.id === activeGameId" class="absolute right-2 top-2 rounded-full bg-tt-red px-1.5 text-[9px] font-black text-white">ON AIR</span>
+          <lc-icon :name="gm.icon" :size="26" :class="gm.id === activeGameId ? 'text-tt-red' : 'text-slate-300'"></lc-icon>
+          <span class="text-sm font-bold">{{ gm.name }}</span>
+          <span class="text-[11px] text-slate-400">{{ gm.tagline }}</span>
+        </button>
       </div>
 
-      <div class="grid gap-5 md:grid-cols-[minmax(0,300px)_1fr]">
-        <!-- live preview -->
+      <div class="grid gap-5 md:grid-cols-[minmax(0,300px)_1fr]" v-if="activeGame">
+        <!-- live preview (follows the active game) -->
         <div class="mx-auto w-full max-w-[300px]">
           <div class="relative aspect-[9/16] overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/50">
-            <iframe v-if="previewOn" :key="previewKey" :src="gameUrl(game, true)" title="Game preview" class="absolute inset-0 h-full w-full" allow="autoplay"></iframe>
+            <iframe v-if="previewOn && tab === 'games'" :key="previewKey" :src="gameUrl(true)" title="Game preview" class="absolute inset-0 h-full w-full" allow="autoplay"></iframe>
             <button v-else class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-white" @click="previewOn = true">
               <lc-icon name="circle-play" :size="44"></lc-icon><span class="text-sm font-semibold">Start preview</span>
             </button>
@@ -431,11 +557,10 @@
           </div>
         </div>
 
-        <!-- info + links -->
         <div class="flex min-w-0 flex-col gap-4">
           <div>
-            <h3 class="text-xl font-extrabold">{{ game.name }}</h3>
-            <p class="mt-1 text-sm text-slate-400">{{ game.description }}</p>
+            <h3 class="text-xl font-extrabold">{{ activeGame.name }}</h3>
+            <p class="mt-1 text-sm text-slate-400">{{ activeGame.description }}</p>
           </div>
 
           <div class="flex flex-wrap items-center justify-between gap-2">
@@ -446,69 +571,43 @@
             </div>
           </div>
           <div class="grid gap-2 sm:grid-cols-2">
-            <div v-for="e in game.effects" :key="e.action" class="flex flex-col gap-2 rounded-xl border p-3 transition"
-                 :class="picker.action === e.action ? 'border-tt-red/60 bg-tt-red/[.06]' : 'border-white/5 bg-slate-950/50'">
+            <div v-for="a in ACTIONS" :key="a.id" class="flex flex-col gap-2 rounded-xl border p-3 transition"
+                 :class="picker.action === a.id ? 'border-tt-red/60 bg-tt-red/[.06]' : 'border-white/5 bg-slate-950/50'">
               <div class="flex items-start gap-2.5">
-                <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/5" :class="actionLook(e.action).color"><lc-icon :name="actionLook(e.action).icon" :size="16"></lc-icon></span>
+                <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/5" :class="a.color"><lc-icon :name="a.icon" :size="16"></lc-icon></span>
                 <div class="min-w-0 flex-1">
-                  <div class="text-sm font-bold">{{ actionLook(e.action).label }} <span class="font-mono text-[10px] font-normal text-slate-500">{{ e.action }}</span></div>
-                  <div class="text-xs text-slate-400">{{ e.text }}</div>
+                  <div class="text-sm font-bold">{{ a.label }} <span class="font-mono text-[10px] font-normal text-slate-500">{{ a.id }}</span></div>
+                  <div class="text-xs text-slate-400">{{ a.effect }}</div>
                 </div>
-                <button class="btn btn-ghost shrink-0 !px-2.5 !py-1 text-xs" @click="openPicker(e.action, $event)" :aria-label="'Add a gift to ' + actionLook(e.action).label">
+                <button class="btn btn-ghost shrink-0 !px-2.5 !py-1 text-xs" @click="openPicker(a.id, $event)" :aria-label="'Add a gift to ' + a.label">
                   <lc-icon name="plus" :size="13"></lc-icon> Gift
                 </button>
               </div>
               <div class="flex flex-wrap gap-1.5">
-                <span v-for="m in rulesByAction[e.action]" :key="m.gift.key" class="inline-flex items-center rounded-lg border border-white/10 bg-white/5 py-0.5 pl-1 pr-0.5">
+                <span v-for="m in rulesByAction[a.id]" :key="m.gift.key" class="inline-flex items-center rounded-lg border border-white/10 bg-white/5 py-0.5 pl-1 pr-0.5">
                   <button class="inline-flex items-center gap-1.5 rounded-md px-0.5 hover:text-white" @click="openMenu(m.gift, $event)" :title="'Change ' + m.gift.name">
                     <img v-if="m.gift.image" :src="imgSrc(m.gift.image)" alt="" class="h-7 w-7 object-contain" />
                     <span v-else class="grid h-7 w-7 place-items-center" :class="giftLook(m.gift.name).color"><lc-icon :name="giftLook(m.gift.name).icon" :size="16"></lc-icon></span>
                     <span class="max-w-[110px] truncate text-xs font-semibold">{{ m.gift.name }}</span>
                     <span class="rounded bg-black/30 px-1 text-[10px] tabular-nums text-slate-300">{{ m.rule.value }}</span>
                   </button>
-                  <button class="ml-0.5 grid h-6 w-6 place-items-center rounded-md text-slate-500 hover:bg-red-500/20 hover:text-red-300" @click="removeRule(m.gift.name)" :aria-label="'Remove ' + m.gift.name + ' from ' + actionLook(e.action).label" title="Remove">
+                  <button class="ml-0.5 grid h-6 w-6 place-items-center rounded-md text-slate-500 hover:bg-red-500/20 hover:text-red-300" @click="removeRule(m.gift.name)" :aria-label="'Remove ' + m.gift.name + ' from ' + a.label" title="Remove">
                     <lc-icon name="x" :size="13"></lc-icon>
                   </button>
                 </span>
-                <span v-if="!rulesByAction[e.action]?.length" class="py-1 text-[11px] text-slate-500">No gift yet. Tap "+ Gift".</span>
+                <span v-if="!rulesByAction[a.id]?.length" class="py-1 text-[11px] text-slate-500">No gift yet. Tap "+ Gift".</span>
               </div>
             </div>
           </div>
 
-          <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-slate-950/60 p-3">
-            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/5 text-tt-red"><lc-icon name="list" :size="18"></lc-icon></span>
-            <span class="min-w-0 flex-1">
-              <span class="block text-sm font-semibold">Show the gift list on stream</span>
-              <span class="block text-xs text-slate-400">A small "Send a gift" list in the top right of the game, so viewers can see what each gift does. It updates by itself when you apply rules, and the gift's row glows when someone sends it.</span>
-            </span>
-            <span class="relative inline-flex items-center">
-              <input type="checkbox" class="peer sr-only" v-model="showLegend" @change="onLegendToggle" />
-              <span class="h-5 w-9 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500"></span>
-              <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
-            </span>
-          </label>
-
-          <div class="grid gap-2 sm:grid-cols-3">
-            <label v-for="o in OVERLAY_OPTS" :key="o.key" class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5">
-              <lc-icon :name="o.icon" :size="16" :class="o.color"></lc-icon>
-              <span class="min-w-0 flex-1 text-xs font-semibold">{{ o.label }}</span>
-              <span class="relative inline-flex items-center">
-                <input type="checkbox" class="peer sr-only" v-model="overlay[o.key]" @change="onOverlayToggle" />
-                <span class="h-5 w-9 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500"></span>
-                <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
-              </span>
-            </label>
-          </div>
-          <p class="-mt-2 text-[11px] text-slate-500">Sound plays in OBS when "Control audio via OBS" is ticked on the Browser Source. The preview here is always muted.</p>
-
           <div class="flex flex-col gap-2 rounded-xl border border-white/10 bg-slate-950/60 p-3">
-            <span class="label">OBS Browser Source URL</span>
+            <span class="label">OBS Browser Source URL (one link for every game)</span>
             <div class="flex flex-wrap gap-2">
-              <input :value="gameUrl(game, false)" readonly class="field min-w-0 flex-1 font-mono text-xs" @focus="$event.target.select()" />
+              <input :value="gameUrl(false)" readonly class="field min-w-0 flex-1 font-mono text-xs" @focus="$event.target.select()" />
               <button class="btn btn-ghost !py-1.5" :class="fx.copy" @click="copyGameUrl"><lc-icon name="copy"></lc-icon> Copy</button>
-              <a class="btn btn-primary !py-1.5" :href="gameUrl(game, false)" target="_blank" rel="noopener"><lc-icon name="external-link"></lc-icon> Open game</a>
+              <a class="btn btn-primary !py-1.5" :href="gameUrl(false)" target="_blank" rel="noopener"><lc-icon name="external-link"></lc-icon> Open game</a>
             </div>
-            <p class="text-[11px] text-slate-500">The link includes your access token, so keep it private. In OBS set the size to 1080×1920 (vertical) and tick "Shutdown source when not visible" off.</p>
+            <p class="text-[11px] text-slate-500">The link includes your access token, so keep it private. In OBS: 1080×1920 and tick "Control audio via OBS". Show or hide parts of the screen in <button class="text-tt-cyan hover:underline" @click="setTab('settings')">Settings → On the stream</button>.</p>
           </div>
         </div>
       </div>
@@ -516,7 +615,7 @@
     <!-- ===================================================================== -->
     <!-- STREAM REPORTS                                                        -->
     <!-- ===================================================================== -->
-    <section class="card lg:col-span-2" aria-labelledby="rep-title">
+    <section v-show="tab === 'reports'" class="card lg:col-span-2" aria-labelledby="rep-title">
       <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 id="rep-title" class="flex items-center gap-2 text-lg font-bold"><lc-icon name="chart-column" :size="18" class="text-amber-300"></lc-icon> Stream reports</h2>
@@ -619,6 +718,131 @@
         </div>
       </div>
     </section>
+    <!-- ===================================================================== -->
+    <!-- SETTINGS                                                              -->
+    <!-- ===================================================================== -->
+    <section v-show="tab === 'settings'" class="grid gap-5 lg:col-span-2 lg:grid-cols-2 lg:items-start" aria-labelledby="set-title">
+      <h2 id="set-title" class="sr-only">Settings</h2>
+
+      <!-- voice -->
+      <div class="card flex flex-col gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 class="flex items-center gap-2 text-lg font-bold"><lc-icon name="megaphone" :size="18" class="text-tt-red"></lc-icon> Voice</h3>
+          <label class="flex cursor-pointer items-center gap-2 text-sm font-semibold">
+            <span>{{ voiceDraft.enabled ? 'On' : 'Off' }}</span>
+            <span class="relative inline-flex items-center">
+              <input type="checkbox" class="peer sr-only" v-model="voiceDraft.enabled" @change="voiceDirty = true" />
+              <span class="h-5 w-9 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500"></span>
+              <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
+            </span>
+          </label>
+        </div>
+        <p class="-mt-2 text-xs text-slate-400">A real voice on your stream that welcomes new viewers, thanks gifters and reminds people what to do. It plays inside the game page, so OBS picks it up.</p>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="flex flex-col gap-1"><span class="label">Voice</span>
+            <select v-model="voiceDraft.voice" @change="voiceDirty = true" class="field !py-1.5 text-sm"><option v-for="v in voices" :key="v[0]" :value="v[0]">{{ v[1] }}</option></select>
+          </label>
+          <label class="flex flex-col gap-1"><span class="label">Texts language</span>
+            <select :value="voiceDraft.lang" @change="setVoiceLang($event.target.value)" class="field !py-1.5 text-sm"><option value="en">English</option><option value="ar">العربية (Arabic)</option></select>
+          </label>
+          <label class="flex flex-col gap-1"><span class="label">Speed {{ voiceDraft.rate > 0 ? '+' : '' }}{{ voiceDraft.rate }}%</span>
+            <input type="range" min="-50" max="60" step="5" v-model.number="voiceDraft.rate" @input="voiceDirty = true" class="accent-tt-red" />
+          </label>
+          <label class="flex flex-col gap-1"><span class="label">Volume {{ Math.round(voiceDraft.volume * 100) }}%</span>
+            <input type="range" min="0" max="1" step="0.05" v-model.number="voiceDraft.volume" @input="voiceDirty = true" class="accent-tt-red" />
+          </label>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button class="btn btn-ghost !py-1.5 text-xs" :class="fx.testVoice" :disabled="socketState !== 'open'" @click="testVoice()"><lc-icon name="play" :size="14"></lc-icon> Test voice</button>
+          <span class="text-[11px]" :class="voiceEngine.engine === 'neural' ? 'text-emerald-300' : 'text-amber-300'">
+            {{ voiceEngine.engine === 'neural' ? 'Neural voice ready' : 'Neural voice unreachable from the server: the game page uses the browser voice instead (OBS may not capture it).' }}
+          </span>
+        </div>
+
+        <div class="border-t border-white/10 pt-3">
+          <div class="label mb-2">What the voice says</div>
+          <div class="flex flex-col gap-2">
+            <label v-for="o in VOICE_TOGGLES" :key="o.key" class="flex flex-wrap items-center gap-3 rounded-xl bg-slate-950/50 px-3 py-2">
+              <input type="checkbox" class="h-4 w-4 accent-emerald-500" v-model="voiceDraft[o.key]" @change="voiceDirty = true" />
+              <lc-icon :name="o.icon" :size="15" :class="o.color"></lc-icon>
+              <span class="min-w-0 flex-1 text-sm font-semibold">{{ o.label }}<span class="block text-[11px] font-normal text-slate-400">{{ o.help }}</span></span>
+              <span v-if="o.num" class="flex items-center gap-1 text-xs text-slate-400">{{ o.numLabel }}
+                <input type="number" :min="o.min" :step="o.step || 1" v-model.number="voiceDraft[o.num]" @input="voiceDirty = true" class="field !w-20 !py-1 text-sm" />
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <details class="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+          <summary class="cursor-pointer text-sm font-semibold">Edit the texts</summary>
+          <p class="mt-2 text-[11px] text-slate-400">Placeholders: <code>{user}</code> <code>{gift}</code> <code>{count}</code> <code>{names}</code> <code>{tip}</code> (a random "Send a Rose to …" for the current game) <code>{top}</code> <code>{likesLeft}</code> <code>{goal}</code> <code>{howTo}</code> <code>{game}</code></p>
+          <div class="mt-2 grid gap-2">
+            <label v-for="k in TEMPLATE_KEYS" :key="k.key" class="flex flex-col gap-1"><span class="label">{{ k.label }}</span>
+              <input v-model="voiceDraft.templates[k.key]" @input="voiceDirty = true" class="field !py-1.5 text-sm" :dir="voiceDraft.lang === 'ar' ? 'rtl' : 'ltr'" />
+            </label>
+            <label class="flex flex-col gap-1"><span class="label">Reminders (one per line, said in turn)</span>
+              <textarea rows="4" :value="voiceDraft.reminderLines.join('\n')" @input="voiceDraft.reminderLines = $event.target.value.split('\n'); voiceDirty = true" class="field text-sm" :dir="voiceDraft.lang === 'ar' ? 'rtl' : 'ltr'"></textarea>
+            </label>
+          </div>
+        </details>
+
+        <div class="flex items-center justify-end gap-2">
+          <span v-if="voiceDirty" class="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-400/30"><lc-icon name="circle-dot" :size="12"></lc-icon> unsaved</span>
+          <button class="btn btn-ghost !py-1.5 text-xs" :disabled="!voiceDirty" @click="loadVoiceDraft(true)"><lc-icon name="undo-2" :size="14"></lc-icon> Revert</button>
+          <button class="btn btn-primary !py-1.5" :class="fx.saveVoice" :disabled="!voiceDirty || socketState !== 'open'" @click="saveVoice"><lc-icon name="save" :size="15"></lc-icon> Save voice settings</button>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-5">
+        <!-- on stream -->
+        <div class="card flex flex-col gap-3">
+          <h3 class="flex items-center gap-2 text-lg font-bold"><lc-icon name="monitor" :size="18" class="text-tt-cyan"></lc-icon> On the stream</h3>
+          <p class="-mt-2 text-xs text-slate-400">Turn parts of the game screen on or off. Changes show on stream right away, no need to touch OBS.</p>
+          <div class="grid gap-2 sm:grid-cols-2">
+            <label v-for="o in OVERLAY_OPTS" :key="o.key" class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5">
+              <lc-icon :name="o.icon" :size="16" :class="o.color"></lc-icon>
+              <span class="min-w-0 flex-1 text-sm font-semibold">{{ o.label }}<span class="block text-[11px] font-normal text-slate-400">{{ o.help }}</span></span>
+              <span class="relative inline-flex items-center">
+                <input type="checkbox" class="peer sr-only" :checked="overlaySettings[o.key]" :disabled="socketState !== 'open'" @change="toggleOverlay(o.key, $event.target.checked)" />
+                <span class="h-5 w-9 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500"></span>
+                <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <!-- game options -->
+        <div class="card flex flex-col gap-3" v-if="activeGame">
+          <h3 class="flex items-center gap-2 text-lg font-bold"><lc-icon :name="activeGame.icon" :size="18" class="text-amber-300"></lc-icon> {{ activeGame.name }} options</h3>
+          <p v-if="!activeGame.options.length" class="-mt-1 text-xs text-slate-400">This game has no extra options. Its gift actions are in the Gifts tab.</p>
+          <label v-for="o in activeGame.options" :key="o.key" class="flex flex-col gap-1"><span class="label">{{ o.label }}</span>
+            <textarea v-if="o.type === 'lines'" rows="6" :value="(gameOptionsDraft[o.key] || []).join('\n')" @input="gameOptionsDraft[o.key] = $event.target.value.split('\n'); optionsDirty = true" class="field text-sm"></textarea>
+            <input v-else-if="o.type === 'number'" type="number" :min="o.min" :max="o.max" v-model.number="gameOptionsDraft[o.key]" @input="optionsDirty = true" class="field !py-1.5 text-sm" />
+            <input v-else v-model="gameOptionsDraft[o.key]" @input="optionsDirty = true" class="field !py-1.5 text-sm" maxlength="40" />
+          </label>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <button class="btn btn-ghost !py-1.5 text-xs text-red-300" :class="fx.resetGame" :disabled="socketState !== 'open'" @click="resetGame"><lc-icon name="rotate-ccw" :size="14"></lc-icon> Reset this game's gifts &amp; commands</button>
+            <button v-if="activeGame.options.length" class="btn btn-primary !py-1.5" :class="fx.saveOptions" :disabled="!optionsDirty || socketState !== 'open'" @click="saveGameOptions"><lc-icon name="save" :size="15"></lc-icon> Save options</button>
+          </div>
+        </div>
+
+        <!-- connection -->
+        <div class="card flex flex-col gap-3">
+          <h3 class="flex items-center gap-2 text-lg font-bold"><lc-icon name="plug" :size="18" class="text-violet-300"></lc-icon> Connection</h3>
+          <label class="flex cursor-pointer items-center gap-3 rounded-xl bg-slate-950/50 px-3 py-2.5">
+            <lc-icon name="power" :size="18" :class="auto.enabled ? 'text-emerald-400' : 'text-slate-400'"></lc-icon>
+            <span class="min-w-0 flex-1 text-sm font-semibold">Auto-connect when I go live<span class="block truncate text-[11px] font-normal text-slate-400">{{ autoText }}</span></span>
+            <input type="checkbox" class="h-4 w-4 accent-emerald-500" :checked="auto.enabled" :disabled="socketState !== 'open'" @change="toggleAuto($event.target.checked)" />
+          </label>
+          <form class="grid gap-2" @submit.prevent="saveServerUrl">
+            <label class="flex flex-col gap-1"><span class="label">Control server</span><input v-model.trim="serverUrlDraft" class="field !py-1.5 font-mono text-xs" placeholder="wss://your-domain/ws" /></label>
+            <label class="flex flex-col gap-1"><span class="label">Access token</span><input v-model.trim="tokenDraft" type="password" autocomplete="off" class="field !py-1.5 font-mono text-xs" placeholder="from the installer" /></label>
+            <button class="btn btn-ghost justify-self-end !py-1.5 text-xs"><lc-icon name="refresh-cw" :size="14"></lc-icon> Save &amp; reconnect</button>
+          </form>
+          <p class="text-[11px] text-slate-500">Presets (save/load a whole setup) are in the Live tab. The phone remote is there too.</p>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer class="mx-auto max-w-7xl px-4 pb-6 text-center text-[11px] text-slate-600">
@@ -641,7 +865,7 @@
       </div>
 
       <div class="overflow-y-auto p-2">
-        <div class="label px-2 pb-1 pt-1">What happens in {{ game.name }}</div>
+        <div class="label px-2 pb-1 pt-1">What happens in {{ activeGame ? activeGame.name : 'the game' }}</div>
         <button class="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-white/5" :class="!menuRule ? 'bg-white/5' : ''" @click="setGiftAction(menu.gift, '')">
           <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/5 text-slate-500"><lc-icon name="circle-off" :size="16"></lc-icon></span>
           <span class="min-w-0 flex-1"><span class="block text-sm font-semibold">Nothing</span><span class="block text-xs text-slate-500">Shown in the log only</span></span>
@@ -763,18 +987,10 @@ const LcIcon = {
 /* ===========================================================================
  * Configuration: actions, preset gifts, quick tests, games
  * ======================================================================== */
-// label/effect describe what the action does in the game; default = value used when you first pick it.
-const ACTIONS = [
-  { id: 'SPAWN_OBSTACLE',   icon: 'construction',     color: 'text-orange-300',  hint: 'Barriers',   label: 'Barriers',        effect: 'Drops road barriers ahead of the car',         default: 1 },
-  { id: 'SPEED_BOOST',      icon: 'zap',              color: 'text-amber-300',   hint: 'Speed ×',    label: 'Speed boost',     effect: 'Traffic rushes faster for a few seconds',     default: 1.5 },
-  { id: 'SPEED_SLOW',       icon: 'snail',            color: 'text-sky-300',     hint: 'Speed ×',    label: 'Slow motion',     effect: 'Everything slows down for a few seconds',     default: 0.6 },
-  { id: 'SCREEN_SPLATTER',  icon: 'droplets',         color: 'text-yellow-700',  hint: 'Seconds',    label: 'Mud splatter',    effect: 'Mud covers the screen',                       default: 3 },
-  { id: 'REVERSE_CONTROLS', icon: 'arrow-left-right', color: 'text-violet-300',  hint: 'Seconds',    label: 'Reverse controls', effect: 'Left becomes right',                         default: 5 },
-  { id: 'BOSS_ATTACK',      icon: 'skull',            color: 'text-red-400',     hint: 'Boss level', label: 'Boss attack',     effect: 'A boss flies in and shoots at the car (1–5)', default: 1 },
-  { id: 'HEAL_PLAYER',      icon: 'heart-pulse',      color: 'text-emerald-300', hint: 'HP',         label: 'Heal',            effect: 'Gives the car health back',                   default: 10 },
-  { id: 'STEER_LEFT',       icon: 'arrow-big-left',   color: 'text-cyan-300',    hint: 'Lanes',      label: 'Move left',       effect: 'Moves the car one lane left',                 default: 1 },
-  { id: 'STEER_RIGHT',      icon: 'arrow-big-right',  color: 'text-cyan-300',    hint: 'Lanes',      label: 'Move right',      effect: 'Moves the car one lane right',                default: 1 },
-];
+// Games and their actions come from games/catalog.json (shared with the server and the stream page).
+const CAT = Vue.reactive({ games: [], active: 'gift-runner', loaded: false });
+const toUiAction = (a) => ({ id: a.id, icon: a.icon, color: a.tw, hex: a.color, hint: a.hint, label: a.label, effect: a.effect, default: a.default });
+const activeDef = () => CAT.games.find((g) => g.id === CAT.active) || null;
 const NO_ACTION = { icon: 'circle-off', color: 'text-slate-500', hint: 'Value', label: 'Nothing' };
 
 // `name` must match TikTok's gift name exactly (case-insensitive on the server).
@@ -796,44 +1012,37 @@ const GIFT_LOOK = {
 };
 const DEFAULT_GIFT_LOOK = { icon: 'gift', color: 'text-tt-red' };
 
-const TESTS = [
-  { id: 'train',   icon: 'train-front',      label: 'Test Train',        action: 'SPAWN_OBSTACLE',   value: 3,   bg: 'bg-rose-500/15 hover:bg-rose-500/25',     fg: 'text-rose-300' },
-  { id: 'speed',   icon: 'zap',              label: 'Test Speed Up',     action: 'SPEED_BOOST',      value: 1.5, bg: 'bg-amber-500/15 hover:bg-amber-500/25',   fg: 'text-amber-300' },
-  { id: 'slow',    icon: 'snail',            label: 'Test Slow Down',    action: 'SPEED_SLOW',       value: 0.5, bg: 'bg-sky-500/15 hover:bg-sky-500/25',       fg: 'text-sky-300' },
-  { id: 'mud',     icon: 'droplets',         label: 'Test Mud Splatter', action: 'SCREEN_SPLATTER',  value: 3,   bg: 'bg-orange-900/40 hover:bg-orange-900/60', fg: 'text-yellow-600' },
-  { id: 'reverse', icon: 'arrow-left-right', label: 'Test Reverse',      action: 'REVERSE_CONTROLS', value: 5,   bg: 'bg-violet-500/15 hover:bg-violet-500/25', fg: 'text-violet-300' },
-  { id: 'boss',    icon: 'skull',            label: 'Test Boss',         action: 'BOSS_ATTACK',      value: 1,   bg: 'bg-red-600/20 hover:bg-red-600/30',       fg: 'text-red-300' },
-  { id: 'heal',    icon: 'heart-pulse',      label: 'Test Heal',         action: 'HEAL_PLAYER',      value: 25,  bg: 'bg-emerald-500/15 hover:bg-emerald-500/25', fg: 'text-emerald-300' },
+const LOG_FILTERS = ['GIFT', 'CHAT', 'VOICE', 'TEST', 'LIKE', 'SYS'];
+const TAG_COLOR = { GIFT: 'text-tt-red', CHAT: 'text-tt-cyan', VOICE: 'text-violet-300', GAME: 'text-tt-cyan', TEST: 'text-amber-300', LIKE: 'text-pink-300', SYS: 'text-slate-400', ERR: 'text-red-400' };
+const TAG_STYLE = { GIFT: 'bg-tt-red/15 text-tt-red', CHAT: 'bg-tt-cyan/10 text-tt-cyan', VOICE: 'bg-violet-400/10 text-violet-300', TEST: 'bg-amber-400/10 text-amber-300', LIKE: 'bg-pink-400/10 text-pink-300', SYS: 'bg-white/5 text-slate-300' };
+const TABS = [
+  { id: 'start', label: 'Start here', icon: 'rocket', color: 'text-tt-red' },
+  { id: 'live', label: 'Live', icon: 'radio-tower', color: 'text-tt-cyan' },
+  { id: 'games', label: 'Games', icon: 'joystick', color: 'text-tt-cyan' },
+  { id: 'gifts', label: 'Gifts', icon: 'gift', color: 'text-tt-red' },
+  { id: 'chat', label: 'Chat & likes', icon: 'message-square', color: 'text-tt-cyan' },
+  { id: 'reports', label: 'Reports', icon: 'chart-column', color: 'text-amber-300' },
+  { id: 'settings', label: 'Settings', icon: 'settings', color: 'text-violet-300' },
 ];
-
-const GAMES = [
-  {
-    id: 'gift-runner',
-    name: 'Gift Runner',
-    icon: 'car-front',
-    file: 'game.html',
-    description: 'A three-lane night-highway runner. The car drives itself (or use ← → / tap) and viewers make the ride harder or easier with gifts.',
-    effects: [
-      { action: 'SPAWN_OBSTACLE',   text: 'Drops that many road barriers ahead.' },
-      { action: 'SPEED_BOOST',      text: 'Faster traffic for a few seconds; longer with combos.' },
-      { action: 'SPEED_SLOW',       text: 'Slow motion for a few seconds.' },
-      { action: 'SCREEN_SPLATTER',  text: 'Mud covers the screen for the given seconds.' },
-      { action: 'REVERSE_CONTROLS', text: 'Left is right for the given seconds.' },
-      { action: 'BOSS_ATTACK',      text: 'A boss flies in and fires at the car. Level 1–5.' },
-      { action: 'HEAL_PLAYER',      text: 'Restores that much HP (max 100).' },
-      { action: 'STEER_LEFT',       text: 'Moves the car a lane left (great for chat commands).' },
-      { action: 'STEER_RIGHT',      text: 'Moves the car a lane right.' },
-    ],
-  },
+const VOICE_TOGGLES = [
+  { key: 'thankGifts', label: 'Thank gifters', help: 'Says thank you with the gifter\'s name (small gifts at most every 4 s).', icon: 'gift', color: 'text-tt-red', num: 'minDiamonds', numLabel: 'from', min: 0 },
+  { key: 'welcome', label: 'Welcome new viewers', help: 'Greets people who join, grouped, with a tip about the game.', icon: 'hand', color: 'text-tt-cyan', num: 'welcomeEvery', numLabel: 'every s', min: 5 },
+  { key: 'thankFollows', label: 'Thank new followers', help: '"Thanks for the follow, @name!"', icon: 'user-plus', color: 'text-pink-400' },
+  { key: 'thankShares', label: 'Thank shares', help: '"Thanks for sharing the live!"', icon: 'share-2', color: 'text-amber-300' },
+  { key: 'announceGame', label: 'Game announcements', help: 'Winners, MVPs, big catches, crashes.', icon: 'trophy', color: 'text-amber-300' },
+  { key: 'reminders', label: 'Reminders', help: 'While live: what to send, top supporter, likes to the next goal.', icon: 'clock', color: 'text-violet-300', num: 'reminderEvery', numLabel: 'every min', min: 1, step: 0.5 },
 ];
-
-const LOG_FILTERS = ['GIFT', 'CHAT', 'TEST', 'LIKE', 'SYS'];
-const TAG_COLOR = { GIFT: 'text-tt-red', CHAT: 'text-tt-cyan', GAME: 'text-tt-cyan', TEST: 'text-amber-300', LIKE: 'text-pink-300', SYS: 'text-slate-400', ERR: 'text-red-400' };
-const TAG_STYLE = { GIFT: 'bg-tt-red/15 text-tt-red', CHAT: 'bg-tt-cyan/10 text-tt-cyan', TEST: 'bg-amber-400/10 text-amber-300', LIKE: 'bg-pink-400/10 text-pink-300', SYS: 'bg-white/5 text-slate-300' };
+const TEMPLATE_KEYS = [
+  { key: 'gift', label: 'Thank you (gift)' }, { key: 'bigGift', label: 'Big gift' }, { key: 'welcome', label: 'Welcome' },
+  { key: 'follow', label: 'Follow' }, { key: 'share', label: 'Share' },
+];
 const OVERLAY_OPTS = [
-  { key: 'goals', label: 'Like goals', icon: 'heart', color: 'text-pink-400' },
-  { key: 'supporters', label: 'Top supporters', icon: 'crown', color: 'text-amber-300' },
-  { key: 'sound', label: 'Sound', icon: 'volume-2', color: 'text-tt-cyan' },
+  { key: 'legend', label: 'Gift list', help: '"Send a gift" list, top right', icon: 'list', color: 'text-tt-red' },
+  { key: 'goals', label: 'Like goals', help: 'Progress bar to the next goal', icon: 'heart', color: 'text-pink-400' },
+  { key: 'supporters', label: 'Top supporters', help: 'Top 3 gifters of the stream', icon: 'crown', color: 'text-amber-300' },
+  { key: 'ticker', label: 'Tips ticker', help: 'Rotating "Send a Rose → …" line', icon: 'lightbulb', color: 'text-amber-300' },
+  { key: 'welcome', label: 'Welcome messages', help: '"Welcome @name" pop-ups, follows, shares', icon: 'hand', color: 'text-tt-cyan' },
+  { key: 'sfx', label: 'Sound effects', help: 'Game sounds (the voice is separate)', icon: 'volume-2', color: 'text-violet-300' },
 ];
 const MAX_LOG = 500;
 
@@ -848,7 +1057,10 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const fmt = (n) => Number(n || 0).toLocaleString();
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random());
 const giftLook = (name) => GIFT_LOOK[String(name).toLowerCase()] ?? DEFAULT_GIFT_LOOK;
-const actionLook = (id) => ACTIONS.find((a) => a.id === id) ?? NO_ACTION;
+const actionLook = (id) => {
+  const a = activeDef()?.actions.find((x) => x.id === id) ?? CAT.games.flatMap((g) => g.actions).find((x) => x.id === id);
+  return a ? toUiAction(a) : NO_ACTION;
+};
 
 const { createApp, reactive, ref, computed, nextTick, onMounted } = Vue;
 
@@ -881,10 +1093,9 @@ const app = createApp({
 
     // Local rule draft { "Rose": { action, value } }. First run: the preset gifts. Older versions saved cards in tt.gifts.
     function initialDraft() {
+      // The server holds each game's rules now; the local copy is only kept for unsaved edits.
       const saved = store.get('tt.rules', null);
-      if (saved && typeof saved === 'object') return saved;
-      const cards = store.get('tt.gifts', null) ?? PRESET_GIFTS.map((g) => ({ ...g, enabled: true }));
-      return Object.fromEntries(cards.filter((c) => c.enabled && c.action && c.name).map((c) => [c.name, { action: c.action, value: c.value ?? 1 }]));
+      return saved && typeof saved === 'object' ? saved : {};
     }
     const draft = ref(initialDraft());
     const catalog = ref([]); // [{ id, name, diamonds, image }] from the server
@@ -895,7 +1106,7 @@ const app = createApp({
     const fetchUser = ref('');
     const menu = reactive({ gift: null, style: {} });
     const serverRules = ref(null);
-    const dirty = ref(store.get('tt.dirty', true));
+    const dirty = ref(store.get('tt.dirty', false));
     const rulesSyncedAt = ref(null);
 
     const custom = reactive({ action: 'SPAWN_OBSTACLE', value: 1 });
@@ -908,11 +1119,26 @@ const app = createApp({
     const logBox = ref(null);
     const autoScroll = ref(true);
 
-    const game = ref(GAMES.find((g) => g.id === store.get('tt.game', '')) ?? GAMES[0]);
     const previewOn = ref(store.get('tt.preview', true));
     const previewKey = ref(0);
-    const showLegend = ref(store.get('tt.legend', true));
-    const overlay = reactive({ goals: true, supporters: true, sound: true, ...store.get('tt.overlay', {}) });
+    // tabs, games, voice + stream settings
+    const tab = ref(store.get('tt.tab', 'start'));
+    const setTab = (id) => { tab.value = id; store.set('tt.tab', id); };
+    const activeGameId = ref('gift-runner');
+    const GAMES = computed(() => CAT.games);
+    const activeGame = computed(() => CAT.games.find((g) => g.id === activeGameId.value) || null);
+    const ACTIONS = computed(() => (activeGame.value?.actions || []).map(toUiAction));
+    const TESTS = computed(() => ACTIONS.value.map((a) => ({ id: a.id, icon: a.icon, hex: a.hex, label: a.label, action: a.id, value: a.default })));
+    const gameOptionsDraft = reactive({});
+    const optionsDirty = ref(false);
+    const voices = ref([]);
+    const voiceEngine = reactive({ engine: 'neural', error: null });
+    const voiceDraft = reactive({ enabled: true, voice: 'en-US-AriaNeural', rate: 0, volume: 0.9, lang: 'en', templates: {}, reminderLines: [] });
+    const voiceDirty = ref(false);
+    let serverVoice = null;
+    const overlaySettings = reactive({ legend: true, goals: true, supporters: true, ticker: true, welcome: true, sfx: true });
+    const clientsInfo = reactive({ games: 0, dashboards: 0, remotes: 0 });
+    const triedTest = ref(store.get('tt.tried', false));
 
     // live controls, chat commands, like goals, reports
     const paused = ref(false);
@@ -1052,6 +1278,13 @@ const app = createApp({
       switch (type) {
         case 'STATE':
           setStatus(p.status, true);
+          if (p.game) { activeGameId.value = p.game; CAT.active = p.game; }
+          if (!ACTIONS.value.some((a) => a.id === custom.action)) custom.action = ACTIONS.value[0]?.id || custom.action;
+          loadOptionsDraft(p.gameOptions || {});
+          if (p.settings) applySettings(p.settings);
+          voices.value = p.voices || [];
+          if (p.voiceEngine) Object.assign(voiceEngine, p.voiceEngine);
+          if (p.clientsInfo) Object.assign(clientsInfo, p.clientsInfo);
           if (p.likes) stats.likes = Math.max(p.likes.totalLikes, p.likes.streamTotalLikes);
           if (p.viewerCount != null) stats.viewers = p.viewerCount;
           if (Array.isArray(p.gifts)) catalog.value = p.gifts;
@@ -1066,8 +1299,28 @@ const app = createApp({
           if (p.status?.autoConnect) Object.assign(auto, p.status.autoConnect);
           send('GET_REPORTS').then((r) => { reports.value = r.reports || []; }).catch(() => {});
           break;
-        case 'COMMANDS_UPDATED': syncCommands(p.commands || {}, p.reason === 'preset'); break;
-        case 'GOALS_UPDATED': syncGoals(p.goals || [], p.reason === 'preset'); break;
+        case 'COMMANDS_UPDATED': syncCommands(p.commands || {}, p.reason === 'preset' || p.reason === 'game'); break;
+        case 'GOALS_UPDATED': syncGoals(p.goals || [], p.reason === 'preset' || p.reason === 'game'); break;
+        case 'GAME_CHANGED':
+          activeGameId.value = p.game; CAT.active = p.game;
+          loadOptionsDraft(p.options || {});
+          custom.action = ACTIONS.value[0]?.id || custom.action;
+          closeMenu(); closePicker();
+          addLog('SYS', `now playing <b>${esc(activeGame.value?.name || p.game)}</b>`);
+          break;
+        case 'GAME_OPTIONS': if (p.game === activeGameId.value) loadOptionsDraft(p.options || {}); break;
+        case 'SETTINGS': applySettings(p); break;
+        case 'CLIENTS': Object.assign(clientsInfo, p); break;
+        case 'SAY':
+          voiceEngine.engine = p.url ? 'neural' : 'browser';
+          addLog('VOICE', `${esc(p.text)} <span class="text-slate-500">(${p.url ? 'neural' : 'browser voice'})</span>`, true);
+          break;
+        case 'SOCIAL':
+          addLog('CHAT', p.kind === 'join' ? `<span class="text-emerald-300">@${esc(p.user)}</span> joined` : p.kind === 'follow' ? `<span class="text-emerald-300">@${esc(p.user)}</span> <b class="text-tt-red">followed</b>` : `<span class="text-emerald-300">@${esc(p.user)}</span> <b class="text-amber-300">shared</b> the live`, p.kind === 'join');
+          break;
+        case 'CHAT':
+          addLog('CHAT', `<span class="text-emerald-300">@${esc(p.user)}</span>: ${esc(p.comment)}`, true);
+          break;
         case 'PAUSED': paused.value = !!p.paused; addLog('SYS', p.paused ? '<span class="text-amber-300">game paused</span>' : 'game resumed'); break;
         case 'PRESETS': presets.value = p.presets || []; break;
         case 'SUPPORTERS': supporters.value = p.top || []; break;
@@ -1082,6 +1335,7 @@ const app = createApp({
           break;
         case 'RULES_UPDATED':
           if (p.reason === 'preset') { serverRules.value = p.rules || {}; loadFromServer(); toast(`Preset "${p.preset}" loaded`); addLog('SYS', `preset <b>${esc(p.preset)}</b> loaded`); }
+          else if (p.reason === 'game') { serverRules.value = p.rules || {}; loadFromServer(); }
           else syncServerRules(p.rules);
           break;
         case 'GIFT_RECEIVED': {
@@ -1257,7 +1511,7 @@ const app = createApp({
     }
     /** Mapped gifts grouped by action, for the Games panel cards. */
     const rulesByAction = computed(() => {
-      const out = Object.fromEntries(ACTIONS.map((a) => [a.id, []]));
+      const out = Object.fromEntries(ACTIONS.value.map((a) => [a.id, []]));
       for (const g of allGifts.value) if (g.rule) (out[g.rule.action] ??= []).push({ gift: g, rule: g.rule });
       for (const list of Object.values(out)) list.sort((a, b) => (a.gift.diamonds ?? Infinity) - (b.gift.diamonds ?? Infinity));
       return out;
@@ -1328,7 +1582,7 @@ const app = createApp({
       try { await act('disconnect', 'DISCONNECT_TIKTOK', {}, 'Disconnected'); } catch {}
       pendingConnect.value = false;
     }
-    const fireTest = (t) => act('test' + t.id, 'TEST_TRIGGER', { action: t.action, value: t.value, user: 'dashboard' }, `${t.label} sent`).catch(() => {});
+    const fireTest = (t) => act('test' + t.id, 'TEST_TRIGGER', { action: t.action, value: t.value, user: 'dashboard' }, `${t.label} sent`).then(() => { triedTest.value = true; store.set('tt.tried', true); }).catch(() => {});
     const fireCustom = () => act('custom', 'TEST_TRIGGER', { action: custom.action, value: custom.value, user: 'dashboard' }, `${custom.action} sent`).catch(() => {});
 
     function saveServerUrl() {
@@ -1345,21 +1599,93 @@ const app = createApp({
     /* ------------------------------------------------------------------
      * Games
      * ---------------------------------------------------------------- */
-    /** Game page URL. The server address is only added when it isn't the game's own default. */
-    function gameUrl(gm, preview) {
-      const u = new URL(gm.file, location.href);
+    /** The stream page (play.html): one link for every game. */
+    function gameUrl(preview) {
+      const u = new URL('play.html', location.href);
       u.search = '';
       if (serverUrl.value !== DEFAULT_SERVER || !hosted) u.searchParams.set('server', serverUrl.value);
       if (token.value) u.searchParams.set('token', token.value);
-      if (!showLegend.value) u.searchParams.set('legend', '0');
-      if (!overlay.goals) u.searchParams.set('goals', '0');
-      if (!overlay.supporters) u.searchParams.set('supporters', '0');
-      if (!overlay.sound) u.searchParams.set('sound', '0');
       if (preview) u.searchParams.set('preview', '1');
+      else u.searchParams.set('obs', '1');
       return u.toString();
     }
-    function onLegendToggle() { store.set('tt.legend', showLegend.value); previewKey.value++; }
-    function onOverlayToggle() { store.set('tt.overlay', { ...overlay }); previewKey.value++; }
+    async function loadCatalog() {
+      try {
+        const base = /^https?:$/.test(location.protocol) ? '' : httpBase.value;
+        const r = await fetch(`${base}${base ? '/' : ''}games/catalog.json`);
+        const c = await r.json();
+        CAT.games = c.games || [];
+        CAT.loaded = true;
+      } catch (err) { toast('Could not load the game list (games/catalog.json)', 'error'); }
+    }
+    function setGame(id) {
+      if (id === activeGameId.value) return;
+      if (dirty.value && !confirm('You have unsaved gift changes. Switch game anyway? (Each game keeps its own gifts.)')) return;
+      const name = CAT.games.find((g) => g.id === id)?.name || id;
+      act('setGame', 'SET_GAME', { game: id }, `Now playing ${name}`).then(() => { dirty.value = false; persist(); previewKey.value++; }).catch(() => {});
+    }
+    function loadOptionsDraft(opts) {
+      for (const k of Object.keys(gameOptionsDraft)) delete gameOptionsDraft[k];
+      Object.assign(gameOptionsDraft, JSON.parse(JSON.stringify(opts || {})));
+      optionsDirty.value = false;
+    }
+    function saveGameOptions() {
+      const options = { ...gameOptionsDraft };
+      for (const o of activeGame.value?.options || []) if (o.type === 'lines') options[o.key] = (options[o.key] || []).map((l) => String(l).trim()).filter(Boolean);
+      act('saveOptions', 'UPDATE_GAME_OPTIONS', { options }, 'Game options saved').then(() => (optionsDirty.value = false)).catch(() => {});
+    }
+    function resetGame() {
+      if (!confirm(`Reset ${activeGame.value?.name}'s gifts, chat commands and like goals to the defaults?`)) return;
+      act('resetGame', 'RESET_GAME', {}, 'Game reset to defaults').catch(() => {});
+    }
+    function applySettings(st) {
+      if (st.overlay) Object.assign(overlaySettings, st.overlay);
+      if (st.voice) { serverVoice = st.voice; if (!voiceDirty.value) loadVoiceDraft(); }
+    }
+    function loadVoiceDraft(force) {
+      if (!serverVoice) return;
+      if (force) voiceDirty.value = false;
+      Object.assign(voiceDraft, JSON.parse(JSON.stringify(serverVoice)));
+    }
+    function saveVoice() {
+      const voice = JSON.parse(JSON.stringify(voiceDraft));
+      voice.reminderLines = (voice.reminderLines || []).map((l) => l.trim()).filter(Boolean);
+      act('saveVoice', 'UPDATE_SETTINGS', { voice }, 'Voice settings saved').then((r) => { voiceDirty.value = false; applySettings(r); }).catch(() => {});
+    }
+    function setVoiceLang(lang) {
+      // Saved straight away: the server swaps the default texts to the new language.
+      // Also pick a matching voice when the current one speaks another language (an English voice reads Arabic badly).
+      const voice = voiceDraft.voice.startsWith(lang === 'ar' ? 'ar-' : 'en-') ? voiceDraft.voice : lang === 'ar' ? 'ar-SA-HamedNeural' : 'en-US-AriaNeural';
+      act('voiceLang', 'UPDATE_SETTINGS', { voice: { lang, voice } }, lang === 'ar' ? 'Voice texts: Arabic' : 'Voice texts: English')
+        .then((r) => { serverVoice = r.voice; const keep = voiceDirty.value; loadVoiceDraft(true); voiceDirty.value = keep && false; }).catch(() => {});
+    }
+    function toggleOverlay(key, on) {
+      act('overlay', 'UPDATE_SETTINGS', { overlay: { [key]: on } }).then((r) => applySettings(r)).catch(() => {});
+    }
+    async function testVoice(text) {
+      try {
+        const r = await act('testVoice', 'TEST_VOICE', { text: text || '' });
+        triedTest.value = true; store.set('tt.tried', true);
+        if (r?.url) { const a = new Audio(imgSrc(r.url)); a.volume = voiceDraft.volume ?? 0.9; a.play().catch(() => {}); voiceEngine.engine = 'neural'; }
+        else if (r?.text && 'speechSynthesis' in window) { const u = new SpeechSynthesisUtterance(r.text); u.lang = voiceDraft.voice.slice(0, 5); speechSynthesis.speak(u); voiceEngine.engine = 'browser'; }
+        toast(r?.engine === 'off' ? 'The voice is off (Settings → Voice)' : `Voice: "${r?.text}"`);
+      } catch { /* toast shown */ }
+    }
+    const testSocial = (kind) => act(kind === 'join' ? 'testJoin' : 'testFollow', 'TEST_SOCIAL', { kind, user: kind === 'join' ? 'new_viewer' : 'new_fan' }, kind === 'join' ? 'A test viewer joined' : 'A test follower').then(() => { triedTest.value = true; store.set('tt.tried', true); }).catch(() => {});
+    const firstRuleGift = computed(() => Object.keys(serverRules.value || {}).find((k) => k !== '*') || '');
+    function tryGift() {
+      const g = firstRuleGift.value;
+      act('tryGift', 'TEST_TRIGGER', { giftName: g, repeatCount: 1, user: 'tester' }, `${g} sent to the game`).then(() => { triedTest.value = true; store.set('tt.tried', true); }).catch(() => {});
+    }
+    const steps = computed(() => ({
+      server: socketState.value === 'open',
+      tiktok: tiktok.status === 'CONNECTED',
+      game: !!activeGame.value,
+      obs: clientsInfo.games > 0,
+      tested: triedTest.value,
+    }));
+    const setupSteps = 5;
+    const setupDone = computed(() => Object.values(steps.value).filter(Boolean).length);
 
     /* ------------------------------------------------------------------
      * Live controls: pause, auto-connect, presets, phone remote
@@ -1425,18 +1751,21 @@ const app = createApp({
       goalDraft.value = list.map((g) => ({ uid: rowId(), ...g }));
       goalDirty.value = false;
     }
-    function addCommand(key = '', action = 'STEER_LEFT') {
-      cmdDraft.value.push({ uid: rowId(), key, action, value: 1, cooldown: 3, userCooldown: 10 });
+    function addCommand(key = '', action = ACTIONS.value[0]?.id, value = 1, cooldown = 3, userCooldown = 10) {
+      cmdDraft.value.push({ uid: rowId(), key, action, value, cooldown, userCooldown });
       cmdDirty.value = true;
     }
-    function addSuggestedCommands() { addCommand('!left', 'STEER_LEFT'); addCommand('!right', 'STEER_RIGHT'); }
+    /** The active game's suggested chat commands (from the catalog). */
+    const suggestedCommands = computed(() => Object.entries(activeGame.value?.defaults?.commands || {}));
+    function addSuggestedCommands() { for (const [k, c] of suggestedCommands.value) addCommand(k, c.action, c.value, c.cooldown, c.userCooldown); }
     async function saveCommands() {
       const commands = {};
       for (const c of cmdDraft.value) if (c.key) commands[c.key] = { action: c.action, value: c.value, cooldown: c.cooldown, userCooldown: c.userCooldown };
       try { await act('saveCmds', 'UPDATE_COMMANDS', { commands }, `${Object.keys(commands).length} chat commands live`); cmdDirty.value = false; } catch { /* toast shown */ }
     }
     function addGoal() {
-      goalDraft.value.push({ uid: rowId(), every: 1000, action: 'HEAL_PLAYER', value: 20, label: '' });
+      const d = activeGame.value?.defaults?.goals?.[0];
+      goalDraft.value.push({ uid: rowId(), every: d?.every ?? 1000, action: d?.action ?? ACTIONS.value[0]?.id, value: d?.value ?? 1, label: d?.label ?? '' });
       goalDirty.value = true;
     }
     async function saveGoals() {
@@ -1471,9 +1800,8 @@ const app = createApp({
         { label: 'Best run', icon: 'trophy', color: 'text-amber-300', value: fmt(s.bestRun) },
       ];
     });
-    function selectGame(gm) { game.value = gm; store.set('tt.game', gm.id); previewKey.value++; }
     async function copyGameUrl() {
-      try { await navigator.clipboard.writeText(gameUrl(game.value, false)); flash('copy', true); toast('Game link copied'); }
+      try { await navigator.clipboard.writeText(gameUrl(false)); flash('copy', true); toast('Game link copied'); }
       catch { flash('copy', false); toast('Copy failed: select the link and copy it manually', 'error'); }
     }
 
@@ -1494,13 +1822,17 @@ const app = createApp({
       { label: 'Triggers Fired', icon: 'target', value: fmt(stats.triggers), sub: 'actions sent to game', color: 'text-amber-300' },
     ]);
 
-    onMounted(() => {
+    onMounted(async () => {
       addLog('SYS', 'dashboard ready', true);
+      await loadCatalog();
       openSocket();
     });
 
     return {
-      ACTIONS, TESTS, GAMES, LOG_FILTERS, TAG_COLOR, TAG_STYLE, giftLook, actionLook,
+      ACTIONS, TESTS, GAMES, TABS, VOICE_TOGGLES, TEMPLATE_KEYS, LOG_FILTERS, TAG_COLOR, TAG_STYLE, giftLook, actionLook,
+      tab, setTab, activeGameId, activeGame, setGame, gameOptionsDraft, optionsDirty, saveGameOptions, resetGame,
+      voices, voiceEngine, voiceDraft, voiceDirty, loadVoiceDraft, saveVoice, setVoiceLang, testVoice, testSocial,
+      overlaySettings, toggleOverlay, clientsInfo, steps, setupSteps, setupDone, firstRuleGift, tryGift,
       serverUrl, serverUrlDraft, tokenDraft, showServer, saveServerUrl,
       socketState, socketLabel, socketDot, username, tiktok, pendingConnect, badge, metrics,
       serverRules, dirty, rulesSyncedAt, applyRules, loadFromServer, fmt,
@@ -1509,10 +1841,10 @@ const app = createApp({
       picker, pickerGifts, openPicker, closePicker, togglePick, rulesByAction, removeRule, clearAllRules,
       custom, fx, busy, toasts, fireTest, fireCustom, connectTikTok, disconnectTikTok,
       visibleLog, filters, toggleFilter, clearLog, logBox, autoScroll, onLogScroll, scrollToBottom,
-      game, previewOn, previewKey, gameUrl, selectGame, copyGameUrl, showLegend, onLegendToggle, OVERLAY_OPTS, overlay, onOverlayToggle,
+      previewOn, previewKey, gameUrl, copyGameUrl, OVERLAY_OPTS,
       paused, togglePause, auto, autoText, toggleAuto, presets, presetName, savePreset, loadPreset, deletePreset,
       remoteOpen, remoteUrl, remoteQr, copyText,
-      cmdDraft, cmdDirty, addCommand, addSuggestedCommands, saveCommands, goalDraft, goalDirty, addGoal, saveGoals, likesCounted,
+      cmdDraft, cmdDirty, addCommand, addSuggestedCommands, suggestedCommands, saveCommands, goalDraft, goalDirty, addGoal, saveGoals, likesCounted,
       chatTest, likesTest, testChat, testLikes,
       supporters, session, sessionTiles, reports, report, viewReport, csvUrl, fmtTime, fmtDate, fmtDur, nowTick,
     };
