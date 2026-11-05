@@ -48,6 +48,8 @@
     .legend li.hit { background: rgba(254,44,85,.25); box-shadow: 0 0 0 1px rgba(254,44,85,.7), 0 0 18px rgba(254,44,85,.45); }
     .legend .gimg { width: 2em; height: 2em; display: grid; place-items: center; }
     .legend .gimg img { width: 100%; height: 100%; object-fit: contain; }
+    .legend.nonames .gimg { width: 2.5em; height: 2.5em; }
+    .legend.nonames li { grid-template-columns: 2.5em 1fr; }
     .legend .cmd { display: grid; place-items: center; width: 1.7em; height: 1.7em; border-radius: 8px; background: rgba(37,244,238,.12); color: var(--cyan); }
     .legend .gname { font-weight: 800; font-size: .86em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: .3em; }
     .legend .gname small { color: var(--muted); font-weight: 600; font-size: .85em; display: inline-flex; align-items: center; gap: .1em; flex: none; }
@@ -486,6 +488,7 @@ function legendRows() {
 }
 function renderLegend() {
   const rows = legendRows();
+  $('legend').classList.toggle('nonames', !flag('showGiftNames')); // "Gift names in the gift list" off → icons only
   $('legend').hidden = !(rows.length || EDIT) || !ov('legend');
   const hasGifts = rows.some((r) => !r.command), hasCmds = rows.some((r) => r.command);
   $('legendTitle').textContent = hasGifts && hasCmds ? tx('sendOrType') : hasCmds ? tx('type') : tx('send');
@@ -495,7 +498,7 @@ function renderLegend() {
     const look = actionLook(r.rule.action);
     const pic = r.command ? `<span class="cmd">${icon('message-square')}</span>` : r.image ? `<img src="${esc(imgSrc(r.image))}" alt="">` : icon(GIFT_ICON[r.key] ?? 'gift');
     const price = Number.isFinite(r.diamonds) ? `<small>${icon('gem')}${r.diamonds.toLocaleString()}</small>` : r.command ? `<small>${tx('free')}</small>` : '';
-    return `<li data-key="${esc(r.key)}"><span class="gimg">${pic}</span><span style="min-width:0"><span class="gname"><span style="overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>${price}</span><span class="gact" style="color:${look.color}">${icon(look.icon)}${esc(look.label)}</span></span></li>`;
+    return `<li data-key="${esc(r.key)}"><span class="gimg">${pic}</span><span style="min-width:0">${r.command || flag('showGiftNames') || price ? `<span class="gname">${r.command || flag('showGiftNames') ? `<span style="overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>` : ''}${price}</span>` : ''}<span class="gact" style="color:${look.color}">${icon(look.icon)}${esc(look.label)}</span></span></li>`;
   }).join('');
   $('legendDots').innerHTML = LEG.pages > 1 ? Array.from({ length: LEG.pages }, (_, i) => `<i class="${i === LEG.page ? 'on' : ''}"></i>`).join('') : '';
   clearInterval(LEG.timer);
@@ -685,6 +688,7 @@ function placeBar() {
   const lab = w.label[LANG_IDX[S.lang] ?? 0];
   const html = `<b>${esc(lab)}</b>`
     + (w.dir ? `<button data-a="h" class="${dirOf(selWin) === 'h' ? 'on' : ''}" title="Horizontal">${icon('rectangle-horizontal')}H</button><button data-a="v" class="${dirOf(selWin) === 'v' ? 'on' : ''}" title="Vertical">${icon('rectangle-vertical')}V</button>` : '')
+    + (selWin === 'legend' ? `<button data-a="names" class="${flag('showGiftNames') ? 'on' : ''}" title="Gift names on / off (off = icons only)">${icon('type')}</button>` : '')
     + `<button data-a="smaller" title="Smaller">${icon('minus')}</button><span style="min-width:2.6em;text-align:center">${Math.round((L.s || 1) * 100)}%</span><button data-a="bigger" title="Bigger">${icon('plus')}</button>`
     + `<button data-a="reset" title="Back to the default place">${icon('rotate-ccw')}</button><button data-a="delete" title="Remove this window from the stream">${icon('trash-2')}</button><button data-a="close" title="Done">${icon('check')}</button>`;
   if (bar.dataset.html !== html) { bar.innerHTML = html; bar.dataset.html = html; } // rebuild only on change, so clicks aren't lost
@@ -716,6 +720,12 @@ if (EDIT) {
     else if (a === 'reset') { delete S.layout[selWin]; applyLayout(); saveWin(selWin); return; }
     else if (a === 'close') { select(null); return; }
     else if (a === 'delete') { setShown(selWin, false); return; }
+    else if (a === 'names') {
+      const on = !flag('showGiftNames');
+      S.options = { ...S.options, showGiftNames: on }; renderLegend(); placeBar();
+      send('UPDATE_GAME_OPTIONS', { options: { showGiftNames: on } });
+      return;
+    }
     S.layout[selWin] = L; applyLayout(); saveWin(selWin);
   });
   frameEl.addEventListener('pointerdown', (e) => {

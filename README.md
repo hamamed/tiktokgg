@@ -187,6 +187,7 @@ Dashboard → **Games** → **Screen layout**. The preview turns into an editor:
 
 - Drag any window to put it anywhere: gift list, score panel, top supporters, like goals, gift alerts, effect timers, tips bar, big banners, join messages or the team battle bar.
 - Click a window to pick it. Drag its red handle to make it wider or narrower. Its bar has **H / V** (horizontal or vertical) for the gift list, score panel, supporters, like goals, alerts and effect timers, plus size − / + and reset.
+- **Gift names**: the *names* switch on the Gift list row (or the T button in the editor bar, or Game settings → On screen) shows the gift names or only the gift icons with their action.
 - **Delete a window**: pick it and press the trash button in its bar (or the Delete key), or press the trash button next to it in the list. Removed windows show in a *Removed* strip on the editor and in the list with **Restore**.
 - The list next to the preview does the same with buttons: remove / restore, H / V, size and reset, plus *Use this layout in all games* and *Reset all windows* (which also brings back removed windows).
 - Every change saves by itself. **My saved layouts** stores the whole screen (window places, sizes, H / V and removed windows) under a name, so you can load it again in any game (`SAVE_LAYOUT` / `LOAD_LAYOUT` / `DELETE_LAYOUT`, kept in `layouts.json`).

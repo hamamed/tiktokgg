@@ -412,6 +412,14 @@
      "common": true
     },
     {
+     "key": "showGiftNames",
+     "label": "Gift names in the gift list (off = icons only)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
      "key": "showGoals",
      "label": "Like goals",
      "type": "bool",
@@ -796,6 +804,14 @@
      "common": true
     },
     {
+     "key": "showGiftNames",
+     "label": "Gift names in the gift list (off = icons only)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
      "key": "showGoals",
      "label": "Like goals",
      "type": "bool",
@@ -1164,6 +1180,14 @@
     {
      "key": "showLegend",
      "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGiftNames",
+     "label": "Gift names in the gift list (off = icons only)",
      "type": "bool",
      "group": "show",
      "default": true,
@@ -1555,6 +1579,14 @@
     {
      "key": "showLegend",
      "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGiftNames",
+     "label": "Gift names in the gift list (off = icons only)",
      "type": "bool",
      "group": "show",
      "default": true,
@@ -1964,6 +1996,14 @@
      "common": true
     },
     {
+     "key": "showGiftNames",
+     "label": "Gift names in the gift list (off = icons only)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
      "key": "showGoals",
      "label": "Like goals",
      "type": "bool",
@@ -2205,6 +2245,14 @@
     {
      "key": "showLegend",
      "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGiftNames",
+     "label": "Gift names in the gift list (off = icons only)",
      "type": "bool",
      "group": "show",
      "default": true,
@@ -2501,6 +2549,14 @@
      "common": true
     },
     {
+     "key": "showGiftNames",
+     "label": "Gift names in the gift list (off = icons only)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
      "key": "showGoals",
      "label": "Like goals",
      "type": "bool",
@@ -2740,6 +2796,14 @@
      "common": true
     },
     {
+     "key": "showGiftNames",
+     "label": "Gift names in the gift list (off = icons only)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
      "key": "showGoals",
      "label": "Like goals",
      "type": "bool",
@@ -2973,6 +3037,14 @@
     {
      "key": "showLegend",
      "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGiftNames",
+     "label": "Gift names in the gift list (off = icons only)",
      "type": "bool",
      "group": "show",
      "default": true,
@@ -3274,6 +3346,14 @@
      "common": true
     },
     {
+     "key": "showGiftNames",
+     "label": "Gift names in the gift list (off = icons only)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
      "key": "showGoals",
      "label": "Like goals",
      "type": "bool",
@@ -3541,6 +3621,14 @@
     {
      "key": "showLegend",
      "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGiftNames",
+     "label": "Gift names in the gift list (off = icons only)",
      "type": "bool",
      "group": "show",
      "default": true,
