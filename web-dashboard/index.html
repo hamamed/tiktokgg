@@ -574,6 +574,75 @@
             <h3 class="text-xl font-extrabold">{{ activeGame.name }}</h3>
             <p class="mt-1 text-sm text-slate-400">{{ activeGame.description }}</p>
           </div>
+          <div class="flex w-fit gap-1 rounded-xl bg-slate-950/70 p-1" role="tablist" aria-label="Game panels">
+            <button v-for="pn in [['gifts', 'Gift actions', 'gift'], ['settings', 'Game settings', 'sliders-horizontal']]" :key="pn[0]" role="tab" :aria-selected="gamePane === pn[0]" @click="gamePane = pn[0]"
+                    class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition" :class="gamePane === pn[0] ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'">
+              <lc-icon :name="pn[2]" :size="14"></lc-icon>{{ pn[1] }}
+            </button>
+          </div>
+          <!-- game settings: everything the game does and shows; changes apply live -->
+          <div v-show="gamePane === 'settings'" class="flex flex-col gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p class="text-xs text-slate-400">Changes go live right away (watch the preview). Every game keeps its own settings.</p>
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 text-[11px] font-semibold" :class="optSaving ? 'text-amber-300' : 'text-emerald-300'">
+                  <lc-icon :name="optSaving ? 'loader' : 'circle-check'" :size="12"></lc-icon>{{ optSaving ? 'saving…' : 'saved' }}
+                </span>
+                <button class="btn btn-ghost !px-2.5 !py-1 text-xs" :class="fx.optDefaults" :disabled="socketState !== 'open'" @click="defaultOptions()"><lc-icon name="rotate-ccw" :size="13"></lc-icon> Default settings</button>
+              </div>
+            </div>
+            <div v-for="grp in optionGroups" :key="grp.id" class="rounded-xl border border-white/5 bg-slate-950/50 p-3">
+              <div class="mb-2 flex items-center gap-2 text-sm font-bold"><lc-icon :name="grp.icon" :size="15" class="text-tt-cyan"></lc-icon>{{ grp.label }}</div>
+              <div class="grid gap-x-4 gap-y-2.5 sm:grid-cols-2">
+                <div v-for="o in grp.options" :key="o.key" :class="o.type === 'lines' ? 'sm:col-span-2' : ''">
+                  <!-- on / off -->
+                  <label v-if="o.type === 'bool'" class="flex cursor-pointer items-center gap-3 rounded-lg px-1 py-1 hover:bg-white/5">
+                    <span class="relative inline-flex shrink-0 items-center">
+                      <input type="checkbox" class="peer sr-only" v-model="gameOptionsDraft[o.key]" @change="optChanged()" />
+                      <span class="h-5 w-9 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500"></span>
+                      <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
+                    </span>
+                    <span class="min-w-0 text-sm">{{ o.label }}<span v-if="o.help" class="block text-[11px] text-slate-500">{{ o.help }}</span></span>
+                  </label>
+                  <!-- slider -->
+                  <label v-else-if="o.type === 'range'" class="flex flex-col gap-1 px-1">
+                    <span class="flex items-center justify-between gap-2 text-sm"><span>{{ o.label }}</span><b class="tabular-nums" :class="gameOptionsDraft[o.key] !== o.default ? 'text-amber-300' : 'text-slate-300'">{{ fmtOpt(o, gameOptionsDraft[o.key]) }}</b></span>
+                    <input type="range" :min="o.min" :max="o.max" :step="o.step || 1" v-model.number="gameOptionsDraft[o.key]" @input="optChanged()" class="accent-tt-red" />
+                    <span v-if="o.help" class="text-[11px] text-slate-500">{{ o.help }}</span>
+                  </label>
+                  <!-- choice -->
+                  <div v-else-if="o.type === 'select'" class="flex flex-col gap-1 px-1">
+                    <span class="text-sm">{{ o.label }}</span>
+                    <div class="flex flex-wrap gap-1">
+                      <button v-for="c in o.choices" :key="c[0]" type="button" @click="gameOptionsDraft[o.key] = c[0]; optChanged()"
+                              class="rounded-lg border px-2.5 py-1 text-xs font-semibold transition" :class="gameOptionsDraft[o.key] === c[0] ? 'border-tt-red/60 bg-tt-red/15 text-white' : 'border-white/10 text-slate-400 hover:text-white'">{{ c[1] }}</button>
+                    </div>
+                  </div>
+                  <!-- number -->
+                  <label v-else-if="o.type === 'number'" class="flex items-center justify-between gap-3 px-1">
+                    <span class="min-w-0 text-sm">{{ o.label }}<span v-if="o.help" class="block text-[11px] text-slate-500">{{ o.help }}</span></span>
+                    <input type="number" :min="o.min" :max="o.max" v-model.number="gameOptionsDraft[o.key]" @input="optChanged()" class="field !w-24 shrink-0 !py-1 text-sm" />
+                  </label>
+                  <!-- list (one per line): saved when you leave the box -->
+                  <label v-else-if="o.type === 'lines'" class="flex flex-col gap-1 px-1">
+                    <span class="text-sm">{{ o.label }}</span>
+                    <textarea rows="6" :value="(gameOptionsDraft[o.key] || []).join('\n')" @input="gameOptionsDraft[o.key] = $event.target.value.split('\n'); optionsDirty = true" @change="optChanged(true)" class="field text-sm"></textarea>
+                    <span class="text-[11px] text-slate-500">Saved when you click outside the box.</span>
+                  </label>
+                  <!-- text -->
+                  <label v-else class="flex flex-col gap-1 px-1">
+                    <span class="text-sm">{{ o.label }}</span>
+                    <input v-model="gameOptionsDraft[o.key]" @input="optChanged()" class="field !py-1.5 text-sm" maxlength="40" />
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="flex justify-end">
+              <button class="btn btn-ghost !py-1.5 text-xs text-red-300" :class="fx.resetGame" :disabled="socketState !== 'open'" @click="resetGame"><lc-icon name="rotate-ccw" :size="14"></lc-icon> Reset this game's gifts &amp; commands</button>
+            </div>
+          </div>
+
+          <div v-show="gamePane === 'gifts'" class="flex flex-col gap-4">
 
           <div class="flex flex-wrap items-center justify-between gap-2">
             <span class="label">Which gift does what</span>
@@ -610,6 +679,7 @@
                 <span v-if="!rulesByAction[a.id]?.length" class="py-1 text-[11px] text-slate-500">No gift yet. Tap "+ Gift".</span>
               </div>
             </div>
+          </div>
           </div>
 
           <div class="flex flex-col gap-2 rounded-xl border border-white/10 bg-slate-950/60 p-3">
@@ -924,19 +994,11 @@
           </div>
         </div>
 
-        <!-- game options -->
-        <div class="card flex flex-col gap-3" v-if="activeGame">
-          <h3 class="flex items-center gap-2 text-lg font-bold"><lc-icon :name="activeGame.icon" :size="18" class="text-amber-300"></lc-icon> {{ activeGame.name }} options</h3>
-          <p v-if="!activeGame.options.length" class="-mt-1 text-xs text-slate-400">This game has no extra options. Its gift actions are in the Gifts tab.</p>
-          <label v-for="o in activeGame.options" :key="o.key" class="flex flex-col gap-1"><span class="label">{{ o.label }}</span>
-            <textarea v-if="o.type === 'lines'" rows="6" :value="(gameOptionsDraft[o.key] || []).join('\n')" @input="gameOptionsDraft[o.key] = $event.target.value.split('\n'); optionsDirty = true" class="field text-sm"></textarea>
-            <input v-else-if="o.type === 'number'" type="number" :min="o.min" :max="o.max" v-model.number="gameOptionsDraft[o.key]" @input="optionsDirty = true" class="field !py-1.5 text-sm" />
-            <input v-else v-model="gameOptionsDraft[o.key]" @input="optionsDirty = true" class="field !py-1.5 text-sm" maxlength="40" />
-          </label>
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <button class="btn btn-ghost !py-1.5 text-xs text-red-300" :class="fx.resetGame" :disabled="socketState !== 'open'" @click="resetGame"><lc-icon name="rotate-ccw" :size="14"></lc-icon> Reset this game's gifts &amp; commands</button>
-            <button v-if="activeGame.options.length" class="btn btn-primary !py-1.5" :class="fx.saveOptions" :disabled="!optionsDirty || socketState !== 'open'" @click="saveGameOptions"><lc-icon name="save" :size="15"></lc-icon> Save options</button>
-          </div>
+        <!-- game options live in the Games tab now -->
+        <div class="card flex flex-col gap-2" v-if="activeGame">
+          <h3 class="flex items-center gap-2 text-lg font-bold"><lc-icon :name="activeGame.icon" :size="18" class="text-amber-300"></lc-icon> {{ activeGame.name }} settings</h3>
+          <p class="text-xs text-slate-400">Health, speed, damage, round length, what shows on screen and more, for each game, with a live preview.</p>
+          <button class="btn btn-primary w-fit !py-1.5 text-sm" @click="setTab('games'); gamePane = 'settings'"><lc-icon name="sliders-horizontal" :size="15"></lc-icon> Open game settings</button>
         </div>
 
         <!-- connection -->
@@ -1425,6 +1487,7 @@ const app = createApp({
         case 'GOALS_UPDATED': syncGoals(p.goals || [], p.reason === 'preset' || p.reason === 'game'); break;
         case 'GAME_CHANGED':
           activeGameId.value = p.game; CAT.active = p.game;
+          clearTimeout(optTimer); optSaving.value = false;
           loadOptionsDraft(p.options || {});
           custom.action = ACTIONS.value[0]?.id || custom.action;
           closeMenu(); closePicker();
@@ -1742,6 +1805,7 @@ const app = createApp({
         const r = await fetch(`${base}${base ? '/' : ''}games/catalog.json`);
         const c = await r.json();
         CAT.games = c.games || [];
+        CAT.optionGroups = c.optionGroups || null;
         CAT.loaded = true;
       } catch (err) { toast('Could not load the game list (games/catalog.json)', 'error'); }
     }
@@ -1752,14 +1816,38 @@ const app = createApp({
       act('setGame', 'SET_GAME', { game: id }, `Now playing ${name}`).then(() => { dirty.value = false; persist(); previewKey.value++; }).catch(() => {});
     }
     function loadOptionsDraft(opts) {
+      if (optSaving.value) return; // don't overwrite what's being typed; our own save echoes back anyway
       for (const k of Object.keys(gameOptionsDraft)) delete gameOptionsDraft[k];
       Object.assign(gameOptionsDraft, JSON.parse(JSON.stringify(opts || {})));
       optionsDirty.value = false;
     }
+    const gamePane = ref('gifts');
+    const DEFAULT_GROUPS = [{ id: 'play', label: 'Gameplay', icon: 'sliders-horizontal' }, { id: 'text', label: 'Names, words & lists', icon: 'list' }, { id: 'show', label: 'On screen', icon: 'eye' }, { id: 'sound', label: 'Sound', icon: 'volume-2' }];
+    const optionGroups = computed(() => {
+      const opts = activeGame.value?.options || [];
+      return (CAT.optionGroups || DEFAULT_GROUPS).map((g) => ({ ...g, options: opts.filter((o) => (o.group || 'play') === g.id) })).filter((g) => g.options.length);
+    });
+    const fmtOpt = (o, v) => (o.unit === '%' ? `${Math.round(v)}%` : o.unit ? `${Number(v).toLocaleString()} ${o.unit}` : Number(v).toLocaleString());
+    // Settings save themselves shortly after a change (lists: when you leave the box).
+    const optSaving = ref(false);
+    let optTimer = null;
+    function optChanged(now = false) {
+      optionsDirty.value = true; optSaving.value = true;
+      clearTimeout(optTimer);
+      optTimer = setTimeout(saveGameOptions, now ? 0 : 450);
+    }
+    function defaultOptions() {
+      if (!confirm(`Put all ${activeGame.value?.name} settings back to their defaults? (Gifts stay as they are.)`)) return;
+      for (const o of activeGame.value?.options || []) gameOptionsDraft[o.key] = JSON.parse(JSON.stringify(o.default));
+      flash('optDefaults', true);
+      optChanged(true);
+    }
     function saveGameOptions() {
       const options = { ...gameOptionsDraft };
       for (const o of activeGame.value?.options || []) if (o.type === 'lines') options[o.key] = (options[o.key] || []).map((l) => String(l).trim()).filter(Boolean);
-      act('saveOptions', 'UPDATE_GAME_OPTIONS', { options }, 'Game options saved').then(() => (optionsDirty.value = false)).catch(() => {});
+      for (const o of activeGame.value?.options || []) if ((o.type === 'number' || o.type === 'range') && !Number.isFinite(options[o.key])) delete options[o.key]; // half-typed number: keep the old value
+      send('UPDATE_GAME_OPTIONS', { options }).then(() => { optionsDirty.value = false; optSaving.value = false; })
+        .catch((err) => { optSaving.value = false; toast(err.message, 'error'); });
     }
     function resetGame() {
       if (!confirm(`Reset ${activeGame.value?.name}'s gifts, chat commands and like goals to the defaults?`)) return;
@@ -1993,6 +2081,7 @@ const app = createApp({
       teams, teamDraft, teamDirty, teamPct, fmtClock, saveTeams, toggleTeams, teamControl, testTeam, TEAM_ROUNDS,
       ACTIONS, TESTS, GAMES, TABS, VOICE_TOGGLES, TEMPLATE_KEYS, STREAM_LANGS, LOG_FILTERS, TAG_COLOR, TAG_STYLE, giftLook, actionLook,
       tab, setTab, activeGameId, activeGame, setGame, gameOptionsDraft, optionsDirty, saveGameOptions, resetGame,
+      gamePane, optionGroups, fmtOpt, optSaving, optChanged, defaultOptions,
       voices, voiceEngine, voiceDraft, voiceDirty, loadVoiceDraft, saveVoice, setVoiceLang, testVoice, testSocial,
       overlaySettings, toggleOverlay, clientsInfo, steps, setupSteps, setupDone, firstRuleGift, tryGift,
       serverUrl, serverUrlDraft, tokenDraft, showServer, saveServerUrl,

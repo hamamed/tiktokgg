@@ -212,6 +212,12 @@ const S = {
 };
 const teamsOn = () => !!S.teams?.enabled;
 const TEAM_COLOR = { red: '#fe2c55', blue: '#25f4ee' };
+// Per-game settings (dashboard → Games → Game settings). flag() = on/off switch, num() = number with limits.
+const flag = (k, d = true) => (typeof S.options[k] === 'boolean' ? S.options[k] : d);
+const num = (k, d, lo = -Infinity, hi = Infinity) => { const v = Number(S.options[k]); return Number.isFinite(v) ? clamp(v, lo, hi) : d; };
+// Overlay parts: on when on in Settings → On the stream AND on in this game's settings.
+const OV_KEY = { legend: 'showLegend', goals: 'showGoals', supporters: 'showSupporters', ticker: 'showTicker' };
+const ov = (k) => !!S.overlay[k] && (!OV_KEY[k] || flag(OV_KEY[k]));
 // Stream language (Settings → Stream language): 'en' | 'ar' | 'tr'. Games call t(english, arabic, turkish).
 const t = (en, ar, tr) => (S.lang === 'ar' && ar ? ar : S.lang === 'tr' && tr ? tr : en);
 const LANG_IDX = { en: 0, ar: 1, tr: 2 };
@@ -267,7 +273,7 @@ const SFX = (() => {
     if (!ac) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
-      ac = new AC(); master = ac.createGain(); master.gain.value = 0.35; master.connect(ac.destination);
+      ac = new AC(); master = ac.createGain(); master.gain.value = 0.35 * num('volume', 100, 0, 150) / 100; master.connect(ac.destination);
     }
     if (ac.state === 'suspended') ac.resume().catch(() => {});
     return ac;
@@ -307,6 +313,7 @@ const SFX = (() => {
     get enabled() { return enabled; },
     toggle() { enabled = !enabled; try { localStorage.setItem('gr.sound', JSON.stringify(enabled)); } catch {} if (enabled) { ctxA(); preset.alert(); } return enabled; },
     unlock() { if (enabled) ctxA(); },
+    setVolume(pct) { if (master) master.gain.value = 0.35 * clamp(pct, 0, 150) / 100; },
     tone, noise,
     play(name) { try { (typeof name === 'function' ? name : preset[name] || preset.alert)(); } catch { /* no audio */ } },
   };
@@ -354,6 +361,7 @@ const Voice = (() => {
 // ---------- overlays ----------
 let hudKey = '';
 function setHud(left = '', right = '') {
+  if (!flag('showHud')) left = right = '';
   const k = left + '|' + right;
   if (k === hudKey) return;
   hudKey = k;
@@ -361,6 +369,7 @@ function setHud(left = '', right = '') {
 }
 let effKey = '';
 function setEffects(list = []) {
+  if (!flag('showEffects')) list = [];
   const k = list.map((e) => e.label + Math.ceil(e.secs ?? 0)).join('|');
   if (k === effKey) return;
   effKey = k;
@@ -370,7 +379,7 @@ let bannerTimer;
 function banner(title, sub = '', color = '#fff', ms = 2600) {
   const b = $('banner');
   clearTimeout(bannerTimer);
-  if (!title) { b.innerHTML = ''; return; }
+  if (!title || !flag('showBanners')) { b.innerHTML = ''; return; }
   b.innerHTML = `<h2 style="color:${color}">${esc(isoAt(title))}</h2>${sub ? `<p>${esc(isoAt(sub))}</p>` : ''}`;
   b.classList.remove('flashbanner'); void b.offsetWidth; b.classList.add('flashbanner');
   bannerTimer = setTimeout(() => (b.innerHTML = ''), ms);
@@ -387,6 +396,7 @@ function toast(html, color = '#25f4ee') {
   setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 400); }, 3500);
 }
 function showAlert(ev, handled) {
+  if (!flag('showAlerts')) return;
   const look = actionLook(ev.action);
   const giftIcon = ev.source === 'chat' ? 'message-square' : ev.source === 'likes' ? 'heart' : GIFT_ICON[String(ev.giftName).toLowerCase()] ?? (ev.giftId === 'test' && !ev.matchedRule ? 'flask-conical' : 'gift');
   const what = ev.source === 'chat' ? `${tx('typed')} ${esc(ev.command || ev.giftName)}`
@@ -419,7 +429,7 @@ function legendRows() {
 }
 function renderLegend() {
   const rows = legendRows();
-  $('legend').hidden = !rows.length || !S.overlay.legend;
+  $('legend').hidden = !rows.length || !ov('legend');
   const hasGifts = rows.some((r) => !r.command), hasCmds = rows.some((r) => r.command);
   $('legendTitle').textContent = hasGifts && hasCmds ? tx('sendOrType') : hasCmds ? tx('type') : tx('send');
   LEG.pages = Math.max(1, Math.ceil(rows.length / PER_PAGE));
@@ -449,7 +459,7 @@ function flashLegend(key) {
 }
 function renderGoals() {
   $('goalsTitle').textContent = tx('goals');
-  $('goalsBox').hidden = !S.goals.length || !S.overlay.goals;
+  $('goalsBox').hidden = !S.goals.length || !ov('goals');
   $('goalsList').innerHTML = S.goals.slice(0, 3).map((g) => {
     const look = actionLook(g.action);
     const into = S.likes % g.every;
@@ -458,7 +468,7 @@ function renderGoals() {
 }
 function renderSupporters() {
   $('supTitle').textContent = tx('top');
-  $('supBox').hidden = !S.supporters.length || !S.overlay.supporters;
+  $('supBox').hidden = !S.supporters.length || !ov('supporters');
   const medal = ['#fbbf24', '#cbd5e1', '#d97706'];
   $('supList').innerHTML = S.supporters.slice(0, 3).map((u, i) => {
     const av = u.avatar ? `<img class="av" src="${esc(u.avatar)}" alt="" referrerpolicy="no-referrer">` : `<span class="av">${esc((u.nickname || u.uniqueId || '?')[0].toUpperCase())}</span>`;
@@ -483,7 +493,7 @@ function tickerLines() {
 function renderTicker(reset = false) {
   const box = $('ticker');
   const lines = tickerLines();
-  box.hidden = !S.overlay.ticker || !lines.length;
+  box.hidden = !ov('ticker') || !lines.length;
   if (reset) tickIdx = 0;
   $('tickerText').textContent = lines[tickIdx % Math.max(1, lines.length)] || '';
   clearInterval(tickTimer);
@@ -494,7 +504,7 @@ function renderTicker(reset = false) {
   }, 7000);
 }
 function applyOverlay() {
-  for (const k of ['legend', 'goals', 'supporters', 'ticker', 'welcome']) document.body.classList.toggle('no' + k, !S.overlay[k]);
+  for (const k of ['legend', 'goals', 'supporters', 'ticker', 'welcome']) document.body.classList.toggle('no' + k, !ov(k));
   renderLegend(); renderGoals(); renderSupporters(); renderTicker();
 }
 
@@ -565,7 +575,10 @@ const api = {
   /** Teams: null when off, else { names, score, members, phase… }. teamOf('user') → 'red' | 'blue' | null. */
   get teams() { return teamsOn() ? S.teams : null; },
   teamOf: (user) => (teamsOn() ? S.teamOf.get(String(user).toLowerCase()) ?? null : null),
-  setHud, setEffects, banner,
+  setHud, setEffects, banner, flag, num,
+  /** Draw "@name" only when "@names inside the game" is on. */
+  get showNames() { return flag('showNames'); },
+  get showParticles() { return flag('showParticles'); },
   sfx: (name) => SFX.play(name), tone: SFX.tone, noise: SFX.noise,
   /** Ask the server's voice to say something (winner, MVP…). Muted in previews. */
   announce: (text) => { if (!PREVIEW) send('ANNOUNCE', { text }); },
@@ -657,11 +670,20 @@ function connect() {
       case 'GAME_CHANGED':
         if (FIXED_GAME) break;
         S.options = p.options || {};
+        SFX.setVolume(num('volume', 100, 0, 150));
         S.gameId = S.gameId === p.game ? S.gameId : null;
         loadGame(p.game);
         break;
       case 'GAME_OPTIONS':
-        if (p.game === S.gameId) { S.options = p.options || {}; S.game?.onOptions?.(S.options); }
+        if (p.game === S.gameId) {
+          const before = S.options;
+          S.options = p.options || {};
+          SFX.setVolume(num('volume', 100, 0, 150));
+          hudKey = ''; effKey = ''; applyOverlay();
+          // A few settings are only read when the game starts (e.g. prizes in the claw machine): restart it for those.
+          const restart = (S.gameDef?.options || []).some((o) => o.reload && JSON.stringify(before[o.key]) !== JSON.stringify(S.options[o.key]));
+          if (restart) { const id = S.gameId; S.gameId = null; loadGame(id); } else S.game?.onOptions?.(S.options);
+        }
         break;
       case 'GAME_EVENT': if (p.team) S.teamOf.set(String(p.user).toLowerCase(), p.team); onGameEvent(p); break;
       case 'RULES_UPDATED': S.rules = p.rules || {}; renderLegend(); break;
@@ -719,7 +741,7 @@ function tick(t0) {
   fx.clearRect(0, 0, W, H);
   if (S.game) {
     try {
-      if (!S.paused) { S.now += dt; S.game.update?.(dt); }
+      if (!S.paused) { const d = dt * num('speed', 100, 50, 200) / 100; S.now += d; S.game.update?.(d); }
       S.game.draw?.(ctx, fx);
     } catch (err) { console.error(err); }
   }

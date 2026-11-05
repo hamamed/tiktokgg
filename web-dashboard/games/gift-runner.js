@@ -9,10 +9,13 @@ export default function create(api) {
 
   const S = {
     lane: 1, x: laneX(1), hp: 100, dist: 0, best: readBest(), invuln: 0, crashed: 0, lastHitBy: null,
-    autopilot: true, aiCooldown: 0, obstacles: [], shots: [], particles: [], mud: [], stripes: 0, ambientIn: 1.2, shake: 0,
+    autopilot: api.flag('autopilot'), aiCooldown: 0, obstacles: [], shots: [], particles: [], mud: [], stripes: 0, ambientIn: 1.2, shake: 0,
     fx: { boost: { until: 0, mul: 1 }, slow: { until: 0, mul: 1 }, reverse: { until: 0 }, mud: { until: 0 } }, boss: null,
   };
   const now = () => api.now;
+  // Settings (dashboard → Games → Game settings). HP is kept as a percentage; damage scales with "Car health".
+  const maxHp = () => api.num('maxHp', 100, 20, 1000);
+  const pct = (n) => (n * 100) / maxHp();
   const speedMul = () => (S.fx.boost.until > now() ? S.fx.boost.mul : 1) * (S.fx.slow.until > now() ? S.fx.slow.mul : 1);
   const unit = (ev) => ev.value / Math.max(1, ev.repeatCount || 1);
 
@@ -31,12 +34,12 @@ export default function create(api) {
   function viewerSteer(dir, value) { for (let i = 0; i < clamp(Math.round(value || 1), 1, 2); i++) steer(dir); S.aiCooldown = 1.2; }
   function hurt(dmg, by) {
     if (S.invuln > 0 || S.crashed > 0) return;
-    S.hp = clamp(S.hp - dmg, 0, 100);
+    S.hp = clamp(S.hp - pct(dmg), 0, 100);
     S.invuln = 0.9; S.shake = 0.35; S.lastHitBy = by || S.lastHitBy;
     api.sfx(S.hp <= 0 ? 'boom' : 'hit');
     for (let i = 0; i < 18; i++) S.particles.push({ x: S.x + rand(-25, 25), y: PLAYER_Y + rand(0, 40), vx: rand(-220, 220), vy: rand(-220, 40), life: 0.8, color: '#fe2c55' });
     if (S.hp <= 0) {
-      S.crashed = 3;
+      S.crashed = api.num('roundPause', 3, 2, 30);
       S.best = Math.max(S.best, Math.floor(S.dist));
       try { localStorage.setItem('gr.best', JSON.stringify(S.best)); } catch {}
       const mvp = api.mvp();
@@ -66,7 +69,7 @@ export default function create(api) {
     },
     HEAL_PLAYER(ev) {
       if (S.crashed > 0) return;
-      S.hp = clamp(S.hp + (Number(ev.value) || 10), 0, 100);
+      S.hp = clamp(S.hp + pct(Number(ev.value) || 10), 0, 100);
       for (let i = 0; i < 24; i++) S.particles.push({ x: S.x + rand(-30, 30), y: PLAYER_Y + rand(0, CAR_H), vx: rand(-40, 40), vy: rand(-160, -60), life: 1, color: '#6ee7b7' });
     },
     STEER_LEFT(ev) { viewerSteer(-1, ev.value); },
@@ -93,7 +96,7 @@ export default function create(api) {
   }
 
   function update(dt) {
-    const v = BASE_SPEED * speedMul() * (S.crashed > 0 ? 0.25 : 1);
+    const v = BASE_SPEED * api.num('baseSpeed', 100, 40, 250) / 100 * speedMul() * (S.crashed > 0 ? 0.25 : 1);
     S.stripes = (S.stripes + v * dt) % 80;
     S.x += (laneX(S.lane) - S.x) * Math.min(1, dt * 14);
     S.invuln = Math.max(0, S.invuln - dt);
@@ -106,10 +109,11 @@ export default function create(api) {
       if (S.autopilot) autopilot(dt);
     }
     S.ambientIn -= dt * speedMul();
-    if (S.ambientIn <= 0) { spawnObstacle(); S.ambientIn = rand(1.1, 2); }
+    const traffic = api.options.traffic || 'normal';
+    if (S.ambientIn <= 0) { if (traffic !== 'off') spawnObstacle(); S.ambientIn = traffic === 'low' ? rand(2.4, 4) : traffic === 'high' ? rand(0.6, 1.1) : rand(1.1, 2); }
     for (const o of S.obstacles) {
       o.y += v * dt;
-      if (!o.hit && Math.abs(laneX(o.lane) - S.x) < LANE_W * 0.55 && o.y + o.h > PLAYER_Y + 10 && o.y < PLAYER_Y + CAR_H - 10) { o.hit = true; hurt(20, o.by); }
+      if (!o.hit && Math.abs(laneX(o.lane) - S.x) < LANE_W * 0.55 && o.y + o.h > PLAYER_Y + 10 && o.y < PLAYER_Y + CAR_H - 10) { o.hit = true; hurt(api.num('barrierDamage', 20, 1, 500), o.by); }
     }
     S.obstacles = S.obstacles.filter((o) => o.y < H + 80 && !o.hit);
     const b = S.boss;
@@ -125,7 +129,7 @@ export default function create(api) {
       }
       if (b.until <= now()) { b.enter -= dt * 3; if (b.enter <= 0) S.boss = null; }
     }
-    for (const s of S.shots) { s.x += s.vx * dt; s.y += s.vy * dt; if (!s.hit && Math.abs(s.x - S.x) < CAR_W / 2 + 8 && s.y > PLAYER_Y && s.y < PLAYER_Y + CAR_H) { s.hit = true; hurt(10, s.by); } }
+    for (const s of S.shots) { s.x += s.vx * dt; s.y += s.vy * dt; if (!s.hit && Math.abs(s.x - S.x) < CAR_W / 2 + 8 && s.y > PLAYER_Y && s.y < PLAYER_Y + CAR_H) { s.hit = true; hurt(api.num('shotDamage', 10, 1, 500), s.by); } }
     S.shots = S.shots.filter((s) => !s.hit && s.y < H + 20 && s.x > -20 && s.x < W + 20);
     for (const p of S.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; p.life -= dt; }
     S.particles = S.particles.filter((p) => p.life > 0);
@@ -135,7 +139,7 @@ export default function create(api) {
     const hpColor = S.hp > 50 ? 'linear-gradient(90deg,#22c55e,#a3e635)' : S.hp > 25 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : 'linear-gradient(90deg,#dc2626,#f87171)';
     api.setHud(
       `<div class="sub">${t('Distance', 'المسافة', 'Mesafe')}</div><div class="big">${api.icon('route')}${Math.floor(S.dist).toLocaleString()}</div>`,
-      `<div class="sub" style="display:flex;justify-content:space-between"><span>HP</span><span>${Math.ceil(S.hp)}</span></div><div class="bar"><i style="width:${S.hp}%;background:${hpColor}"></i></div><div class="sub" style="margin-top:.35em">${t('Best', 'الأفضل', 'En iyi')} ${Math.max(S.best, Math.floor(S.dist)).toLocaleString()}</div>`,
+      `<div class="sub" style="display:flex;justify-content:space-between"><span>HP</span><span>${Math.ceil((S.hp * maxHp()) / 100)}</span></div><div class="bar"><i style="width:${S.hp}%;background:${hpColor}"></i></div><div class="sub" style="margin-top:.35em">${t('Best', 'الأفضل', 'En iyi')} ${Math.max(S.best, Math.floor(S.dist)).toLocaleString()}</div>`,
     );
     const eff = [];
     const add = (id, until, extra = '') => { const s = until - now(); if (s > 0) { const a = lookAction(id); eff.push({ icon: a.icon, color: a.color, label: `${a.label} ${extra}`.trim(), secs: s }); } };
@@ -176,7 +180,7 @@ export default function create(api) {
         ctx.save(); ctx.clip(); ctx.fillStyle = '#fe2c55';
         for (let sx = -w; sx < w; sx += 28) { ctx.beginPath(); ctx.moveTo(x - w / 2 + sx, o.y + o.h); ctx.lineTo(x - w / 2 + sx + 14, o.y + o.h); ctx.lineTo(x - w / 2 + sx + 14 + o.h, o.y); ctx.lineTo(x - w / 2 + sx + o.h, o.y); ctx.fill(); }
         ctx.restore();
-        if (o.by) { ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = 'bold 15px system-ui'; ctx.textAlign = 'center'; ctx.fillText('@' + o.by.slice(0, 14), x, o.y - 8); }
+        if (o.by && api.showNames) { ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = 'bold 15px system-ui'; ctx.textAlign = 'center'; ctx.fillText('@' + o.by.slice(0, 14), x, o.y - 8); }
       }
     }
     const b = S.boss;
@@ -194,7 +198,7 @@ export default function create(api) {
     for (const s of S.shots) { ctx.beginPath(); ctx.arc(s.x, s.y, 9, 0, Math.PI * 2); ctx.fill(); }
     ctx.shadowBlur = 0;
     if (!(S.invuln > 0 && Math.floor(now() * 14) % 2) || S.crashed > 0) drawCar(ctx, S.x, PLAYER_Y, S.crashed > 0);
-    for (const p of S.particles) { ctx.globalAlpha = clamp(p.life, 0, 1); ctx.fillStyle = p.color; ctx.fillRect(p.x - 3, p.y - 3, 6, 6); }
+    if (api.showParticles) for (const p of S.particles) { ctx.globalAlpha = clamp(p.life, 0, 1); ctx.fillStyle = p.color; ctx.fillRect(p.x - 3, p.y - 3, 6, 6); }
     ctx.globalAlpha = 1;
     if (S.fx.slow.until > now()) { ctx.fillStyle = 'rgba(56,189,248,.08)'; ctx.fillRect(0, 0, W, H); }
     if (S.fx.reverse.until > now()) { ctx.strokeStyle = 'rgba(196,181,253,.5)'; ctx.lineWidth = 10; ctx.strokeRect(5, 5, W - 10, H - 10); }

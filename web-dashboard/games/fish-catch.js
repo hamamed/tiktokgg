@@ -13,7 +13,7 @@ export default function create(api) {
     { id: 'epic', w: 5.5, color: '#c084fc', label: ['Epic', 'ملحمية', 'destansı'], fish: [[['Swordfish', 'سمكة أبو سيف', 'Kılıç balığı'], 30, 90], [['Shark', 'قرش', 'Köpek balığı'], 60, 200]] },
     { id: 'legendary', w: 1.5, color: GOLD, label: ['Legendary', 'أسطورية', 'efsanevi'], fish: [[['Golden Koi', 'كوي ذهبية', 'Altın Koi'], 8, 30]] },
   ];
-  const fxp = particles();
+  const fxp = particles(api);
   const S = { queue: [], cast: null, board: [], total: 0, swim: Array.from({ length: 7 }, () => ({ x: rand(0, W), y: rand(WATER_Y + 40, 840), v: rand(30, 70) * (Math.random() < 0.5 ? -1 : 1), s: rand(0.6, 1.2) })) };
 
   function roll(luck) {
@@ -27,7 +27,7 @@ export default function create(api) {
   function next() {
     if (S.cast || !S.queue.length) return;
     const q = S.queue.shift();
-    S.cast = { ...q, t: 0, catch: roll(q.luck), bobX: rand(250, 430) };
+    S.cast = { ...q, t: 0, catch: roll(q.luck * api.num('luck', 100, 0, 500) / 100), bobX: rand(250, 430) };
   }
 
   const actions = {
@@ -44,7 +44,7 @@ export default function create(api) {
     for (const f of S.swim) { f.x += f.v * dt; if (f.x < -40) f.x = W + 40; if (f.x > W + 40) f.x = -40; }
     const c = S.cast;
     if (c) {
-      c.t += dt;
+      c.t += dt * api.num('castTime', 100, 40, 300) / 100;
       if (c.t > 1.0 && !c.splash) { c.splash = true; fxp.burst(c.bobX, WATER_Y, '#bae6fd', 14, 160); api.sfx('splash'); }
       if (c.t > 2.4 && !c.landed) {
         c.landed = true;
@@ -62,7 +62,7 @@ export default function create(api) {
       }
       if (c.t > 3.6) { S.cast = null; next(); }
     } else next();
-    const board = S.board.slice(0, 3).map((b, i) => `<div class="sub" style="text-transform:none;font-size:.62em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:14em">${i + 1}. @${api.esc(b.user)} · <b style="color:${b.tier.color}">${api.esc(b.name)} ${b.kg}kg</b></div>`).join('');
+    const board = S.board.slice(0, api.num('boardSize', 3, 0, 5)).map((b, i) => `<div class="sub" style="text-transform:none;font-size:.62em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:14em">${i + 1}. @${api.esc(b.user)} · <b style="color:${b.tier.color}">${api.esc(b.name)} ${b.kg}kg</b></div>`).join('');
     api.setHud(`<div class="sub">${t('Biggest catches', 'أكبر صيد', 'En büyük avlar')}</div><div class="big">${api.icon('fish')}${S.queue.length + (S.cast ? 1 : 0)}</div>${board}`);
   }
 
@@ -80,7 +80,7 @@ export default function create(api) {
     const wg = ctx.createLinearGradient(0, WATER_Y, 0, H); wg.addColorStop(0, '#0e7490'); wg.addColorStop(1, '#082f49'); ctx.fillStyle = wg; ctx.fillRect(0, WATER_Y, W, H - WATER_Y);
     ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 2;
     for (let i = 0; i < 6; i++) { const y = WATER_Y + 14 + i * 30; ctx.beginPath(); for (let x = 0; x <= W; x += 20) ctx.lineTo(x, y + Math.sin(x / 40 + api.now * 2 + i) * 3); ctx.stroke(); }
-    for (const f of S.swim) { ctx.globalAlpha = 0.35; drawFish(ctx, f.x, f.y, f.s, '#7dd3fc', Math.sign(f.v)); }
+    if (api.flag('showSwimmers')) for (const f of S.swim) { ctx.globalAlpha = 0.35; drawFish(ctx, f.x, f.y, f.s, '#7dd3fc', Math.sign(f.v)); }
     ctx.globalAlpha = 1;
     // dock + fisher
     ctx.fillStyle = '#78350f'; ctx.fillRect(0, ROD_Y + 30, 170, 18);
@@ -95,7 +95,7 @@ export default function create(api) {
       ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(tipX, tipY); ctx.lineTo(bx, by); ctx.stroke();
       ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(bx, by, 6, 0, Math.PI * 2); ctx.fill();
       if (c.t > 2.4) { const up = Math.min(1, (c.t - 2.4) / 0.5); drawFish(ctx, c.bobX, WATER_Y - up * 90, 1.6 + (c.catch.tier.id === 'legendary' ? 0.6 : 0), c.catch.tier.color, 1); }
-      text(ctx, '@' + c.user, c.bobX, WATER_Y - 150, { size: 16, color: '#fef3c7', max: 220 });
+      if (api.showNames) text(ctx, '@' + c.user, c.bobX, WATER_Y - 150, { size: 16, color: '#fef3c7', max: 220 });
     } else if (!S.queue.length) text(ctx, t('Type !fish to cast for free!', 'اكتب !fish لرمية مجانية!', 'Ücretsiz atış için !fish yaz!'), W / 2, WATER_Y + 120, { size: 22, color: '#bae6fd' });
     text(ctx, t(`Total caught: ${S.total.toFixed(1)} kg`, `مجموع الصيد: ${S.total.toFixed(1)} كغ`, `Toplam av: ${S.total.toFixed(1)} kg`), W / 2, 840, { size: 16, color: '#7dd3fc', weight: 700 });
     fxp.draw(ctx);

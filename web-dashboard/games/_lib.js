@@ -39,7 +39,7 @@ export function stars(ctx, W, H, now, n = 70, maxY = H * 0.6) {
 }
 
 /** Simple particle system: burst(x, y, color, n) then update(dt) + draw(ctx) every frame. */
-export function particles() {
+export function particles(api) {
   const list = [];
   return {
     burst(x, y, color, n = 20, speed = 220, gravity = 300) {
@@ -53,6 +53,7 @@ export function particles() {
       for (let i = list.length - 1; i >= 0; i--) if (list[i].life <= 0) list.splice(i, 1);
     },
     draw(ctx) {
+      if (api && api.showParticles === false) return; // "Sparkles and explosions" switched off
       for (const p of list) { ctx.globalAlpha = Math.max(0, Math.min(1, p.life)); ctx.fillStyle = p.color; ctx.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s); }
       ctx.globalAlpha = 1;
     },

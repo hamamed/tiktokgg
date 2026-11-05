@@ -181,6 +181,17 @@ Several rules can match the same event (for example, Rose → `spawn_train` at t
 
 Use Export/Import in the rules panel to save a rule set per game or per show as JSON.
 
+## Game settings (per game)
+
+Dashboard → **Games** → **Game settings**. Each game keeps its own settings, and changes go live on stream right away. The preview next to the panel shows them.
+
+- **Gameplay**: health, speeds, damage, wave sizes, chances, round and pause lengths, lives, prizes and words. Each game has its own list. Every game also has a *Game speed* setting from 50 % to 200 %.
+- **On screen**: score panel, effect timers, @names inside the game, gift alerts, big banners, sparkles, gift list, like goals, top supporters and the tips bar, plus game-specific parts (rain, wheel lights, vote counts…). The switches in Settings → On the stream still apply to all games; a part shows only when both are on.
+- **Sound**: sound-effects volume (0–150 %).
+- **Default settings** puts the game's settings back to the defaults. Your gift rules stay as they are.
+
+Options are declared in `games/catalog.json` (`options`: `number`, `range`, `bool`, `select`, `text`, `lines`, each with a `group`). Games read them with `api.num(key, default, min, max)`, `api.flag(key)` and `api.options`. An option marked `reload: true` restarts the game when it changes.
+
 ## Team battle (Red vs Blue)
 
 Dashboard → **Teams** → *Turn teams on*. It works with every game:

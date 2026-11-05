@@ -4,8 +4,8 @@ import { text, sky, stars, particles, GOLD } from './_lib.js';
 export default function create(api) {
   const { W, H, clamp, rand, t } = api;
   const FORK_Y = 600, BOTTOM = 840;
-  const fxp = particles();
-  const S = { phase: 'walk', phaseT: 3, votes: { left: 0, right: 0 }, voters: new Set(), extra: 0, coins: 0, lives: 3, best: 0, step: 0, choice: null, treasureSide: null, heroY: BOTTOM, result: null };
+  const fxp = particles(api);
+  const S = { phase: 'walk', phaseT: 3, votes: { left: 0, right: 0 }, voters: new Set(), extra: 0, coins: 0, lives: api.num('lives', 3, 1, 10), best: 0, step: 0, choice: null, treasureSide: null, heroY: BOTTOM, result: null };
   const voteSecs = () => clamp(Number(api.options.voteSeconds) || 12, 5, 120);
   const LEFT = new Set(['left', '!left', 'l', 'يسار', 'يسارا', 'شمال', 'gauche', 'sol', 'izquierda']);
   const RIGHT = new Set(['right', '!right', 'r', 'يمين', 'يمينا', 'droite', 'sağ', 'sag', 'derecha']);
@@ -19,7 +19,7 @@ export default function create(api) {
   function reveal() {
     S.phase = 'reveal'; S.phaseT = 3;
     if (S.choice === S.treasureSide) {
-      const gain = 10 + S.step * 2;
+      const base = api.num('treasure', 10, 1, 1000), gain = base + Math.round(S.step * base * 0.2);
       S.coins += gain; S.result = 'treasure';
       api.banner(t('TREASURE!', 'كنز!', 'HAZİNE!'), `+${gain}`, GOLD, 2500); api.sfx('win');
       fxp.burst(S.choice === 'left' ? 140 : W - 140, FORK_Y - 40, GOLD, 50, 300);
@@ -36,7 +36,7 @@ export default function create(api) {
     api.banner(t('GAME OVER', 'انتهت اللعبة', 'OYUN BİTTİ'), t(`${S.coins} coins${mvp ? ` · MVP @${mvp.user}` : ''}`, `${S.coins} عملة${mvp ? ` · الأفضل @${mvp.user}` : ''}`, `${S.coins} altın${mvp ? ` · MVP @${mvp.user}` : ''}`), '#f87171', 4500);
     api.announce(t(`Game over with ${S.coins} coins! Let's explore again. Type left or right to vote!`, `انتهت اللعبة بـ ${S.coins} عملة! لنبدأ من جديد. اكتب يمين أو يسار للتصويت!`, `Oyun ${S.coins} altınla bitti! Haydi yeniden keşfedelim. Oy vermek için sol ya da sağ yaz!`));
     api.reportScore(S.coins);
-    Object.assign(S, { coins: 0, lives: 3, step: 0, phase: 'walk', phaseT: 5 });
+    Object.assign(S, { coins: 0, lives: api.num('lives', 3, 1, 10), step: 0, phase: 'walk', phaseT: 5 });
     api.resetRound();
   }
   function vote(side, n, user) {
@@ -59,7 +59,7 @@ export default function create(api) {
     else if (S.phase === 'vote') { if (S.phaseT <= 0) decide(); }
     else if (S.phase === 'go') { if (S.phaseT <= 0) reveal(); }
     else if (S.phase === 'reveal') { if (S.phaseT <= 0) { if (S.lives <= 0) gameOver(); else { S.phase = 'walk'; S.phaseT = 2; S.result = null; } } }
-    const hearts = Array.from({ length: 3 }, (_, i) => `<span style="color:${i < S.lives ? '#f87171' : '#475569'}">${api.icon('heart')}</span>`).join('');
+    const hearts = Array.from({ length: Math.max(S.lives, api.num('lives', 3, 1, 10)) }, (_, i) => `<span style="color:${i < S.lives ? '#f87171' : '#475569'}">${api.icon('heart')}</span>`).join('');
     api.setHud(
       `<div class="sub">${t('Coins', 'العملات', 'Altın')}</div><div class="big" style="color:${GOLD}">${api.icon('coins')}${S.coins}</div><div class="sub">${t('Best', 'الأفضل', 'En iyi')} ${Math.max(S.best, S.coins)}</div>`,
       `<div class="sub">${t('Lives', 'الأرواح', 'Canlar')}</div><div class="big">${hearts}</div>`,
@@ -103,10 +103,10 @@ export default function create(api) {
       const bx = 40, bw = W - 80, by = 770;
       api.roundRect(ctx, bx, by, bw, 26, 13); ctx.fillStyle = '#f472b6'; ctx.fill();
       ctx.save(); api.roundRect(ctx, bx, by, bw, 26, 13); ctx.clip(); ctx.fillStyle = '#67e8f9'; ctx.fillRect(bx, by, bw * share, 26); ctx.restore();
-      text(ctx, `${t('LEFT', 'يسار', 'SOL')} ${S.votes.left}`, bx + 10, by - 18, { size: 22, color: '#67e8f9', align: 'left' });
-      text(ctx, `${S.votes.right} ${t('RIGHT', 'يمين', 'SAĞ')}`, bx + bw - 10, by - 18, { size: 22, color: '#f472b6', align: 'right' });
+      if (api.flag('showVotes')) text(ctx, `${t('LEFT', 'يسار', 'SOL')} ${S.votes.left}`, bx + 10, by - 18, { size: 22, color: '#67e8f9', align: 'left' });
+      if (api.flag('showVotes')) text(ctx, `${S.votes.right} ${t('RIGHT', 'يمين', 'SAĞ')}`, bx + bw - 10, by - 18, { size: 22, color: '#f472b6', align: 'right' });
       text(ctx, Math.ceil(S.phaseT), W / 2, by - 22, { size: 40, color: '#fde68a', weight: 900 });
-      text(ctx, t('Type left or right!', 'اكتب يمين أو يسار!', 'Sol ya da sağ yaz!'), W / 2, by + 52, { size: 20, color: '#bbf7d0' });
+      if (api.flag('chatVotes')) text(ctx, t('Type left or right!', 'اكتب يمين أو يسار!', 'Sol ya da sağ yaz!'), W / 2, by + 52, { size: 20, color: '#bbf7d0' });
     }
     fxp.draw(ctx);
   }
@@ -114,7 +114,7 @@ export default function create(api) {
   return {
     actions, sounds, update, draw,
     onChat(m) {
-      if (S.phase !== 'vote' || S.voters.has(m.user)) return;
+      if (S.phase !== 'vote' || S.voters.has(m.user) || !api.flag('chatVotes')) return;
       const w = String(m.comment || '').trim().toLowerCase();
       const side = LEFT.has(w) ? 'left' : RIGHT.has(w) ? 'right' : null;
       if (!side) return;

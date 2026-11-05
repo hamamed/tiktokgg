@@ -12,14 +12,14 @@ export default function create(api) {
     { id: 'gem', color: '#22d3ee', name: ['Gem', 'جوهرة', 'mücevher'], rare: false },
     { id: 'crown', color: '#fbbf24', name: ['Golden crown', 'تاج ذهبي', 'altın taç'], rare: true },
   ];
-  const fxp = particles();
+  const fxp = particles(api);
   const S = { prizes: [], queue: [], claw: { x: BOX.x + BOX.w / 2, y: RAIL_Y, open: 1, state: 'idle', target: null, held: null, user: null, strength: 1, t: 0 }, winners: [], drops: 0 };
 
   function addPrize() {
-    const type = Math.random() < 0.08 ? TYPES[4] : TYPES[Math.floor(Math.random() * 4)];
+    const type = Math.random() < api.num('rareChance', 8, 0, 100) / 100 ? TYPES[4] : TYPES[Math.floor(Math.random() * 4)];
     S.prizes.push({ type, x: rand(CHUTE_X + 70, BOX.x + BOX.w - 40), y: FLOOR - rand(0, 26), r: type.rare ? 22 : 20 });
   }
-  for (let i = 0; i < 12; i++) addPrize();
+  for (let i = 0; i < api.num('prizeCount', 12, 3, 30); i++) addPrize();
 
   function nextDrop() {
     const c = S.claw;
@@ -40,24 +40,26 @@ export default function create(api) {
   function update(dt) {
     fxp.update(dt);
     const c = S.claw;
+    const sp = api.num('clawSpeed', 100, 30, 300) / 100;
     const tx = c.target ? c.target.x : BOX.x + BOX.w / 2;
     if (c.state === 'idle') nextDrop();
-    else if (c.state === 'move') { c.x += clamp(tx - c.x, -260 * dt, 260 * dt); if (Math.abs(tx - c.x) < 2) c.state = 'down'; }
-    else if (c.state === 'down') { c.y += 280 * dt; if (c.y >= (c.target ? c.target.y - 28 : FLOOR - 30)) { c.state = 'grab'; c.t = 0.5; } }
+    else if (c.state === 'move') { c.x += clamp(tx - c.x, -260 * sp * dt, 260 * sp * dt); if (Math.abs(tx - c.x) < 2) c.state = 'down'; }
+    else if (c.state === 'down') { c.y += 280 * sp * dt; if (c.y >= (c.target ? c.target.y - 28 : FLOOR - 30)) { c.state = 'grab'; c.t = 0.5; } }
     else if (c.state === 'grab') {
       c.open = Math.max(0, c.open - dt * 3);
       c.t -= dt;
       if (c.t <= 0) {
-        const chance = clamp(0.2 + 0.15 * c.strength, 0.2, 0.95) * (c.target?.type.rare ? 0.5 : 1);
+        const base = api.num('grabChance', 35, 5, 95) / 100;
+        const chance = clamp(base + 0.15 * (c.strength - 1), 0.05, 0.95) * (c.target?.type.rare ? 0.5 : 1);
         if (c.target && S.prizes.includes(c.target) && Math.random() < chance) { c.held = c.target; S.prizes.splice(S.prizes.indexOf(c.target), 1); }
         c.state = 'up';
       }
     } else if (c.state === 'up') {
-      c.y -= 240 * dt;
-      if (c.held && Math.random() < dt * 0.15 * (6 - c.strength) / 5) { c.held.y = c.y + 30; S.prizes.push(c.held); c.held = null; api.sfx('bad'); } // slip!
+      c.y -= 240 * sp * dt;
+      if (c.held && api.flag('slip') && Math.random() < dt * 0.15 * (6 - c.strength) / 5) { c.held.y = c.y + 30; S.prizes.push(c.held); c.held = null; api.sfx('bad'); } // slip!
       if (c.y <= RAIL_Y) { c.y = RAIL_Y; c.state = 'return'; }
     } else if (c.state === 'return') {
-      c.x += clamp(CHUTE_X - c.x, -260 * dt, 260 * dt);
+      c.x += clamp(CHUTE_X - c.x, -260 * sp * dt, 260 * sp * dt);
       if (Math.abs(CHUTE_X - c.x) < 2) {
         c.open = 1;
         if (c.held) {
@@ -116,7 +118,7 @@ export default function create(api) {
     ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 5; ctx.lineCap = 'round';
     for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(c.x + s * 12, c.y + 4); ctx.lineTo(c.x + s * (12 + 14 * c.open), c.y + 26); ctx.lineTo(c.x + s * (4 + 10 * c.open), c.y + 40); ctx.stroke(); }
     if (c.held) drawPrize(ctx, c.held, c.x, c.y + 38);
-    if (c.user && c.state !== 'idle') text(ctx, '@' + c.user, c.x, RAIL_Y - 22, { size: 14, color: '#fde68a', max: 200 });
+    if (c.user && c.state !== 'idle' && api.showNames) text(ctx, '@' + c.user, c.x, RAIL_Y - 22, { size: 14, color: '#fde68a', max: 200 });
     if (!S.queue.length && c.state === 'idle') text(ctx, t('Send a gift to drop the claw!', 'أرسل هدية لإنزال المخلب!', 'Pençeyi indirmek için hediye gönder!'), W / 2, BOX.y + 120, { size: 20, color: '#f9a8d4' });
     fxp.draw(ctx);
   }

@@ -3,7 +3,7 @@ import { text, sky, stars, particles, GOLD } from './_lib.js';
 
 export default function create(api) {
   const { W, H, clamp, t } = api;
-  const fxp = particles();
+  const fxp = particles(api);
   const S = { word: '', hint: '', shown: new Set(), nextLetter: 0, double: 0, scores: {}, phase: 'play', phaseT: 0, solvedBy: null, used: [] };
   const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ًͯ-ٟـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/[^\p{L}\p{N}]/gu, '');
   const letterEvery = () => clamp(Number(api.options.letterEvery) || 12, 3, 120);
@@ -32,13 +32,13 @@ export default function create(api) {
   function reveal(n = 1) {
     const hidden = [...S.word].map((ch, i) => i).filter((i) => !S.shown.has(i) && /\S/.test(S.word[i]));
     for (let k = 0; k < n && hidden.length; k++) S.shown.add(hidden.splice(Math.floor(Math.random() * hidden.length), 1)[0]);
-    if (!hidden.length && S.phase === 'play') { S.phase = 'solved'; S.phaseT = 4; api.banner(S.word.toUpperCase(), t('Nobody got it!', 'لم يعرفها أحد!', 'Kimse bilemedi!'), '#94a3b8', 3500); api.sfx('bad'); }
+    if (!hidden.length && S.phase === 'play') { S.phase = 'solved'; S.phaseT = api.num('solvedPause', 4.5, 1, 20); api.banner(S.word.toUpperCase(), t('Nobody got it!', 'لم يعرفها أحد!', 'Kimse bilemedi!'), '#94a3b8', 3500); api.sfx('bad'); }
   }
   function solved(user) {
     const hiddenCount = [...S.word].filter((ch, i) => !S.shown.has(i) && /\S/.test(ch)).length;
-    const pts = Math.max(1, hiddenCount) * (S.double > api.now ? 2 : 1);
+    const pts = (api.options.points === 'fixed' ? 1 : Math.max(1, hiddenCount)) * (S.double > api.now ? 2 : 1);
     S.scores[user] = (S.scores[user] || 0) + pts;
-    S.phase = 'solved'; S.phaseT = 4.5; S.solvedBy = user;
+    S.phase = 'solved'; S.phaseT = api.num('solvedPause', 4.5, 1, 20); S.solvedBy = user;
     S.shown = new Set([...S.word].map((_, i) => i));
     api.banner(S.word.toUpperCase(), t(`@${user} got it! +${pts}`, `@${user} عرفها! +${pts}`, `@${user} bildi! +${pts}`), GOLD, 4000);
     api.sfx('win');
@@ -81,9 +81,9 @@ export default function create(api) {
       ctx.fillStyle = S.shown.has(i) ? (S.phase === 'solved' && S.solvedBy ? '#facc15' : '#e2e8f0') : 'rgba(255,255,255,.12)'; ctx.fill();
       if (S.shown.has(i)) text(ctx, ch.toUpperCase(), x + size / 2, y + size * 0.62, { size: size * 0.62, color: '#0b1026', weight: 900, shadow: false });
     });
-    if (S.hint) text(ctx, t(`Hint: ${S.hint}`, `تلميح: ${S.hint}`, `İpucu: ${S.hint}`), W / 2, y - 34, { size: 22, color: '#93c5fd' });
+    if (S.hint && api.flag('showHint')) text(ctx, t(`Hint: ${S.hint}`, `تلميح: ${S.hint}`, `İpucu: ${S.hint}`), W / 2, y - 34, { size: 22, color: '#93c5fd' });
     text(ctx, t('Type your guess in chat!', 'اكتب تخمينك في الشات!', 'Tahminini sohbete yaz!'), W / 2, y + size * 1.2 + 40, { size: 22, color: '#fde68a' });
-    if (S.phase === 'play') {
+    if (S.phase === 'play' && api.flag('showTimer')) {
       const k = clamp((S.nextLetter - api.now) / letterEvery(), 0, 1);
       api.roundRect(ctx, 80, y + size * 1.2 + 70, W - 160, 10, 5); ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fill();
       ctx.fillStyle = '#38bdf8'; ctx.fillRect(80, y + size * 1.2 + 70, (W - 160) * k, 10);

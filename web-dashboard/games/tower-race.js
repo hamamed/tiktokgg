@@ -5,7 +5,7 @@ export default function create(api) {
   const { W, H, clamp, rand, t } = api;
   const GROUND = 815, TOP = 470, TOWER_W = 120;
   const X = { red: 150, blue: W - 150 };
-  const fxp = particles();
+  const fxp = particles(api);
   const board = teamBoard();
   const S = { blocks: { red: [], blue: [] }, falling: [], rounds: { red: 0, blue: 0 }, phase: 'play', phaseT: 0, wind: { red: 0, blue: 0 }, last: { red: '', blue: '' } };
   const goal = () => clamp(Math.round(Number(api.options.goalHeight) || 25), 5, 200);
@@ -37,7 +37,7 @@ export default function create(api) {
   function win(team) {
     const names = teamNames(api);
     S.rounds[team]++;
-    S.phase = 'win'; S.phaseT = 6;
+    S.phase = 'win'; S.phaseT = api.num('roundPause', 6, 2, 30);
     const mvp = board.mvp(team);
     api.banner(t(`${names[team]} REACHED THE CLOUDS!`, `${names[team]} وصل للغيوم!`, `${names[team]} BULUTLARA ULAŞTI!`), mvp ? t(`Top builder @${mvp}`, `أفضل بنّاء @${mvp}`, `En iyi inşaatçı @${mvp}`) : '', team === 'red' ? RED : BLUE, 5500);
     api.sfx('win');
@@ -62,7 +62,7 @@ export default function create(api) {
     fxp.update(dt);
     for (const k of ['red', 'blue']) S.wind[k] = Math.max(0, S.wind[k] - dt);
     for (const f of S.falling) {
-      f.y += 620 * dt;
+      f.y += 620 * (api.num('fallSpeed', 100, 30, 300) / 100) * dt;
       const top = GROUND - (S.blocks[f.team].length + 1) * blockH();
       if (f.y >= top) { f.done = true; land(f); }
     }
@@ -81,9 +81,11 @@ export default function create(api) {
     sky(ctx, W, H, '#0c1430', '#1c2547');
     stars(ctx, W, H, api.now, 60, 420);
     // cloud line = goal
+    if (api.flag('showGoal')) {
     for (let i = 0; i < 9; i++) { ctx.fillStyle = 'rgba(226,232,240,.18)'; ctx.beginPath(); ctx.ellipse(30 + i * 62, TOP - 6 + Math.sin(api.now + i) * 4, 48, 18, 0, 0, Math.PI * 2); ctx.fill(); }
     ctx.strokeStyle = GOLD; ctx.setLineDash([12, 10]); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(20, TOP); ctx.lineTo(W - 20, TOP); ctx.stroke(); ctx.setLineDash([]);
     text(ctx, t('GOAL', 'الهدف', 'HEDEF'), W / 2, TOP - 16, { size: 16, color: GOLD });
+    }
     ctx.fillStyle = '#334155'; ctx.fillRect(0, GROUND, W, H - GROUND);
     const bh = blockH();
     for (const team of ['red', 'blue']) {
@@ -103,7 +105,7 @@ export default function create(api) {
       }
       const names = teamNames(api);
       text(ctx, names[team], X[team], GROUND + 22, { size: 20, color: team === 'red' ? RED : BLUE });
-      if (S.last[team]) text(ctx, '@' + S.last[team], X[team], GROUND - S.blocks[team].length * bh - 14, { size: 14, color: '#e2e8f0', weight: 600, max: 200 });
+      if (S.last[team] && api.showNames) text(ctx, '@' + S.last[team], X[team], GROUND - S.blocks[team].length * bh - 14, { size: 14, color: '#e2e8f0', weight: 600, max: 200 });
     }
     fxp.draw(ctx);
   }

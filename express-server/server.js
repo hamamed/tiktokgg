@@ -1080,7 +1080,9 @@ const GameConfig = (() => {
     for (const o of Catalog.game(id)?.options || []) {
       if (!(o.key in input)) continue;
       const v = input[o.key];
-      if (o.type === 'number') out[o.key] = clampNum(v, o.min ?? -1e9, o.max ?? 1e9, o.default);
+      if (o.type === 'number' || o.type === 'range') out[o.key] = clampNum(v, o.min ?? -1e9, o.max ?? 1e9, o.default);
+      else if (o.type === 'bool') out[o.key] = typeof v === 'boolean' ? v : o.default;
+      else if (o.type === 'select') out[o.key] = (o.choices || []).some(([c]) => c === v) ? v : o.default;
       else if (o.type === 'text') out[o.key] = String(v ?? '').slice(0, 40) || o.default;
       else if (o.type === 'lines') {
         const list = (Array.isArray(v) ? v : String(v ?? '').split('\n')).map((s) => String(s).trim().slice(0, 80)).filter(Boolean).slice(0, 100);

@@ -4,12 +4,14 @@ import { text, sky, particles, GOLD } from './_lib.js';
 export default function create(api) {
   const { W, H, clamp, rand, t } = api;
   const WALL_Y = 770, SPAWN_Y = 330;
-  const fxp = particles();
+  const fxp = particles(api);
+  const wallHp = () => api.num('wallHp', 100, 20, 2000);
+  const pct = (n) => (n * 100) / wallHp(); // walls are kept as a percentage
   const S = { hp: 100, wave: 1, kills: 0, monsters: [], arrows: [], toSpawn: 0, spawnIn: 1, waveDelay: 2, shield: 0, dragon: null, gameOver: 0, turretIn: 1.2, best: 0, flash: 0 };
 
   function spawn(kind = 'imp', by = null) {
     const big = kind === 'ogre';
-    S.monsters.push({ kind, x: rand(70, W - 70), y: SPAWN_Y + rand(-30, 30), hp: big ? 6 : 1, max: big ? 6 : 1, speed: big ? rand(26, 34) : rand(42, 62) * (1 + S.wave * 0.04), by, wob: rand(0, 6) });
+    S.monsters.push({ kind, x: rand(70, W - 70), y: SPAWN_Y + rand(-30, 30), hp: big ? 6 : 1, max: big ? 6 : 1, speed: (big ? rand(26, 34) : rand(42, 62) * (1 + S.wave * 0.04)) * api.num('monsterSpeed', 100, 30, 300) / 100, by, wob: rand(0, 6) });
   }
   function shoot(n = 1, by = null) {
     const targets = [...S.monsters].sort((a, b) => b.y - a.y);
@@ -27,7 +29,7 @@ export default function create(api) {
     fxp.burst(m.x, m.y, m.kind === 'ogre' ? '#f87171' : '#a3e635', m.kind === 'ogre' ? 30 : 12, 200);
   }
   function fall() {
-    S.gameOver = 5;
+    S.gameOver = api.num('roundPause', 5, 2, 30);
     S.best = Math.max(S.best, S.wave);
     const mvp = api.mvp();
     api.banner(t('THE CASTLE FELL', 'سقطت القلعة', 'KALE DÜŞTÜ'), t(`Wave ${S.wave}${mvp ? ` · MVP @${mvp.user}` : ''}`, `الموجة ${S.wave}${mvp ? ` · الأفضل @${mvp.user}` : ''}`, `Dalga ${S.wave}${mvp ? ` · MVP @${mvp.user}` : ''}`), '#f87171', 4500);
@@ -42,7 +44,7 @@ export default function create(api) {
     ARROW_VOLLEY: (ev) => shoot(clamp(Math.round(ev.value) || 1, 1, 60), ev.user),
     DRAGON: (ev) => { S.dragon = { x: -120, by: ev.user, times: clamp(Math.round(ev.value) || 1, 1, 3) }; api.banner(t('DRAGON FIRE!', 'نار التنين!', 'EJDERHA ATEŞİ!'), t(`called by @${ev.user}`, `استدعاه @${ev.user}`, `çağıran @${ev.user}`), '#fb923c', 2200); },
     SHIELD: (ev) => { S.shield = Math.max(S.shield, api.now) + clamp(ev.value || 5, 1, 60); },
-    REPAIR: (ev) => { if (S.gameOver <= 0) { S.hp = clamp(S.hp + (Number(ev.value) || 10), 0, 100); fxp.burst(W / 2, WALL_Y, '#6ee7b7', 24, 160); } },
+    REPAIR: (ev) => { if (S.gameOver <= 0) { S.hp = clamp(S.hp + pct(Number(ev.value) || 10), 0, 100); fxp.burst(W / 2, WALL_Y, '#6ee7b7', 24, 160); } },
   };
   const sounds = {
     SPAWN_MONSTERS: () => api.tone({ type: 'square', f0: 140, f1: 90, dur: 0.25, vol: 0.2 }),
@@ -63,12 +65,13 @@ export default function create(api) {
     // waves
     if (S.toSpawn <= 0 && !S.monsters.length) {
       S.waveDelay -= dt;
-      if (S.waveDelay <= 0) { if (S.kills > 0) S.wave++; S.toSpawn = 3 + S.wave * 2; S.waveDelay = 3; api.banner(t(`WAVE ${S.wave}`, `الموجة ${S.wave}`, `DALGA ${S.wave}`), '', GOLD, 1500); }
+      if (S.waveDelay <= 0) { if (S.kills > 0) S.wave++; S.toSpawn = Math.max(1, api.num('waveBase', 5, 1, 50) + (S.wave - 1) * api.num('waveGrowth', 2, 0, 20)); S.waveDelay = 3; api.banner(t(`WAVE ${S.wave}`, `الموجة ${S.wave}`, `DALGA ${S.wave}`), '', GOLD, 1500); }
     }
-    if (S.toSpawn > 0) { S.spawnIn -= dt; if (S.spawnIn <= 0) { spawn(Math.random() < Math.min(0.25, S.wave * 0.03) ? 'ogre' : 'imp'); S.toSpawn--; S.spawnIn = rand(0.5, 1.3); } }
+    if (S.toSpawn > 0) { S.spawnIn -= dt; if (S.spawnIn <= 0) { spawn(Math.random() < Math.min(api.num('ogreChance', 25, 0, 100) / 100, S.wave * 0.03) ? 'ogre' : 'imp'); S.toSpawn--; S.spawnIn = rand(0.5, 1.3); } }
     // turret
     S.turretIn -= dt;
-    if (S.turretIn <= 0 && S.monsters.length) { shoot(1); S.turretIn = 1.3; }
+    const every = api.num('turretEvery', 1.3, 0, 10);
+    if (every > 0 && S.turretIn <= 0 && S.monsters.length) { shoot(1); S.turretIn = every; }
     // dragon sweeps across, burning everything
     if (S.dragon) {
       S.dragon.x += 520 * dt;
@@ -86,14 +89,14 @@ export default function create(api) {
       if (m.y >= WALL_Y - 20) {
         m.dead = true;
         if (S.shield > api.now) fxp.burst(m.x, WALL_Y - 20, '#7dd3fc', 10, 140);
-        else { S.hp = clamp(S.hp - (m.kind === 'ogre' ? 15 : 5), 0, 100); S.flash = 0.25; api.sfx('hit'); if (S.hp <= 0) fall(); }
+        else { S.hp = clamp(S.hp - pct(m.kind === 'ogre' ? api.num('ogreDamage', 15, 0, 500) : api.num('impDamage', 5, 0, 500)), 0, 100); S.flash = 0.25; api.sfx('hit'); if (S.hp <= 0) fall(); }
       }
     }
     S.monsters = S.monsters.filter((m) => !m.dead);
     const hpColor = S.hp > 50 ? '#22c55e' : S.hp > 25 ? '#f59e0b' : '#ef4444';
     api.setHud(
       `<div class="sub">${t('Wave', 'الموجة', 'Dalga')}</div><div class="big">${api.icon('swords')}${S.wave}</div><div class="sub">${t('Kills', 'القتلى', 'Öldürülen')} ${S.kills} · ${t('Best', 'الأفضل', 'En iyi')} ${Math.max(S.best, S.wave)}</div>`,
-      `<div class="sub" style="display:flex;justify-content:space-between"><span>${t('Walls', 'الأسوار', 'Surlar')}</span><span>${Math.ceil(S.hp)}</span></div><div class="bar"><i style="width:${S.hp}%;background:${hpColor}"></i></div>`,
+      `<div class="sub" style="display:flex;justify-content:space-between"><span>${t('Walls', 'الأسوار', 'Surlar')}</span><span>${Math.ceil((S.hp * wallHp()) / 100)}</span></div><div class="bar"><i style="width:${S.hp}%;background:${hpColor}"></i></div>`,
     );
     api.setEffects(S.shield > api.now ? [{ icon: 'shield', color: '#7dd3fc', label: t('Shield', 'الدرع', 'Kalkan'), secs: S.shield - api.now }] : []);
   }
@@ -106,7 +109,7 @@ export default function create(api) {
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(m.x - r * 0.35, m.y - r * 0.2 + bob, r * 0.22, 0, Math.PI * 2); ctx.arc(m.x + r * 0.35, m.y - r * 0.2 + bob, r * 0.22, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(m.x - r * 0.35, m.y - r * 0.15 + bob, r * 0.1, 0, Math.PI * 2); ctx.arc(m.x + r * 0.35, m.y - r * 0.15 + bob, r * 0.1, 0, Math.PI * 2); ctx.fill();
     if (big) { ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(m.x - 26, m.y - 46, 52, 6); ctx.fillStyle = '#f87171'; ctx.fillRect(m.x - 26, m.y - 46, 52 * (m.hp / m.max), 6); }
-    if (m.by) text(ctx, '@' + m.by.slice(0, 12), m.x, m.y + r + 12, { size: 12, color: '#e2e8f0', weight: 600 });
+    if (m.by && api.showNames) text(ctx, '@' + m.by.slice(0, 12), m.x, m.y + r + 12, { size: 12, color: '#e2e8f0', weight: 600 });
   }
 
   function draw(ctx) {

@@ -245,7 +245,197 @@
      }
     ]
    },
-   "options": [],
+   "options": [
+    {
+     "key": "maxHp",
+     "label": "Car health",
+     "type": "number",
+     "group": "play",
+     "default": 100,
+     "min": 20,
+     "max": 1000,
+     "help": "Hits the car can take before it crashes."
+    },
+    {
+     "key": "baseSpeed",
+     "label": "Road speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 40,
+     "max": 250,
+     "step": 5,
+     "unit": "%"
+    },
+    {
+     "key": "traffic",
+     "label": "Random barriers (without gifts)",
+     "type": "select",
+     "group": "play",
+     "default": "normal",
+     "choices": [
+      [
+       "off",
+       "Off"
+      ],
+      [
+       "low",
+       "Few"
+      ],
+      [
+       "normal",
+       "Normal"
+      ],
+      [
+       "high",
+       "Many"
+      ]
+     ]
+    },
+    {
+     "key": "barrierDamage",
+     "label": "Damage per barrier",
+     "type": "number",
+     "group": "play",
+     "default": 20,
+     "min": 1,
+     "max": 500
+    },
+    {
+     "key": "shotDamage",
+     "label": "Damage per boss shot",
+     "type": "number",
+     "group": "play",
+     "default": 10,
+     "min": 1,
+     "max": 500
+    },
+    {
+     "key": "autopilot",
+     "label": "Autopilot when the game starts",
+     "type": "bool",
+     "group": "play",
+     "default": true,
+     "help": "The car dodges by itself. You can still toggle it on the game page.",
+     "reload": true
+    },
+    {
+     "key": "roundPause",
+     "label": "Pause after a round",
+     "type": "range",
+     "group": "play",
+     "default": 3,
+     "min": 2,
+     "max": 30,
+     "step": 1,
+     "unit": "s"
+    },
+    {
+     "key": "speed",
+     "label": "Game speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 50,
+     "max": 200,
+     "step": 10,
+     "unit": "%",
+     "common": true,
+     "help": "Everything moves faster or slower."
+    },
+    {
+     "key": "volume",
+     "label": "Sound effects volume",
+     "type": "range",
+     "group": "sound",
+     "default": 100,
+     "min": 0,
+     "max": 150,
+     "step": 10,
+     "unit": "%",
+     "common": true
+    },
+    {
+     "key": "showHud",
+     "label": "Score panel at the top",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showEffects",
+     "label": "Effect timers (boost, shield…)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showNames",
+     "label": "@names inside the game",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showAlerts",
+     "label": "Gift alerts on the left",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showBanners",
+     "label": "Big banners (wins, waves, bosses)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showParticles",
+     "label": "Sparkles and explosions",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showLegend",
+     "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGoals",
+     "label": "Like goals",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showSupporters",
+     "label": "Top supporters",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTicker",
+     "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    }
+   ],
    "n": {
     "ar": "سباق الهدايا",
     "tr": "Hediye Koşusu"
@@ -462,13 +652,15 @@
      "key": "redName",
      "label": "Red team name (empty = in the stream language)",
      "type": "text",
-     "default": ""
+     "default": "",
+     "group": "text"
     },
     {
      "key": "blueName",
      "label": "Blue team name (empty = in the stream language)",
      "type": "text",
-     "default": ""
+     "default": "",
+     "group": "text"
     },
     {
      "key": "winAt",
@@ -476,7 +668,140 @@
      "type": "number",
      "default": 50,
      "min": 5,
-     "max": 5000
+     "max": 5000,
+     "group": "play"
+    },
+    {
+     "key": "pullers",
+     "label": "People on each side of the rope",
+     "type": "number",
+     "group": "play",
+     "default": 4,
+     "min": 1,
+     "max": 6
+    },
+    {
+     "key": "roundPause",
+     "label": "Pause after a round",
+     "type": "range",
+     "group": "play",
+     "default": 6,
+     "min": 2,
+     "max": 30,
+     "step": 1,
+     "unit": "s"
+    },
+    {
+     "key": "showMeter",
+     "label": "Progress bar and numbers above the rope",
+     "type": "bool",
+     "group": "show",
+     "default": true
+    },
+    {
+     "key": "speed",
+     "label": "Game speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 50,
+     "max": 200,
+     "step": 10,
+     "unit": "%",
+     "common": true,
+     "help": "Everything moves faster or slower."
+    },
+    {
+     "key": "volume",
+     "label": "Sound effects volume",
+     "type": "range",
+     "group": "sound",
+     "default": 100,
+     "min": 0,
+     "max": 150,
+     "step": 10,
+     "unit": "%",
+     "common": true
+    },
+    {
+     "key": "showHud",
+     "label": "Score panel at the top",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showEffects",
+     "label": "Effect timers (boost, shield…)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showNames",
+     "label": "@names inside the game",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showAlerts",
+     "label": "Gift alerts on the left",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showBanners",
+     "label": "Big banners (wins, waves, bosses)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showParticles",
+     "label": "Sparkles and explosions",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showLegend",
+     "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGoals",
+     "label": "Like goals",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showSupporters",
+     "label": "Top supporters",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTicker",
+     "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
     }
    ],
    "n": {
@@ -683,13 +1008,15 @@
      "key": "redName",
      "label": "Red team name (empty = in the stream language)",
      "type": "text",
-     "default": ""
+     "default": "",
+     "group": "text"
     },
     {
      "key": "blueName",
      "label": "Blue team name (empty = in the stream language)",
      "type": "text",
-     "default": ""
+     "default": "",
+     "group": "text"
     },
     {
      "key": "goalHeight",
@@ -697,7 +1024,142 @@
      "type": "number",
      "default": 25,
      "min": 5,
-     "max": 200
+     "max": 200,
+     "group": "play"
+    },
+    {
+     "key": "fallSpeed",
+     "label": "Block fall speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 30,
+     "max": 300,
+     "step": 10,
+     "unit": "%"
+    },
+    {
+     "key": "roundPause",
+     "label": "Pause after a round",
+     "type": "range",
+     "group": "play",
+     "default": 6,
+     "min": 2,
+     "max": 30,
+     "step": 1,
+     "unit": "s"
+    },
+    {
+     "key": "showGoal",
+     "label": "Goal line and clouds",
+     "type": "bool",
+     "group": "show",
+     "default": true
+    },
+    {
+     "key": "speed",
+     "label": "Game speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 50,
+     "max": 200,
+     "step": 10,
+     "unit": "%",
+     "common": true,
+     "help": "Everything moves faster or slower."
+    },
+    {
+     "key": "volume",
+     "label": "Sound effects volume",
+     "type": "range",
+     "group": "sound",
+     "default": 100,
+     "min": 0,
+     "max": 150,
+     "step": 10,
+     "unit": "%",
+     "common": true
+    },
+    {
+     "key": "showHud",
+     "label": "Score panel at the top",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showEffects",
+     "label": "Effect timers (boost, shield…)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showNames",
+     "label": "@names inside the game",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showAlerts",
+     "label": "Gift alerts on the left",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showBanners",
+     "label": "Big banners (wins, waves, bosses)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showParticles",
+     "label": "Sparkles and explosions",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showLegend",
+     "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGoals",
+     "label": "Like goals",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showSupporters",
+     "label": "Top supporters",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTicker",
+     "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
     }
    ],
    "n": {
@@ -877,7 +1339,204 @@
      }
     ]
    },
-   "options": [],
+   "options": [
+    {
+     "key": "wallHp",
+     "label": "Wall health",
+     "type": "number",
+     "group": "play",
+     "default": 100,
+     "min": 20,
+     "max": 2000
+    },
+    {
+     "key": "waveBase",
+     "label": "Monsters in wave 1",
+     "type": "number",
+     "group": "play",
+     "default": 5,
+     "min": 1,
+     "max": 50
+    },
+    {
+     "key": "waveGrowth",
+     "label": "Extra monsters per wave",
+     "type": "number",
+     "group": "play",
+     "default": 2,
+     "min": 0,
+     "max": 20
+    },
+    {
+     "key": "monsterSpeed",
+     "label": "Monster speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 30,
+     "max": 300,
+     "step": 10,
+     "unit": "%"
+    },
+    {
+     "key": "ogreChance",
+     "label": "Most ogres in a wave",
+     "type": "range",
+     "group": "play",
+     "default": 25,
+     "min": 0,
+     "max": 100,
+     "step": 5,
+     "unit": "%",
+     "help": "Random big monsters (gifts still send them)."
+    },
+    {
+     "key": "impDamage",
+     "label": "Damage per small monster",
+     "type": "number",
+     "group": "play",
+     "default": 5,
+     "min": 0,
+     "max": 500
+    },
+    {
+     "key": "ogreDamage",
+     "label": "Damage per ogre",
+     "type": "number",
+     "group": "play",
+     "default": 15,
+     "min": 0,
+     "max": 500
+    },
+    {
+     "key": "turretEvery",
+     "label": "Tower shoots every",
+     "type": "range",
+     "group": "play",
+     "default": 1.3,
+     "min": 0,
+     "max": 10,
+     "step": 0.1,
+     "unit": "s",
+     "help": "0 = the tower never shoots by itself."
+    },
+    {
+     "key": "roundPause",
+     "label": "Pause after a round",
+     "type": "range",
+     "group": "play",
+     "default": 5,
+     "min": 2,
+     "max": 30,
+     "step": 1,
+     "unit": "s"
+    },
+    {
+     "key": "speed",
+     "label": "Game speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 50,
+     "max": 200,
+     "step": 10,
+     "unit": "%",
+     "common": true,
+     "help": "Everything moves faster or slower."
+    },
+    {
+     "key": "volume",
+     "label": "Sound effects volume",
+     "type": "range",
+     "group": "sound",
+     "default": 100,
+     "min": 0,
+     "max": 150,
+     "step": 10,
+     "unit": "%",
+     "common": true
+    },
+    {
+     "key": "showHud",
+     "label": "Score panel at the top",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showEffects",
+     "label": "Effect timers (boost, shield…)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showNames",
+     "label": "@names inside the game",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showAlerts",
+     "label": "Gift alerts on the left",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showBanners",
+     "label": "Big banners (wins, waves, bosses)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showParticles",
+     "label": "Sparkles and explosions",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showLegend",
+     "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGoals",
+     "label": "Like goals",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showSupporters",
+     "label": "Top supporters",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTicker",
+     "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    }
+   ],
    "n": {
     "ar": "الدفاع عن القلعة",
     "tr": "Kale Savunması"
@@ -1054,7 +1713,217 @@
      }
     ]
    },
-   "options": [],
+   "options": [
+    {
+     "key": "hullHp",
+     "label": "Hull health",
+     "type": "number",
+     "group": "play",
+     "default": 100,
+     "min": 20,
+     "max": 2000
+    },
+    {
+     "key": "sailSpeed",
+     "label": "Sailing speed",
+     "type": "range",
+     "group": "play",
+     "default": 7,
+     "min": 1,
+     "max": 50,
+     "step": 1,
+     "unit": "m/s"
+    },
+    {
+     "key": "boostSpeed",
+     "label": "Speed with sail boost",
+     "type": "range",
+     "group": "play",
+     "default": 16,
+     "min": 1,
+     "max": 100,
+     "step": 1,
+     "unit": "m/s"
+    },
+    {
+     "key": "storm",
+     "label": "Storm strength",
+     "type": "select",
+     "group": "play",
+     "default": "normal",
+     "choices": [
+      [
+       "light",
+       "Light"
+      ],
+      [
+       "normal",
+       "Normal"
+      ],
+      [
+       "wild",
+       "Wild"
+      ]
+     ]
+    },
+    {
+     "key": "ambientWaves",
+     "label": "Random small waves",
+     "type": "bool",
+     "group": "play",
+     "default": true
+    },
+    {
+     "key": "waveDamage",
+     "label": "Damage per wave size",
+     "type": "number",
+     "group": "play",
+     "default": 4,
+     "min": 0,
+     "max": 500
+    },
+    {
+     "key": "lightningDamage",
+     "label": "Damage per lightning",
+     "type": "number",
+     "group": "play",
+     "default": 10,
+     "min": 0,
+     "max": 500
+    },
+    {
+     "key": "whaleDamage",
+     "label": "Damage per whale",
+     "type": "number",
+     "group": "play",
+     "default": 20,
+     "min": 0,
+     "max": 500
+    },
+    {
+     "key": "roundPause",
+     "label": "Pause after a round",
+     "type": "range",
+     "group": "play",
+     "default": 4.5,
+     "min": 2,
+     "max": 30,
+     "step": 1,
+     "unit": "s"
+    },
+    {
+     "key": "showRain",
+     "label": "Rain",
+     "type": "bool",
+     "group": "show",
+     "default": true
+    },
+    {
+     "key": "speed",
+     "label": "Game speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 50,
+     "max": 200,
+     "step": 10,
+     "unit": "%",
+     "common": true,
+     "help": "Everything moves faster or slower."
+    },
+    {
+     "key": "volume",
+     "label": "Sound effects volume",
+     "type": "range",
+     "group": "sound",
+     "default": 100,
+     "min": 0,
+     "max": 150,
+     "step": 10,
+     "unit": "%",
+     "common": true
+    },
+    {
+     "key": "showHud",
+     "label": "Score panel at the top",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showEffects",
+     "label": "Effect timers (boost, shield…)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showNames",
+     "label": "@names inside the game",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showAlerts",
+     "label": "Gift alerts on the left",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showBanners",
+     "label": "Big banners (wins, waves, bosses)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showParticles",
+     "label": "Sparkles and explosions",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showLegend",
+     "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGoals",
+     "label": "Like goals",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showSupporters",
+     "label": "Top supporters",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTicker",
+     "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    }
+   ],
    "n": {
     "ar": "عاصفة القارب",
     "tr": "Fırtınada Tekne"
@@ -1131,7 +2000,159 @@
       "Spin again",
       "Funny face",
       "Tell a joke"
+     ],
+     "group": "text"
+    },
+    {
+     "key": "spinPower",
+     "label": "Spin strength",
+     "type": "select",
+     "group": "play",
+     "default": "normal",
+     "choices": [
+      [
+       "short",
+       "Short spins"
+      ],
+      [
+       "normal",
+       "Normal"
+      ],
+      [
+       "long",
+       "Long spins"
+      ]
      ]
+    },
+    {
+     "key": "resultTime",
+     "label": "Show the result for",
+     "type": "range",
+     "group": "play",
+     "default": 3.2,
+     "min": 1,
+     "max": 15,
+     "step": 0.5,
+     "unit": "s"
+    },
+    {
+     "key": "showHistory",
+     "label": "Last winners in the score panel",
+     "type": "bool",
+     "group": "show",
+     "default": true
+    },
+    {
+     "key": "showLights",
+     "label": "Blinking lights around the wheel",
+     "type": "bool",
+     "group": "show",
+     "default": true
+    },
+    {
+     "key": "speed",
+     "label": "Game speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 50,
+     "max": 200,
+     "step": 10,
+     "unit": "%",
+     "common": true,
+     "help": "Everything moves faster or slower."
+    },
+    {
+     "key": "volume",
+     "label": "Sound effects volume",
+     "type": "range",
+     "group": "sound",
+     "default": 100,
+     "min": 0,
+     "max": 150,
+     "step": 10,
+     "unit": "%",
+     "common": true
+    },
+    {
+     "key": "showHud",
+     "label": "Score panel at the top",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showEffects",
+     "label": "Effect timers (boost, shield…)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showNames",
+     "label": "@names inside the game",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showAlerts",
+     "label": "Gift alerts on the left",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showBanners",
+     "label": "Big banners (wins, waves, bosses)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showParticles",
+     "label": "Sparkles and explosions",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showLegend",
+     "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGoals",
+     "label": "Like goals",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showSupporters",
+     "label": "Top supporters",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTicker",
+     "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
     }
    ],
    "n": {
@@ -1252,7 +2273,8 @@
      "type": "number",
      "default": 25,
      "min": 5,
-     "max": 300
+     "max": 300,
+     "group": "play"
     },
     {
      "key": "minPlayers",
@@ -1260,7 +2282,151 @@
      "type": "number",
      "default": 3,
      "min": 2,
-     "max": 50
+     "max": 50,
+     "group": "play"
+    },
+    {
+     "key": "maxPlayers",
+     "label": "Most players",
+     "type": "number",
+     "group": "play",
+     "default": 16,
+     "min": 2,
+     "max": 30
+    },
+    {
+     "key": "countdown",
+     "label": "Countdown before the bomb is lit",
+     "type": "range",
+     "group": "play",
+     "default": 5,
+     "min": 1,
+     "max": 30,
+     "step": 1,
+     "unit": "s"
+    },
+    {
+     "key": "giftJoins",
+     "label": "Any gift also joins the game",
+     "type": "bool",
+     "group": "play",
+     "default": true
+    },
+    {
+     "key": "roundPause",
+     "label": "Pause after a round",
+     "type": "range",
+     "group": "play",
+     "default": 6,
+     "min": 2,
+     "max": 30,
+     "step": 1,
+     "unit": "s"
+    },
+    {
+     "key": "speed",
+     "label": "Game speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 50,
+     "max": 200,
+     "step": 10,
+     "unit": "%",
+     "common": true,
+     "help": "Everything moves faster or slower."
+    },
+    {
+     "key": "volume",
+     "label": "Sound effects volume",
+     "type": "range",
+     "group": "sound",
+     "default": 100,
+     "min": 0,
+     "max": 150,
+     "step": 10,
+     "unit": "%",
+     "common": true
+    },
+    {
+     "key": "showHud",
+     "label": "Score panel at the top",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showEffects",
+     "label": "Effect timers (boost, shield…)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showNames",
+     "label": "@names inside the game",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showAlerts",
+     "label": "Gift alerts on the left",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showBanners",
+     "label": "Big banners (wins, waves, bosses)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showParticles",
+     "label": "Sparkles and explosions",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showLegend",
+     "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGoals",
+     "label": "Like goals",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showSupporters",
+     "label": "Top supporters",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTicker",
+     "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
     }
    ],
    "n": {
@@ -1329,7 +2495,163 @@
      }
     ]
    },
-   "options": [],
+   "options": [
+    {
+     "key": "prizeCount",
+     "label": "Prizes in the machine",
+     "type": "number",
+     "group": "play",
+     "default": 12,
+     "min": 3,
+     "max": 30,
+     "reload": true
+    },
+    {
+     "key": "grabChance",
+     "label": "Grab chance (weakest claw)",
+     "type": "range",
+     "group": "play",
+     "default": 35,
+     "min": 5,
+     "max": 95,
+     "step": 5,
+     "unit": "%"
+    },
+    {
+     "key": "rareChance",
+     "label": "Rare prize chance",
+     "type": "range",
+     "group": "play",
+     "default": 8,
+     "min": 0,
+     "max": 100,
+     "step": 1,
+     "unit": "%"
+    },
+    {
+     "key": "slip",
+     "label": "Prizes can slip out of the claw",
+     "type": "bool",
+     "group": "play",
+     "default": true
+    },
+    {
+     "key": "clawSpeed",
+     "label": "Claw speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 30,
+     "max": 300,
+     "step": 10,
+     "unit": "%"
+    },
+    {
+     "key": "speed",
+     "label": "Game speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 50,
+     "max": 200,
+     "step": 10,
+     "unit": "%",
+     "common": true,
+     "help": "Everything moves faster or slower."
+    },
+    {
+     "key": "volume",
+     "label": "Sound effects volume",
+     "type": "range",
+     "group": "sound",
+     "default": 100,
+     "min": 0,
+     "max": 150,
+     "step": 10,
+     "unit": "%",
+     "common": true
+    },
+    {
+     "key": "showHud",
+     "label": "Score panel at the top",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showEffects",
+     "label": "Effect timers (boost, shield…)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showNames",
+     "label": "@names inside the game",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showAlerts",
+     "label": "Gift alerts on the left",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showBanners",
+     "label": "Big banners (wins, waves, bosses)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showParticles",
+     "label": "Sparkles and explosions",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showLegend",
+     "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGoals",
+     "label": "Like goals",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showSupporters",
+     "label": "Top supporters",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTicker",
+     "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    }
+   ],
    "n": {
     "ar": "آلة المخلب",
     "tr": "Pençe Makinesi"
@@ -1407,7 +2729,152 @@
      }
     ]
    },
-   "options": [],
+   "options": [
+    {
+     "key": "luck",
+     "label": "Luck",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 0,
+     "max": 500,
+     "step": 10,
+     "unit": "%",
+     "help": "Higher = rare fish more often."
+    },
+    {
+     "key": "castTime",
+     "label": "Cast speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 40,
+     "max": 300,
+     "step": 10,
+     "unit": "%"
+    },
+    {
+     "key": "boardSize",
+     "label": "Biggest catches shown",
+     "type": "number",
+     "group": "show",
+     "default": 3,
+     "min": 0,
+     "max": 5
+    },
+    {
+     "key": "showSwimmers",
+     "label": "Fish swimming in the background",
+     "type": "bool",
+     "group": "show",
+     "default": true
+    },
+    {
+     "key": "speed",
+     "label": "Game speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 50,
+     "max": 200,
+     "step": 10,
+     "unit": "%",
+     "common": true,
+     "help": "Everything moves faster or slower."
+    },
+    {
+     "key": "volume",
+     "label": "Sound effects volume",
+     "type": "range",
+     "group": "sound",
+     "default": 100,
+     "min": 0,
+     "max": 150,
+     "step": 10,
+     "unit": "%",
+     "common": true
+    },
+    {
+     "key": "showHud",
+     "label": "Score panel at the top",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showEffects",
+     "label": "Effect timers (boost, shield…)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showNames",
+     "label": "@names inside the game",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showAlerts",
+     "label": "Gift alerts on the left",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showBanners",
+     "label": "Big banners (wins, waves, bosses)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showParticles",
+     "label": "Sparkles and explosions",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showLegend",
+     "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGoals",
+     "label": "Like goals",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showSupporters",
+     "label": "Top supporters",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTicker",
+     "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    }
+   ],
    "n": {
     "ar": "صيد السمك",
     "tr": "Balık Avı"
@@ -1527,7 +2994,8 @@
       "diamond|treasure",
       "penguin|animal",
       "chocolate|food"
-     ]
+     ],
+     "group": "text"
     },
     {
      "key": "letterEvery",
@@ -1535,7 +3003,155 @@
      "type": "number",
      "default": 12,
      "min": 3,
-     "max": 120
+     "max": 120,
+     "group": "play"
+    },
+    {
+     "key": "points",
+     "label": "Points for a correct guess",
+     "type": "select",
+     "group": "play",
+     "default": "hidden",
+     "choices": [
+      [
+       "hidden",
+       "Letters still hidden"
+      ],
+      [
+       "fixed",
+       "Always 1 point"
+      ]
+     ]
+    },
+    {
+     "key": "solvedPause",
+     "label": "Pause after a word",
+     "type": "range",
+     "group": "play",
+     "default": 4.5,
+     "min": 1,
+     "max": 20,
+     "step": 0.5,
+     "unit": "s"
+    },
+    {
+     "key": "showHint",
+     "label": "Hint above the word",
+     "type": "bool",
+     "group": "show",
+     "default": true
+    },
+    {
+     "key": "showTimer",
+     "label": "Next-letter timer bar",
+     "type": "bool",
+     "group": "show",
+     "default": true
+    },
+    {
+     "key": "speed",
+     "label": "Game speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 50,
+     "max": 200,
+     "step": 10,
+     "unit": "%",
+     "common": true,
+     "help": "Everything moves faster or slower."
+    },
+    {
+     "key": "volume",
+     "label": "Sound effects volume",
+     "type": "range",
+     "group": "sound",
+     "default": 100,
+     "min": 0,
+     "max": 150,
+     "step": 10,
+     "unit": "%",
+     "common": true
+    },
+    {
+     "key": "showHud",
+     "label": "Score panel at the top",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showEffects",
+     "label": "Effect timers (boost, shield…)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showNames",
+     "label": "@names inside the game",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showAlerts",
+     "label": "Gift alerts on the left",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showBanners",
+     "label": "Big banners (wins, waves, bosses)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showParticles",
+     "label": "Sparkles and explosions",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showLegend",
+     "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGoals",
+     "label": "Like goals",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showSupporters",
+     "label": "Top supporters",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTicker",
+     "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
     }
    ],
    "n": {
@@ -1654,13 +3270,173 @@
      "type": "number",
      "default": 12,
      "min": 5,
-     "max": 120
+     "max": 120,
+     "group": "play"
+    },
+    {
+     "key": "lives",
+     "label": "Lives",
+     "type": "number",
+     "group": "play",
+     "default": 3,
+     "min": 1,
+     "max": 10
+    },
+    {
+     "key": "treasure",
+     "label": "Coins in a treasure",
+     "type": "number",
+     "group": "play",
+     "default": 10,
+     "min": 1,
+     "max": 1000
+    },
+    {
+     "key": "chatVotes",
+     "label": "Viewers can vote by typing left / right",
+     "type": "bool",
+     "group": "play",
+     "default": true
+    },
+    {
+     "key": "showVotes",
+     "label": "Vote counts during voting",
+     "type": "bool",
+     "group": "show",
+     "default": true
+    },
+    {
+     "key": "speed",
+     "label": "Game speed",
+     "type": "range",
+     "group": "play",
+     "default": 100,
+     "min": 50,
+     "max": 200,
+     "step": 10,
+     "unit": "%",
+     "common": true,
+     "help": "Everything moves faster or slower."
+    },
+    {
+     "key": "volume",
+     "label": "Sound effects volume",
+     "type": "range",
+     "group": "sound",
+     "default": 100,
+     "min": 0,
+     "max": 150,
+     "step": 10,
+     "unit": "%",
+     "common": true
+    },
+    {
+     "key": "showHud",
+     "label": "Score panel at the top",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showEffects",
+     "label": "Effect timers (boost, shield…)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showNames",
+     "label": "@names inside the game",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showAlerts",
+     "label": "Gift alerts on the left",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showBanners",
+     "label": "Big banners (wins, waves, bosses)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showParticles",
+     "label": "Sparkles and explosions",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showLegend",
+     "label": "Gift list on the right",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showGoals",
+     "label": "Like goals",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showSupporters",
+     "label": "Top supporters",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTicker",
+     "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
     }
    ],
    "n": {
     "ar": "طريق التصويت",
     "tr": "Oylama Yolu"
    }
+  }
+ ],
+ "optionGroups": [
+  {
+   "id": "play",
+   "label": "Gameplay",
+   "icon": "sliders-horizontal"
+  },
+  {
+   "id": "text",
+   "label": "Names, words & lists",
+   "icon": "list"
+  },
+  {
+   "id": "show",
+   "label": "On screen",
+   "icon": "eye"
+  },
+  {
+   "id": "sound",
+   "label": "Sound",
+   "icon": "volume-2"
   }
  ]
 }

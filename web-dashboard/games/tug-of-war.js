@@ -4,7 +4,7 @@ import { text, sky, particles, teamNames, teamBoard, teamHud, RED, BLUE, GOLD } 
 export default function create(api) {
   const { W, H, clamp, t } = api;
   const ROPE_Y = 640, SPAN = 190; // knot moves ±SPAN px from the centre
-  const fxp = particles();
+  const fxp = particles(api);
   const board = teamBoard();
   const S = { pos: 0, shown: 0, rounds: { red: 0, blue: 0 }, frozen: { red: 0, blue: 0 }, phase: 'play', phaseT: 0, recent: { red: [], blue: [] }, strain: 0 };
   const winAt = () => Math.max(5, Number(api.options.winAt) || 50);
@@ -26,7 +26,7 @@ export default function create(api) {
     const team = S.pos < 0 ? 'red' : 'blue';
     const names = teamNames(api);
     S.rounds[team]++;
-    S.phase = 'win'; S.phaseT = 6;
+    S.phase = 'win'; S.phaseT = api.num('roundPause', 6, 2, 30);
     const mvp = board.mvp(team);
     api.banner(t(`${names[team]} WINS!`, `فاز ${names[team]}!`, `${names[team]} KAZANDI!`), mvp ? t(`MVP @${mvp}`, `الأفضل @${mvp}`, `MVP @${mvp}`) : '', team === 'red' ? RED : BLUE, 5500);
     api.sfx('win');
@@ -67,8 +67,9 @@ export default function create(api) {
   function team(ctx, side, color, frozen) {
     const dir = side === 'red' ? -1 : 1;
     const lean = 0.25 + S.strain * 0.6;
-    for (let i = 0; i < 4; i++) {
-      const x = W / 2 + knotX() + dir * (70 + i * 48), y = ROPE_Y + 58;
+    const n = api.num('pullers', 4, 1, 6), gap = n > 4 ? 36 : 48;
+    for (let i = 0; i < n; i++) {
+      const x = W / 2 + knotX() + dir * (70 + i * gap), y = ROPE_Y + 58;
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(dir * lean);
@@ -95,11 +96,13 @@ export default function create(api) {
     ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(W / 2, 590); ctx.lineTo(W / 2, 760); ctx.stroke();
     // progress meter
     const p = clamp(S.shown / winAt(), -1, 1);
+    if (api.flag('showMeter')) {
     api.roundRect(ctx, 40, 520, W - 80, 18, 9); ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fill();
     ctx.fillStyle = p < 0 ? RED : BLUE;
     const half = (W - 80) / 2;
     if (p < 0) ctx.fillRect(40 + half + p * half, 520, -p * half, 18); else ctx.fillRect(40 + half, 520, p * half, 18);
     text(ctx, `${Math.round(Math.abs(S.pos))} / ${winAt()}`, W / 2, 500, { size: 18, color: '#cbd5e1', weight: 700 });
+    }
     // rope
     ctx.strokeStyle = '#d6b37a'; ctx.lineWidth = 8;
     ctx.beginPath(); ctx.moveTo(20, ROPE_Y); ctx.quadraticCurveTo(W / 2 + knotX(), ROPE_Y + 6 + S.strain * 10, W - 20, ROPE_Y); ctx.stroke();
@@ -110,8 +113,8 @@ export default function create(api) {
     const names = teamNames(api);
     text(ctx, names.red, 30, 800, { size: 22, color: RED, align: 'left' });
     text(ctx, names.blue, W - 30, 800, { size: 22, color: BLUE, align: 'right' });
-    S.recent.red.slice(0, 1).forEach((u) => text(ctx, '@' + u, 30, 826, { size: 14, color: '#fecdd3', align: 'left', weight: 600, max: 220 }));
-    S.recent.blue.slice(0, 1).forEach((u) => text(ctx, '@' + u, W - 30, 826, { size: 14, color: '#cffafe', align: 'right', weight: 600, max: 220 }));
+    if (api.showNames) S.recent.red.slice(0, 1).forEach((u) => text(ctx, '@' + u, 30, 826, { size: 14, color: '#fecdd3', align: 'left', weight: 600, max: 220 }));
+    if (api.showNames) S.recent.blue.slice(0, 1).forEach((u) => text(ctx, '@' + u, W - 30, 826, { size: 14, color: '#cffafe', align: 'right', weight: 600, max: 220 }));
     fxp.draw(ctx);
   }
 
