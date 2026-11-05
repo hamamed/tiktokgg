@@ -30,17 +30,17 @@ export default function create(api) {
     S.gameOver = 5;
     S.best = Math.max(S.best, S.wave);
     const mvp = api.mvp();
-    api.banner(t('THE CASTLE FELL', 'سقطت القلعة'), t(`Wave ${S.wave}${mvp ? ` · MVP @${mvp.user}` : ''}`, `الموجة ${S.wave}${mvp ? ` · الأفضل @${mvp.user}` : ''}`), '#f87171', 4500);
+    api.banner(t('THE CASTLE FELL', 'سقطت القلعة', 'KALE DÜŞTÜ'), t(`Wave ${S.wave}${mvp ? ` · MVP @${mvp.user}` : ''}`, `الموجة ${S.wave}${mvp ? ` · الأفضل @${mvp.user}` : ''}`, `Dalga ${S.wave}${mvp ? ` · MVP @${mvp.user}` : ''}`), '#f87171', 4500);
     api.sfx('boom');
     api.reportScore(S.wave);
-    api.announce(t(`The castle fell at wave ${S.wave}!${mvp ? ` Thank you ${mvp.user} for the support!` : ''} Let's defend again!`, `سقطت القلعة في الموجة ${S.wave}!${mvp ? ` شكراً ${mvp.user} على الدعم!` : ''} لندافع من جديد!`));
+    api.announce(t(`The castle fell at wave ${S.wave}!${mvp ? ` Thank you ${mvp.user} for the support!` : ''} Let's defend again!`, `سقطت القلعة في الموجة ${S.wave}!${mvp ? ` شكراً ${mvp.user} على الدعم!` : ''} لندافع من جديد!`, `Kale ${S.wave}. dalgada düştü!${mvp ? ` Destek için teşekkürler ${mvp.user}!` : ''} Haydi yeniden savunalım!`));
   }
 
   const actions = {
     SPAWN_MONSTERS: (ev) => { for (let i = 0; i < clamp(Math.round(ev.value) || 1, 1, 40); i++) spawn('imp', ev.user); },
-    BIG_MONSTER: (ev) => { for (let i = 0; i < clamp(Math.round(ev.value) || 1, 1, 10); i++) spawn('ogre', ev.user); api.banner(t('OGRE!', 'غول!'), t(`sent by @${ev.user}`, `من @${ev.user}`), '#f87171', 1800); },
+    BIG_MONSTER: (ev) => { for (let i = 0; i < clamp(Math.round(ev.value) || 1, 1, 10); i++) spawn('ogre', ev.user); api.banner(t('OGRE!', 'غول!', 'DEV!'), t(`sent by @${ev.user}`, `من @${ev.user}`, `gönderen @${ev.user}`), '#f87171', 1800); },
     ARROW_VOLLEY: (ev) => shoot(clamp(Math.round(ev.value) || 1, 1, 60), ev.user),
-    DRAGON: (ev) => { S.dragon = { x: -120, by: ev.user, times: clamp(Math.round(ev.value) || 1, 1, 3) }; api.banner(t('DRAGON FIRE!', 'نار التنين!'), t(`called by @${ev.user}`, `استدعاه @${ev.user}`), '#fb923c', 2200); },
+    DRAGON: (ev) => { S.dragon = { x: -120, by: ev.user, times: clamp(Math.round(ev.value) || 1, 1, 3) }; api.banner(t('DRAGON FIRE!', 'نار التنين!', 'EJDERHA ATEŞİ!'), t(`called by @${ev.user}`, `استدعاه @${ev.user}`, `çağıran @${ev.user}`), '#fb923c', 2200); },
     SHIELD: (ev) => { S.shield = Math.max(S.shield, api.now) + clamp(ev.value || 5, 1, 60); },
     REPAIR: (ev) => { if (S.gameOver <= 0) { S.hp = clamp(S.hp + (Number(ev.value) || 10), 0, 100); fxp.burst(W / 2, WALL_Y, '#6ee7b7', 24, 160); } },
   };
@@ -57,13 +57,13 @@ export default function create(api) {
     S.flash = Math.max(0, S.flash - dt);
     if (S.gameOver > 0) {
       S.gameOver -= dt;
-      if (S.gameOver <= 0) { Object.assign(S, { hp: 100, wave: 1, kills: 0, monsters: [], arrows: [], toSpawn: 0, waveDelay: 2 }); api.resetRound(); api.banner(t('WAVE 1', 'الموجة 1'), '', GOLD, 1500); }
+      if (S.gameOver <= 0) { Object.assign(S, { hp: 100, wave: 1, kills: 0, monsters: [], arrows: [], toSpawn: 0, waveDelay: 2 }); api.resetRound(); api.banner(t('WAVE 1', 'الموجة 1', 'DALGA 1'), '', GOLD, 1500); }
       return;
     }
     // waves
     if (S.toSpawn <= 0 && !S.monsters.length) {
       S.waveDelay -= dt;
-      if (S.waveDelay <= 0) { if (S.kills > 0) S.wave++; S.toSpawn = 3 + S.wave * 2; S.waveDelay = 3; api.banner(t(`WAVE ${S.wave}`, `الموجة ${S.wave}`), '', GOLD, 1500); }
+      if (S.waveDelay <= 0) { if (S.kills > 0) S.wave++; S.toSpawn = 3 + S.wave * 2; S.waveDelay = 3; api.banner(t(`WAVE ${S.wave}`, `الموجة ${S.wave}`, `DALGA ${S.wave}`), '', GOLD, 1500); }
     }
     if (S.toSpawn > 0) { S.spawnIn -= dt; if (S.spawnIn <= 0) { spawn(Math.random() < Math.min(0.25, S.wave * 0.03) ? 'ogre' : 'imp'); S.toSpawn--; S.spawnIn = rand(0.5, 1.3); } }
     // turret
@@ -92,10 +92,10 @@ export default function create(api) {
     S.monsters = S.monsters.filter((m) => !m.dead);
     const hpColor = S.hp > 50 ? '#22c55e' : S.hp > 25 ? '#f59e0b' : '#ef4444';
     api.setHud(
-      `<div class="sub">${t('Wave', 'الموجة')}</div><div class="big">${api.icon('swords')}${S.wave}</div><div class="sub">${t('Kills', 'القتلى')} ${S.kills} · ${t('Best', 'الأفضل')} ${Math.max(S.best, S.wave)}</div>`,
-      `<div class="sub" style="display:flex;justify-content:space-between"><span>${t('Walls', 'الأسوار')}</span><span>${Math.ceil(S.hp)}</span></div><div class="bar"><i style="width:${S.hp}%;background:${hpColor}"></i></div>`,
+      `<div class="sub">${t('Wave', 'الموجة', 'Dalga')}</div><div class="big">${api.icon('swords')}${S.wave}</div><div class="sub">${t('Kills', 'القتلى', 'Öldürülen')} ${S.kills} · ${t('Best', 'الأفضل', 'En iyi')} ${Math.max(S.best, S.wave)}</div>`,
+      `<div class="sub" style="display:flex;justify-content:space-between"><span>${t('Walls', 'الأسوار', 'Surlar')}</span><span>${Math.ceil(S.hp)}</span></div><div class="bar"><i style="width:${S.hp}%;background:${hpColor}"></i></div>`,
     );
-    api.setEffects(S.shield > api.now ? [{ icon: 'shield', color: '#7dd3fc', label: t('Shield', 'الدرع'), secs: S.shield - api.now }] : []);
+    api.setEffects(S.shield > api.now ? [{ icon: 'shield', color: '#7dd3fc', label: t('Shield', 'الدرع', 'Kalkan'), secs: S.shield - api.now }] : []);
   }
 
   function drawMonster(ctx, m) {

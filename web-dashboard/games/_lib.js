@@ -61,7 +61,7 @@ export function particles() {
 
 /** Team names from the game options. */
 export function teamNames(api) {
-  return { red: api.options.redName || api.t('Red', 'الأحمر'), blue: api.options.blueName || api.t('Blue', 'الأزرق') };
+  return { red: api.options.redName || api.t('Red', 'الأحمر', 'Kırmızı'), blue: api.options.blueName || api.t('Blue', 'الأزرق', 'Mavi') };
 }
 
 /** Per-team contribution tracking for "team MVP". */

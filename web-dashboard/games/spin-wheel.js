@@ -7,7 +7,16 @@ export default function create(api) {
   const COLORS = ['#fe2c55', '#25f4ee', '#fbbf24', '#a78bfa', '#34d399', '#f472b6', '#60a5fa', '#fb923c'];
   const fxp = particles();
   const S = { angle: 0, vel: 0, spinning: false, current: null, queue: [], history: [], resultT: 0, lastTick: 0 };
-  const prizes = () => (Array.isArray(api.options.prizes) && api.options.prizes.length ? api.options.prizes : [t('Nothing', 'لا شيء')]);
+  // Built-in prizes per stream language; used while the prizes in Settings are still the default English ones.
+  const DEFAULT_PRIZES = {
+    en: ['10 push-ups', 'Sing a song', 'Dance for 15s', 'Shout-out', 'Nothing!', 'Spin again', 'Funny face', 'Tell a joke'],
+    ar: ['10 تمارين ضغط', 'غنِّ أغنية', 'ارقص 15 ثانية', 'تحية خاصة', 'لا شيء!', 'أدر مرة أخرى', 'وجه مضحك', 'احكِ نكتة'],
+    tr: ['10 şınav', 'Şarkı söyle', '15 sn dans et', 'Selam ver', 'Hiçbir şey!', 'Tekrar çevir', 'Komik surat', 'Fıkra anlat'],
+  };
+  const prizes = () => {
+    const p = Array.isArray(api.options.prizes) && api.options.prizes.length ? api.options.prizes : DEFAULT_PRIZES.en;
+    return JSON.stringify(p) === JSON.stringify(DEFAULT_PRIZES.en) ? DEFAULT_PRIZES[api.lang] || p : p;
+  };
 
   function startNext() {
     if (S.spinning || S.resultT > 0 || !S.queue.length) return;
@@ -25,11 +34,11 @@ export default function create(api) {
     S.history.unshift({ who, prize });
     S.history.length = Math.min(S.history.length, 4);
     S.resultT = 3.2;
-    api.banner(prize, t(`@${who} spun the wheel`, `@${who} أدار العجلة`), GOLD, 3000);
+    api.banner(prize, t(`@${who} spun the wheel`, `@${who} أدار العجلة`, `@${who} çarkı çevirdi`), GOLD, 3000);
     api.sfx('win');
     fxp.burst(CX, CY - R, GOLD, 40, 300);
-    api.announce(t(`${who} spun the wheel and got: ${prize}!`, `${who} أدار العجلة وحصل على: ${prize}!`));
-    if (/spin again|again|مرة أخرى|مجدداً/i.test(prize)) S.queue.unshift({ user: who });
+    api.announce(t(`${who} spun the wheel and got: ${prize}!`, `${who} أدار العجلة وحصل على: ${prize}!`, `${who} çarkı çevirdi ve kazandı: ${prize}!`));
+    if (/spin again|again|مرة أخرى|مجدداً|tekrar/i.test(prize)) S.queue.unshift({ user: who });
   }
 
   const actions = {
@@ -54,7 +63,7 @@ export default function create(api) {
     if (S.resultT > 0) { S.resultT -= dt; if (S.resultT <= 0) startNext(); }
     else startNext();
     const hist = S.history.map((h) => `<div class="sub" style="text-transform:none;font-size:.62em;max-width:14em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@${api.esc(h.who)}: <b style="color:#fde68a">${api.esc(h.prize)}</b></div>`).join('');
-    api.setHud(`<div class="sub">${t('Spins waiting', 'دورات في الانتظار')}</div><div class="big">${api.icon('ferris-wheel')}${S.queue.length + (S.spinning ? 1 : 0)}</div>${hist}`);
+    api.setHud(`<div class="sub">${t('Spins waiting', 'دورات في الانتظار', 'Bekleyen çevirme')}</div><div class="big">${api.icon('ferris-wheel')}${S.queue.length + (S.spinning ? 1 : 0)}</div>${hist}`);
   }
 
   function draw(ctx) {
@@ -78,7 +87,7 @@ export default function create(api) {
     // pointer
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(CX - 16, CY - R - 26); ctx.lineTo(CX + 16, CY - R - 26); ctx.lineTo(CX, CY - R + 6); ctx.closePath(); ctx.fill();
     if (S.current && (S.spinning || S.resultT > 0)) text(ctx, '@' + S.current.user, CX, CY - R - 44, { size: 20, color: '#fde68a', max: 300 });
-    else if (!S.queue.length) text(ctx, t('Send a gift to spin!', 'أرسل هدية لتدوير العجلة!'), CX, CY + R + 34, { size: 20, color: '#e9d5ff' });
+    else if (!S.queue.length) text(ctx, t('Send a gift to spin!', 'أرسل هدية لتدوير العجلة!', 'Çevirmek için hediye gönder!'), CX, CY + R + 34, { size: 20, color: '#e9d5ff' });
     fxp.draw(ctx);
   }
 

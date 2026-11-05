@@ -153,6 +153,8 @@ const qs = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);
+// Keep "@name" left-to-right inside Arabic (right-to-left) text, so it doesn't turn into "name@".
+const isoAt = (t) => String(t ?? '').replace(/@[\p{L}\p{N}_.]+/gu, (m) => `\u2066${m}\u2069`);
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const readStore = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 const pascal = (s) => s.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());
@@ -184,22 +186,27 @@ const S = {
   overlay: { legend: true, goals: true, supporters: true, ticker: true, welcome: true, sfx: true },
   lang: 'en', now: 0, roundGifters: {},
 };
-const t = (en, ar) => (S.lang === 'ar' && ar ? ar : en);
+// Stream language (Settings → Stream language): 'en' | 'ar' | 'tr'. Games call t(english, arabic, turkish).
+const t = (en, ar, tr) => (S.lang === 'ar' && ar ? ar : S.lang === 'tr' && tr ? tr : en);
+const LANG_IDX = { en: 0, ar: 1, tr: 2 };
 
 // ---------- text for the overlays (English / Arabic, follows the voice language) ----------
 const TXT = {
-  send: ['Send a gift', 'أرسل هدية'], sendOrType: ['Send a gift or type', 'أرسل هدية أو اكتب'], type: ['Type in chat', 'اكتب في الشات'],
-  goals: ['Like goals', 'أهداف اللايكات'], top: ['Top supporters', 'أكبر الداعمين'], free: ['free', 'مجاناً'],
-  likeGoal: ['Like goal', 'هدف اللايكات'], likes: ['likes!', 'لايك!'], typed: ['typed', 'كتب'], test: ['test', 'تجربة'],
-  welcome: ['Welcome', 'أهلاً'], followed: ['followed!', 'تابع!'], shared: ['shared the live!', 'شارك البث!'],
-  live: ['live · waiting for gifts', 'متصل · بانتظار الهدايا'], offline: ['server offline, retrying…', 'الخادم غير متصل…'],
-  token: ['access token missing: add ?token=… to the URL', 'رمز الدخول مفقود'], paused: ['PAUSED', 'متوقف'], back: ['back in a moment', 'نعود بعد قليل'],
-  soundOn: ['Sound on', 'الصوت مفعل'], soundOff: ['Sound off', 'الصوت متوقف'], mvp: ['MVP', 'الأفضل'],
+  send: ['Send a gift', 'أرسل هدية', 'Hediye gönder'], sendOrType: ['Send a gift or type', 'أرسل هدية أو اكتب', 'Hediye gönder ya da yaz'], type: ['Type in chat', 'اكتب في الشات', 'Sohbete yaz'],
+  goals: ['Like goals', 'أهداف اللايكات', 'Beğeni hedefleri'], top: ['Top supporters', 'أكبر الداعمين', 'En çok destekleyenler'], free: ['free', 'مجاناً', 'ücretsiz'],
+  likeGoal: ['Like goal', 'هدف اللايكات', 'Beğeni hedefi'], likes: ['likes!', 'لايك!', 'beğeni!'], typed: ['typed', 'كتب', 'yazdı'], test: ['test', 'تجربة', 'test'],
+  welcome: ['Welcome', 'أهلاً', 'Hoş geldin'], followed: ['followed!', 'تابع!', 'takip etti!'], shared: ['shared the live!', 'شارك البث!', 'yayını paylaştı!'],
+  live: ['live · waiting for gifts', 'متصل · بانتظار الهدايا', 'canlı · hediye bekleniyor'], offline: ['server offline, retrying…', 'الخادم غير متصل…', 'sunucu çevrimdışı, yeniden deneniyor…'],
+  token: ['access token missing: add ?token=… to the URL', 'رمز الدخول مفقود', 'erişim anahtarı eksik'], paused: ['PAUSED', 'متوقف', 'DURAKLATILDI'], back: ['back in a moment', 'نعود بعد قليل', 'birazdan dönüyoruz'],
+  soundOn: ['Sound on', 'الصوت مفعل', 'Ses açık'], soundOff: ['Sound off', 'الصوت متوقف', 'Ses kapalı'], mvp: ['MVP', 'الأفضل', 'MVP'],
 };
-const tx = (k) => TXT[k][S.lang === 'ar' ? 1 : 0];
+const tx = (k) => TXT[k][LANG_IDX[S.lang] ?? 0] ?? TXT[k][0];
 
 // ---------- catalog lookups ----------
-const actionLook = (id) => S.gameDef?.actions.find((a) => a.id === id) ?? { icon: 'circle-help', color: '#94a3b8', label: id };
+const actionLook = (id) => {
+  const a = S.gameDef?.actions.find((x) => x.id === id);
+  return a ? { ...a, label: a.l?.[S.lang] || a.label } : { icon: 'circle-help', color: '#94a3b8', label: id };
+};
 const GIFT_ICON = { rose: 'flower', 'ice cream cone': 'ice-cream-cone', 'finger heart': 'hand-heart', doughnut: 'donut', galaxy: 'sparkles', universe: 'orbit' };
 const giftImages = new Map();
 /** <img> for a gift name (for drawing on canvas); null until loaded. */
@@ -335,7 +342,7 @@ function banner(title, sub = '', color = '#fff', ms = 2600) {
   const b = $('banner');
   clearTimeout(bannerTimer);
   if (!title) { b.innerHTML = ''; return; }
-  b.innerHTML = `<h2 style="color:${color}">${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}`;
+  b.innerHTML = `<h2 style="color:${color}">${esc(isoAt(title))}</h2>${sub ? `<p>${esc(isoAt(sub))}</p>` : ''}`;
   b.classList.remove('flashbanner'); void b.offsetWidth; b.classList.add('flashbanner');
   bannerTimer = setTimeout(() => (b.innerHTML = ''), ms);
 }
@@ -360,7 +367,7 @@ function showAlert(ev, handled) {
   const el = document.createElement('div');
   el.className = 'alert';
   el.style.borderLeftColor = look.color;
-  el.innerHTML = `<div class="ic" style="color:${look.color}">${pic}</div><div style="min-width:0"><div class="who">${ev.source === 'likes' ? tx('likeGoal') : '@' + esc(ev.user)}</div>
+  el.innerHTML = `<div class="ic" style="color:${look.color}">${pic}</div><div style="min-width:0"><div class="who">${ev.source === 'likes' ? tx('likeGoal') : esc(isoAt('@' + ev.user))}</div>
     <div class="what">${what} <span style="color:${look.color};display:inline-flex;align-items:center;gap:.25em">${icon('arrow-right')} ${icon(look.icon)} ${esc(look.label)}${handled ? '' : ' ?'}</span></div></div>`;
   const box = $('alerts');
   box.prepend(el);
@@ -376,7 +383,7 @@ function legendRows() {
   const valid = (a) => S.gameDef?.actions.some((x) => x.id === a);
   return Object.entries(S.rules).filter(([, r]) => r && valid(r.action)).map(([name, r]) => {
     const g = byName.get(name.toLowerCase());
-    return { key: name.toLowerCase(), name: name === '*' ? t('Any other gift', 'أي هدية أخرى') : g?.name ?? name, diamonds: name === '*' ? Infinity : g?.diamonds ?? Infinity, image: g?.image, rule: r };
+    return { key: name.toLowerCase(), name: name === '*' ? t('Any other gift', 'أي هدية أخرى', 'Diğer her hediye') : g?.name ?? name, diamonds: name === '*' ? Infinity : g?.diamonds ?? Infinity, image: g?.image, rule: r };
   }).sort((a, b) => a.diamonds - b.diamonds || a.name.localeCompare(b.name))
     .concat(Object.entries(S.commands).filter(([, c]) => valid(c.action)).map(([key, c]) => ({ key, name: key, command: true, diamonds: Infinity, rule: c })));
 }
@@ -437,9 +444,9 @@ function tickerLines() {
   if (how) lines.push(how);
   for (const r of legendRows()) {
     const look = actionLook(r.rule.action);
-    lines.push(r.command ? t(`Type ${r.name} in chat → ${look.label}`, `اكتب ${r.name} في الشات ← ${look.label}`) : t(`Send ${r.name} → ${look.label}`, `أرسل ${r.name} ← ${look.label}`));
+    lines.push(r.command ? t(`Type ${r.name} in chat → ${look.label}`, `اكتب ${r.name} في الشات ← ${look.label}`, `Sohbete ${r.name} yaz → ${look.label}`) : t(`Send ${r.name} → ${look.label}`, `أرسل ${r.name} ← ${look.label}`, `${r.name} gönder → ${look.label}`));
   }
-  for (const g of S.goals.slice(0, 1)) lines.push(t(`${(g.every - (S.likes % g.every)).toLocaleString()} likes to go: ${g.label || actionLook(g.action).label}`, `باقي ${(g.every - (S.likes % g.every)).toLocaleString()} لايك: ${g.label || actionLook(g.action).label}`));
+  for (const g of S.goals.slice(0, 1)) lines.push(t(`${(g.every - (S.likes % g.every)).toLocaleString()} likes to go: ${g.label || actionLook(g.action).label}`, `باقي ${(g.every - (S.likes % g.every)).toLocaleString()} لايك: ${g.label || actionLook(g.action).label}`, `${(g.every - (S.likes % g.every)).toLocaleString()} beğeni kaldı: ${g.label || actionLook(g.action).label}`));
   return lines;
 }
 function renderTicker(reset = false) {
@@ -458,6 +465,11 @@ function renderTicker(reset = false) {
 function applyOverlay() {
   for (const k of ['legend', 'goals', 'supporters', 'ticker', 'welcome']) document.body.classList.toggle('no' + k, !S.overlay[k]);
   renderLegend(); renderGoals(); renderSupporters(); renderTicker();
+}
+
+function applyLang() {
+  document.documentElement.lang = S.lang;
+  for (const el of document.querySelectorAll('.alerts, .rightcol, .ticker, .toasts, .banner')) el.dir = S.lang === 'ar' ? 'rtl' : 'ltr';
 }
 
 // ---------- the API each game gets ----------
@@ -550,6 +562,7 @@ function connect() {
         S.likes = p.likes?.totalLikes ?? 0; S.supporters = p.supporters || []; S.paused = !!p.paused;
         S.overlay = { ...S.overlay, ...(p.settings?.overlay || {}) }; S.lang = p.settings?.voice?.lang || 'en';
         S.options = p.gameOptions || {};
+        applyLang();
         setConn(true, tx('live'));
         loadGame(FIXED_GAME || p.game || 'gift-runner');
         break;
@@ -570,9 +583,13 @@ function connect() {
       case 'LIKES_UPDATE': S.likes = p.totalLikes ?? S.likes; renderGoals(); break;
       case 'SUPPORTERS': S.supporters = p.top || []; renderSupporters(); break;
       case 'PAUSED': S.paused = !!p.paused; break;
-      case 'SETTINGS':
+      case 'SETTINGS': {
+        const before = S.lang;
         S.overlay = { ...S.overlay, ...(p.overlay || {}) }; S.lang = p.voice?.lang || S.lang;
-        applyOverlay(); syncSoundBtn();
+        applyOverlay(); syncSoundBtn(); applyLang();
+        if (before !== S.lang && S.gameId) { const id = S.gameId; S.gameId = null; loadGame(id); } // rebuild texts in the new language
+        break;
+      }
         break;
       case 'SAY': Voice.say(p); break;
       case 'GIFT_RECEIVED':
@@ -581,9 +598,9 @@ function connect() {
         break;
       case 'CHAT': S.game?.onChat?.(p); break;
       case 'SOCIAL':
-        if (p.kind === 'join') toast(`${icon('hand')}${tx('welcome')} <b>@${esc(p.user)}</b>`, '#25f4ee');
-        else if (p.kind === 'follow') { toast(`${icon('user-plus')}<b>@${esc(p.user)}</b> ${tx('followed')}`, '#fe2c55'); SFX.play('good'); }
-        else if (p.kind === 'share') { toast(`${icon('share-2')}<b>@${esc(p.user)}</b> ${tx('shared')}`, '#fcd34d'); SFX.play('good'); }
+        if (p.kind === 'join') toast(`${icon('hand')}${tx('welcome')} <b>${esc(isoAt('@' + p.user))}</b>`, '#25f4ee');
+        else if (p.kind === 'follow') { toast(`${icon('user-plus')}<b>${esc(isoAt('@' + p.user))}</b> ${tx('followed')}`, '#fe2c55'); SFX.play('good'); }
+        else if (p.kind === 'share') { toast(`${icon('share-2')}<b>${esc(isoAt('@' + p.user))}</b> ${tx('shared')}`, '#fcd34d'); SFX.play('good'); }
         S.game?.onSocial?.(p);
         break;
     }

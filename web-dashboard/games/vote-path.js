@@ -21,11 +21,11 @@ export default function create(api) {
     if (S.choice === S.treasureSide) {
       const gain = 10 + S.step * 2;
       S.coins += gain; S.result = 'treasure';
-      api.banner(t('TREASURE!', 'كنز!'), `+${gain}`, GOLD, 2500); api.sfx('win');
+      api.banner(t('TREASURE!', 'كنز!', 'HAZİNE!'), `+${gain}`, GOLD, 2500); api.sfx('win');
       fxp.burst(S.choice === 'left' ? 140 : W - 140, FORK_Y - 40, GOLD, 50, 300);
     } else {
       S.lives--; S.result = 'trap';
-      api.banner(t('TRAP!', 'فخ!'), t(`${S.lives} lives left`, `باقي ${S.lives} أرواح`), '#f87171', 2500); api.sfx('boom');
+      api.banner(t('TRAP!', 'فخ!', 'TUZAK!'), t(`${S.lives} lives left`, `باقي ${S.lives} أرواح`, `${S.lives} can kaldı`), '#f87171', 2500); api.sfx('boom');
       fxp.burst(S.choice === 'left' ? 140 : W - 140, FORK_Y - 40, '#f87171', 40, 300);
     }
     S.step++;
@@ -33,8 +33,8 @@ export default function create(api) {
   function gameOver() {
     S.best = Math.max(S.best, S.coins);
     const mvp = api.mvp();
-    api.banner(t('GAME OVER', 'انتهت اللعبة'), t(`${S.coins} coins${mvp ? ` · MVP @${mvp.user}` : ''}`, `${S.coins} عملة${mvp ? ` · الأفضل @${mvp.user}` : ''}`), '#f87171', 4500);
-    api.announce(t(`Game over with ${S.coins} coins! Let's explore again. Type left or right to vote!`, `انتهت اللعبة بـ ${S.coins} عملة! لنبدأ من جديد. اكتب يمين أو يسار للتصويت!`));
+    api.banner(t('GAME OVER', 'انتهت اللعبة', 'OYUN BİTTİ'), t(`${S.coins} coins${mvp ? ` · MVP @${mvp.user}` : ''}`, `${S.coins} عملة${mvp ? ` · الأفضل @${mvp.user}` : ''}`, `${S.coins} altın${mvp ? ` · MVP @${mvp.user}` : ''}`), '#f87171', 4500);
+    api.announce(t(`Game over with ${S.coins} coins! Let's explore again. Type left or right to vote!`, `انتهت اللعبة بـ ${S.coins} عملة! لنبدأ من جديد. اكتب يمين أو يسار للتصويت!`, `Oyun ${S.coins} altınla bitti! Haydi yeniden keşfedelim. Oy vermek için sol ya da sağ yaz!`));
     api.reportScore(S.coins);
     Object.assign(S, { coins: 0, lives: 3, step: 0, phase: 'walk', phaseT: 5 });
     api.resetRound();
@@ -61,8 +61,8 @@ export default function create(api) {
     else if (S.phase === 'reveal') { if (S.phaseT <= 0) { if (S.lives <= 0) gameOver(); else { S.phase = 'walk'; S.phaseT = 2; S.result = null; } } }
     const hearts = Array.from({ length: 3 }, (_, i) => `<span style="color:${i < S.lives ? '#f87171' : '#475569'}">${api.icon('heart')}</span>`).join('');
     api.setHud(
-      `<div class="sub">${t('Coins', 'العملات')}</div><div class="big" style="color:${GOLD}">${api.icon('coins')}${S.coins}</div><div class="sub">${t('Best', 'الأفضل')} ${Math.max(S.best, S.coins)}</div>`,
-      `<div class="sub">${t('Lives', 'الأرواح')}</div><div class="big">${hearts}</div>`,
+      `<div class="sub">${t('Coins', 'العملات', 'Altın')}</div><div class="big" style="color:${GOLD}">${api.icon('coins')}${S.coins}</div><div class="sub">${t('Best', 'الأفضل', 'En iyi')} ${Math.max(S.best, S.coins)}</div>`,
+      `<div class="sub">${t('Lives', 'الأرواح', 'Canlar')}</div><div class="big">${hearts}</div>`,
     );
   }
 
@@ -103,10 +103,10 @@ export default function create(api) {
       const bx = 40, bw = W - 80, by = 770;
       api.roundRect(ctx, bx, by, bw, 26, 13); ctx.fillStyle = '#f472b6'; ctx.fill();
       ctx.save(); api.roundRect(ctx, bx, by, bw, 26, 13); ctx.clip(); ctx.fillStyle = '#67e8f9'; ctx.fillRect(bx, by, bw * share, 26); ctx.restore();
-      text(ctx, `${t('LEFT', 'يسار')} ${S.votes.left}`, bx + 10, by - 18, { size: 22, color: '#67e8f9', align: 'left' });
-      text(ctx, `${S.votes.right} ${t('RIGHT', 'يمين')}`, bx + bw - 10, by - 18, { size: 22, color: '#f472b6', align: 'right' });
+      text(ctx, `${t('LEFT', 'يسار', 'SOL')} ${S.votes.left}`, bx + 10, by - 18, { size: 22, color: '#67e8f9', align: 'left' });
+      text(ctx, `${S.votes.right} ${t('RIGHT', 'يمين', 'SAĞ')}`, bx + bw - 10, by - 18, { size: 22, color: '#f472b6', align: 'right' });
       text(ctx, Math.ceil(S.phaseT), W / 2, by - 22, { size: 40, color: '#fde68a', weight: 900 });
-      text(ctx, t('Type left or right!', 'اكتب يمين أو يسار!'), W / 2, by + 52, { size: 20, color: '#bbf7d0' });
+      text(ctx, t('Type left or right!', 'اكتب يمين أو يسار!', 'Sol ya da sağ yaz!'), W / 2, by + 52, { size: 20, color: '#bbf7d0' });
     }
     fxp.draw(ctx);
   }

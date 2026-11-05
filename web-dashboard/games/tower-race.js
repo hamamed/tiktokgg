@@ -39,10 +39,10 @@ export default function create(api) {
     S.rounds[team]++;
     S.phase = 'win'; S.phaseT = 6;
     const mvp = board.mvp(team);
-    api.banner(t(`${names[team]} REACHED THE CLOUDS!`, `${names[team]} وصل للغيوم!`), mvp ? t(`Top builder @${mvp}`, `أفضل بنّاء @${mvp}`) : '', team === 'red' ? RED : BLUE, 5500);
+    api.banner(t(`${names[team]} REACHED THE CLOUDS!`, `${names[team]} وصل للغيوم!`, `${names[team]} BULUTLARA ULAŞTI!`), mvp ? t(`Top builder @${mvp}`, `أفضل بنّاء @${mvp}`, `En iyi inşaatçı @${mvp}`) : '', team === 'red' ? RED : BLUE, 5500);
     api.sfx('win');
     fxp.burst(X[team], TOP, GOLD, 70, 340);
-    api.announce(t(`The ${names[team]} tower reached the clouds!${mvp ? ` Top builder: ${mvp}.` : ''} New round, start building!`, `برج ${names[team]} وصل إلى الغيوم!${mvp ? ` أفضل بنّاء: ${mvp}.` : ''} جولة جديدة، ابدأوا البناء!`));
+    api.announce(t(`The ${names[team]} tower reached the clouds!${mvp ? ` Top builder: ${mvp}.` : ''} New round, start building!`, `برج ${names[team]} وصل إلى الغيوم!${mvp ? ` أفضل بنّاء: ${mvp}.` : ''} جولة جديدة، ابدأوا البناء!`, `${names[team]} kulesi bulutlara ulaştı!${mvp ? ` En iyi inşaatçı: ${mvp}.` : ''} Yeni tur, inşaata başlayın!`));
     api.reportScore(S.rounds.red + S.rounds.blue);
   }
 
@@ -69,7 +69,7 @@ export default function create(api) {
     S.falling = S.falling.filter((f) => !f.done);
     if (S.phase === 'win') {
       S.phaseT -= dt;
-      if (S.phaseT <= 0) { S.phase = 'play'; S.blocks = { red: [], blue: [] }; S.falling = []; board.reset(); api.resetRound(); api.banner(t('BUILD!', 'ابنوا!'), '', GOLD, 1200); }
+      if (S.phaseT <= 0) { S.phase = 'play'; S.blocks = { red: [], blue: [] }; S.falling = []; board.reset(); api.resetRound(); api.banner(t('BUILD!', 'ابنوا!', 'İNŞA ET!'), '', GOLD, 1200); }
     }
     const names = teamNames(api);
     const h = (team) => `<div class="sub">${S.blocks[team].length} / ${goal()}</div>`;
@@ -83,7 +83,7 @@ export default function create(api) {
     // cloud line = goal
     for (let i = 0; i < 9; i++) { ctx.fillStyle = 'rgba(226,232,240,.18)'; ctx.beginPath(); ctx.ellipse(30 + i * 62, TOP - 6 + Math.sin(api.now + i) * 4, 48, 18, 0, 0, Math.PI * 2); ctx.fill(); }
     ctx.strokeStyle = GOLD; ctx.setLineDash([12, 10]); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(20, TOP); ctx.lineTo(W - 20, TOP); ctx.stroke(); ctx.setLineDash([]);
-    text(ctx, t('GOAL', 'الهدف'), W / 2, TOP - 16, { size: 16, color: GOLD });
+    text(ctx, t('GOAL', 'الهدف', 'HEDEF'), W / 2, TOP - 16, { size: 16, color: GOLD });
     ctx.fillStyle = '#334155'; ctx.fillRect(0, GROUND, W, H - GROUND);
     const bh = blockH();
     for (const team of ['red', 'blue']) {

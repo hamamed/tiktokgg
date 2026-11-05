@@ -987,6 +987,21 @@ const VOICE_DEFAULTS_AR = {
   },
   reminderLines: ['{tip}', 'أكبر داعم الآن هو {top}. هل تستطيع أن تسبقه؟', 'باقي {likesLeft} لايك فقط حتى {goal}!', '{howTo}'],
 };
+// Turkish versions of the default texts (same rule as Arabic).
+const VOICE_DEFAULTS_TR = {
+  templates: {
+    gift: '{gift} için teşekkürler {user}!',
+    bigGift: 'Vay! {user} {count} {gift} gönderdi! Çok teşekkürler!',
+    welcome: 'Hoş geldin {names}! {tip}',
+    follow: 'Takip ettiğin için teşekkürler {user}!',
+    share: 'Yayını paylaştığın için teşekkürler {user}!',
+  },
+  reminderLines: ['{tip}', 'Şu an en çok destekleyen {top}. Onu geçebilir misin?', '{goal} için sadece {likesLeft} beğeni kaldı!', '{howTo}'],
+};
+const LANG_DEFAULTS = { en: VOICE_DEFAULTS, ar: VOICE_DEFAULTS_AR, tr: VOICE_DEFAULTS_TR };
+/** Pick the sentence for the stream language. */
+const L = (en, ar, tr) => ({ ar, tr }[StreamSettings.voice().lang] || en);
+
 const OVERLAY_DEFAULTS = { legend: true, goals: true, supporters: true, ticker: true, welcome: true, sfx: true };
 
 /** Voice + overlay settings, validated, saved in settings.json and pushed to every client. */
@@ -999,7 +1014,7 @@ const StreamSettings = (() => {
     if (input.voice !== undefined) { if (!VOICE_IDS.includes(input.voice)) throw new Error('Unknown voice'); v.voice = input.voice; }
     v.rate = Math.round(clampNum(input.rate ?? v.rate, -50, 60, 0));
     v.volume = clampNum(input.volume ?? v.volume, 0, 1, 0.9);
-    v.lang = ['en', 'ar'].includes(input.lang) ? input.lang : v.lang;
+    v.lang = ['en', 'ar', 'tr'].includes(input.lang) ? input.lang : v.lang;
     for (const k of ['thankGifts', 'welcome', 'thankFollows', 'thankShares', 'announceGame', 'reminders']) v[k] = bool(input[k], v[k]);
     v.minDiamonds = Math.round(clampNum(input.minDiamonds ?? v.minDiamonds, 0, 1e6, 1));
     v.bigGiftDiamonds = Math.round(clampNum(input.bigGiftDiamonds ?? v.bigGiftDiamonds, 1, 1e7, 100));
@@ -1014,13 +1029,11 @@ const StreamSettings = (() => {
     voice() {
       const saved = Settings.get().voice || {};
       const v = { ...VOICE_DEFAULTS, ...saved, templates: { ...VOICE_DEFAULTS.templates, ...(saved.templates || {}) } };
-      if (v.lang === 'ar') {
-        for (const k of Object.keys(v.templates)) if (v.templates[k] === VOICE_DEFAULTS.templates[k]) v.templates[k] = VOICE_DEFAULTS_AR.templates[k];
-        if (JSON.stringify(v.reminderLines) === JSON.stringify(VOICE_DEFAULTS.reminderLines)) v.reminderLines = VOICE_DEFAULTS_AR.reminderLines;
-      } else {
-        for (const k of Object.keys(v.templates)) if (v.templates[k] === VOICE_DEFAULTS_AR.templates[k]) v.templates[k] = VOICE_DEFAULTS.templates[k];
-        if (JSON.stringify(v.reminderLines) === JSON.stringify(VOICE_DEFAULTS_AR.reminderLines)) v.reminderLines = VOICE_DEFAULTS.reminderLines;
-      }
+      // A text still equal to any language's default follows the chosen language; edited texts stay as written.
+      const want = LANG_DEFAULTS[v.lang] || VOICE_DEFAULTS;
+      const all = Object.values(LANG_DEFAULTS);
+      for (const k of Object.keys(v.templates)) if (all.some((d) => d.templates[k] === v.templates[k])) v.templates[k] = want.templates[k];
+      if (all.some((d) => JSON.stringify(d.reminderLines) === JSON.stringify(v.reminderLines))) v.reminderLines = want.reminderLines;
       return v;
     },
     overlay: () => ({ ...OVERLAY_DEFAULTS, ...(Settings.get().overlay || {}) }),
@@ -1229,20 +1242,21 @@ const Engage = (() => {
     const out = [];
     for (const [gift, r] of Object.entries(RuleStore.all())) {
       const a = Catalog.action(game, r.action);
-      if (a && gift !== '*') out.push(lang === 'ar' ? `أرسل ${gift} من أجل ${a.say?.ar ?? a.label}` : `Send a ${gift} to ${a.say?.en ?? a.label.toLowerCase()}`);
+      if (a && gift !== '*') out.push(lang === 'ar' ? `أرسل ${gift} من أجل ${a.say?.ar ?? a.label}` : lang === 'tr' ? `${a.say?.tr ?? a.label} için ${gift} gönder` : `Send a ${gift} to ${a.say?.en ?? a.label.toLowerCase()}`);
     }
     for (const [cmd, c] of Object.entries(CommandStore.all())) {
       const a = Catalog.action(game, c.action);
-      if (a) out.push(lang === 'ar' ? `اكتب ${cmd} في الشات من أجل ${a.say?.ar ?? a.label}` : `Type ${cmd} in chat to ${a.say?.en ?? a.label.toLowerCase()}`);
+      if (a) out.push(lang === 'ar' ? `اكتب ${cmd} في الشات من أجل ${a.say?.ar ?? a.label}` : lang === 'tr' ? `${a.say?.tr ?? a.label} için sohbete ${cmd} yaz` : `Type ${cmd} in chat to ${a.say?.en ?? a.label.toLowerCase()}`);
     }
-    return out.length ? out[Math.floor(Math.random() * out.length)] : (Catalog.game(game)?.howTo?.[lang] ?? '');
+    const pick = out.length ? out[Math.floor(Math.random() * out.length)] : (Catalog.game(game)?.howTo?.[lang] ?? '');
+    return pick.charAt(0).toLocaleUpperCase(lang) + pick.slice(1); // "Ok atmak için…", "Send a Rose…"
   }
   function names(list) {
     const lang = v().lang;
-    const and = lang === 'ar' ? ' و' : ' and ';
-    if (list.length <= 3) return list.join(lang === 'ar' ? ' و' : list.length > 2 ? ', ' : and);
+    const and = { ar: ' و', tr: ' ve ' }[lang] || ' and ';
+    if (list.length <= 3) return list.length > 2 && lang !== 'ar' ? `${list.slice(0, -1).join(', ')}${and}${list.at(-1)}` : list.join(and);
     const more = list.length - 2;
-    return lang === 'ar' ? `${list.slice(0, 2).join(' و')} و${more} آخرين` : `${list.slice(0, 2).join(', ')} and ${more} others`;
+    return lang === 'ar' ? `${list.slice(0, 2).join(' و')} و${more} آخرين` : lang === 'tr' ? `${list.slice(0, 2).join(', ')} ve ${more} kişi daha` : `${list.slice(0, 2).join(', ')} and ${more} others`;
   }
   function vars() {
     const lang = v().lang;
@@ -1253,7 +1267,7 @@ const Engage = (() => {
     return {
       tip: tip(), top: top ? top.nickname || top.uniqueId : '', likesLeft: likesLeft ?? '',
       goal: goal ? goal.label || goalAction?.label || '' : '', howTo: Catalog.game(GameConfig.active())?.howTo?.[lang] ?? '',
-      game: Catalog.game(GameConfig.active())?.name ?? '',
+      game: Catalog.game(GameConfig.active())?.n?.[lang] || Catalog.game(GameConfig.active())?.name || '',
     };
   }
 
@@ -1292,7 +1306,8 @@ const Engage = (() => {
         joinTimer = null;
         lastJoin = Date.now();
         const list = joinNames.splice(0);
-        if (list.length) Voice.say(fill(s.templates.welcome, { names: names(list), ...vars() }), { kind: 'welcome' });
+        // Read the settings now, not when the first viewer joined (the language may have changed meanwhile).
+        if (list.length) Voice.say(fill(v().templates.welcome, { names: names(list), ...vars() }), { kind: 'welcome' });
       }, wait);
     },
     follow(user) { const s = v(); if (s.enabled && s.thankFollows && !throttled('follow', 5000)) Voice.say(fill(s.templates.follow, { user: user.nickname || user.uniqueId }), { kind: 'follow' }); },
@@ -1516,7 +1531,7 @@ const TikTok = (() => {
       const cur = Session.current();
       if (!cur.live || cur.username !== username) Session.start(username);
       // Greet the stream once connected (only when the voice is on).
-      setTimeout(() => { const vv = Engage.vars(); Engage.announce(StreamSettings.voice().lang === 'ar' ? `أهلاً بالجميع! نلعب الآن ${vv.game}. ${vv.howTo}` : `Hello everyone! We're playing ${vv.game}. ${vv.howTo}`); }, 3000);
+      setTimeout(() => { const vv = Engage.vars(); Engage.announce(L(`Hello everyone! We're playing ${vv.game}. ${vv.howTo}`, `أهلاً بالجميع! نلعب الآن ${vv.game}. ${vv.howTo}`, `Herkese merhaba! Şimdi ${vv.game} oynuyoruz. ${vv.howTo}`)); }, 3000);
       const auto = Settings.get().autoConnect;
       if (auto.enabled && auto.username !== username) Settings.set({ autoConnect: { ...auto, username } });
       setStatus({ status: STATUS.CONNECTED, roomId: String(info?.roomId ?? '') || null, error: null, reconnecting: false, attempt: 0 });
@@ -1741,8 +1756,7 @@ const handlers = {
   [MSG.RESET_GAME]() { return GameConfig.resetDefaults(); },
   [MSG.UPDATE_SETTINGS](p) { return StreamSettings.update(p); },
   async [MSG.TEST_VOICE]({ text } = {}) {
-    const lang = StreamSettings.voice().lang;
-    const line = String(text || '').trim() || (lang === 'ar' ? `اختبار الصوت. ${Engage.tip()}` : `Voice test. ${Engage.tip()}`);
+    const line = String(text || '').trim() || L(`Voice test. ${Engage.tip()}`, `اختبار الصوت. ${Engage.tip()}`, `Ses testi. ${Engage.tip()}`);
     const r = await Voice.say(line, { kind: 'test', force: true });
     return r || { text: line, url: null, engine: 'off' };
   },

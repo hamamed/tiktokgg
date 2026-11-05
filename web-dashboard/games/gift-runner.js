@@ -16,8 +16,8 @@ export default function create(api) {
   const speedMul = () => (S.fx.boost.until > now() ? S.fx.boost.mul : 1) * (S.fx.slow.until > now() ? S.fx.slow.mul : 1);
   const unit = (ev) => ev.value / Math.max(1, ev.repeatCount || 1);
 
-  const auto = api.addTool(t('Autopilot on', 'قيادة آلية'), 'bot', () => { S.autopilot = !S.autopilot; syncAuto(); });
-  const syncAuto = () => auto.set(S.autopilot ? t('Autopilot on', 'قيادة آلية') : t('Autopilot off', 'قيادة يدوية'), 'bot');
+  const auto = api.addTool(t('Autopilot on', 'قيادة آلية', 'Otomatik pilot açık'), 'bot', () => { S.autopilot = !S.autopilot; syncAuto(); });
+  const syncAuto = () => auto.set(S.autopilot ? t('Autopilot on', 'قيادة آلية', 'Otomatik pilot açık') : t('Autopilot off', 'قيادة يدوية', 'Otomatik pilot kapalı'), 'bot');
 
   function spawnObstacle(y = -120, by = null) {
     const kind = Math.random() < 0.25 ? 'cone' : 'barrier';
@@ -40,10 +40,10 @@ export default function create(api) {
       S.best = Math.max(S.best, Math.floor(S.dist));
       try { localStorage.setItem('gr.best', JSON.stringify(S.best)); } catch {}
       const mvp = api.mvp();
-      const sub = [S.lastHitBy ? t(`taken out by @${S.lastHitBy}`, `أسقطها @${S.lastHitBy}`) : '', mvp ? t(`MVP @${mvp.user} · ${mvp.diamonds.toLocaleString()} diamonds`, `الأفضل @${mvp.user}`) : ''].filter(Boolean).join('  ·  ');
-      api.banner(t('CRASHED', 'تحطمت!'), sub || t('back in 3…', 'نعود بعد 3…'), '#fe2c55', 3000);
+      const sub = [S.lastHitBy ? t(`taken out by @${S.lastHitBy}`, `أسقطها @${S.lastHitBy}`, `devirdi: @${S.lastHitBy}`) : '', mvp ? t(`MVP @${mvp.user} · ${mvp.diamonds.toLocaleString()} diamonds`, `الأفضل @${mvp.user}`, `MVP @${mvp.user} · ${mvp.diamonds.toLocaleString()} elmas`) : ''].filter(Boolean).join('  ·  ');
+      api.banner(t('CRASHED', 'تحطمت!', 'KAZA!'), sub || t('back in 3…', 'نعود بعد 3…', '3 saniyede dönüyoruz…'), '#fe2c55', 3000);
       api.reportScore(S.dist);
-      api.announce(mvp ? t(`Crash! The MVP of this run is ${mvp.user}. Thank you!`, `اصطدام! أفضل داعم في هذه الجولة هو ${mvp.user}. شكراً!`) : t(`Crash! We drove ${Math.floor(S.dist)} meters.`, `اصطدام! قطعنا ${Math.floor(S.dist)} متر.`));
+      api.announce(mvp ? t(`Crash! The MVP of this run is ${mvp.user}. Thank you!`, `اصطدام! أفضل داعم في هذه الجولة هو ${mvp.user}. شكراً!`, `Kaza! Bu turun MVP'si ${mvp.user}. Teşekkürler!`) : t(`Crash! We drove ${Math.floor(S.dist)} meters.`, `اصطدام! قطعنا ${Math.floor(S.dist)} متر.`, `Kaza! ${Math.floor(S.dist)} metre gittik.`));
     }
   }
 
@@ -62,7 +62,7 @@ export default function create(api) {
       const extra = 6 + 2 * level + 3 * ((ev.repeatCount || 1) - 1);
       if (S.boss && S.boss.until > now()) { S.boss.level = Math.max(S.boss.level, level); S.boss.until += extra; S.boss.by = ev.user; }
       else S.boss = { until: now() + extra, level, x: W / 2, dir: 1, fireIn: 1.2, enter: 0, by: ev.user };
-      api.banner(t('BOSS INCOMING', 'الزعيم قادم'), t(`level ${level} · sent by @${ev.user}`, `المستوى ${level} · من @${ev.user}`), '#f87171');
+      api.banner(t('BOSS INCOMING', 'الزعيم قادم', 'PATRON GELİYOR'), t(`level ${level} · sent by @${ev.user}`, `المستوى ${level} · من @${ev.user}`, `seviye ${level} · gönderen @${ev.user}`), '#f87171');
     },
     HEAL_PLAYER(ev) {
       if (S.crashed > 0) return;
@@ -134,8 +134,8 @@ export default function create(api) {
     // HUD + effect timers
     const hpColor = S.hp > 50 ? 'linear-gradient(90deg,#22c55e,#a3e635)' : S.hp > 25 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : 'linear-gradient(90deg,#dc2626,#f87171)';
     api.setHud(
-      `<div class="sub">${t('Distance', 'المسافة')}</div><div class="big">${api.icon('route')}${Math.floor(S.dist).toLocaleString()}</div>`,
-      `<div class="sub" style="display:flex;justify-content:space-between"><span>HP</span><span>${Math.ceil(S.hp)}</span></div><div class="bar"><i style="width:${S.hp}%;background:${hpColor}"></i></div><div class="sub" style="margin-top:.35em">${t('Best', 'الأفضل')} ${Math.max(S.best, Math.floor(S.dist)).toLocaleString()}</div>`,
+      `<div class="sub">${t('Distance', 'المسافة', 'Mesafe')}</div><div class="big">${api.icon('route')}${Math.floor(S.dist).toLocaleString()}</div>`,
+      `<div class="sub" style="display:flex;justify-content:space-between"><span>HP</span><span>${Math.ceil(S.hp)}</span></div><div class="bar"><i style="width:${S.hp}%;background:${hpColor}"></i></div><div class="sub" style="margin-top:.35em">${t('Best', 'الأفضل', 'En iyi')} ${Math.max(S.best, Math.floor(S.dist)).toLocaleString()}</div>`,
     );
     const eff = [];
     const add = (id, until, extra = '') => { const s = until - now(); if (s > 0) { const a = lookAction(id); eff.push({ icon: a.icon, color: a.color, label: `${a.label} ${extra}`.trim(), secs: s }); } };
@@ -146,7 +146,7 @@ export default function create(api) {
     if (S.boss && S.boss.until > now()) add('BOSS_ATTACK', S.boss.until, `LV ${S.boss.level}`);
     api.setEffects(eff);
   }
-  const LOOK = { SPEED_BOOST: ['zap', '#fcd34d', t('Speed boost', 'سرعة')], SPEED_SLOW: ['snail', '#7dd3fc', t('Slow motion', 'بطء')], SCREEN_SPLATTER: ['droplets', '#ca8a04', t('Mud', 'طين')], REVERSE_CONTROLS: ['arrow-left-right', '#c4b5fd', t('Reversed', 'معكوس')], BOSS_ATTACK: ['skull', '#f87171', t('Boss', 'الزعيم')] };
+  const LOOK = { SPEED_BOOST: ['zap', '#fcd34d', t('Speed boost', 'سرعة', 'Hız')], SPEED_SLOW: ['snail', '#7dd3fc', t('Slow motion', 'بطء', 'Ağır çekim')], SCREEN_SPLATTER: ['droplets', '#ca8a04', t('Mud', 'طين', 'Çamur')], REVERSE_CONTROLS: ['arrow-left-right', '#c4b5fd', t('Reversed', 'معكوس', 'Ters')], BOSS_ATTACK: ['skull', '#f87171', t('Boss', 'الزعيم', 'Patron')] };
   const lookAction = (id) => ({ icon: LOOK[id][0], color: LOOK[id][1], label: LOOK[id][2] });
 
   function draw(ctx, fx) {

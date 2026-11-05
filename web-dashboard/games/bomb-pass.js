@@ -34,14 +34,14 @@ export default function create(api) {
     const p = S.players[S.holder];
     if (p) { p.out = true; fxp.burst(...pos(S.holder), '#fb923c', 50, 340); }
     api.sfx('boom');
-    api.banner(t('BOOM!', 'بوم!'), p ? t(`@${p.user} is out`, `@${p.user} خرج`) : '', '#fb923c', 2200);
+    api.banner(t('BOOM!', 'بوم!', 'BUM!'), p ? t(`@${p.user} is out`, `@${p.user} خرج`, `@${p.user} elendi`) : '', '#fb923c', 2200);
     const left = alive();
     if (left.length <= 1) {
       S.winner = left[0]?.user || null;
       S.phase = 'won'; S.phaseT = 6; S.rounds++;
-      api.banner(t('WINNER!', 'الفائز!'), S.winner ? '@' + S.winner : '', GOLD, 5500);
+      api.banner(t('WINNER!', 'الفائز!', 'KAZANAN!'), S.winner ? '@' + S.winner : '', GOLD, 5500);
       api.sfx('win');
-      api.announce(S.winner ? t(`${S.winner} survived the bomb and wins! Type join to play the next round!`, `${S.winner} نجا من القنبلة وفاز! اكتب join للعب الجولة القادمة!`) : t('Nobody survived!', 'لم ينجُ أحد!'));
+      api.announce(S.winner ? t(`${S.winner} survived the bomb and wins! Type join to play the next round!`, `${S.winner} نجا من القنبلة وفاز! اكتب join للعب الجولة القادمة!`, `${S.winner} bombadan kurtuldu ve kazandı! Sonraki tur için join yaz!`) : t('Nobody survived!', 'لم ينجُ أحد!', 'Kimse kurtulamadı!'));
       api.reportScore(S.rounds);
     } else { S.holder = pickHolder(S.holder); S.fuse = fuseLen(); }
   }
@@ -55,10 +55,10 @@ export default function create(api) {
 
   function update(dt) {
     fxp.update(dt);
-    if (S.phase === 'waiting' && S.players.length >= minPlayers()) { S.phase = 'countdown'; S.phaseT = 5; api.banner(t('GET READY', 'استعدوا'), t(`${S.players.length} players`, `${S.players.length} لاعبين`), GOLD, 1800); }
+    if (S.phase === 'waiting' && S.players.length >= minPlayers()) { S.phase = 'countdown'; S.phaseT = 5; api.banner(t('GET READY', 'استعدوا', 'HAZIR OLUN'), t(`${S.players.length} players`, `${S.players.length} لاعبين`, `${S.players.length} oyuncu`), GOLD, 1800); }
     if (S.phase === 'countdown') {
       S.phaseT -= dt;
-      if (S.phaseT <= 0) { S.phase = 'playing'; S.players.forEach((p) => (p.out = false)); S.holder = pickHolder(-1); S.fuse = fuseLen(); api.announce(t('The bomb is lit! Gifts pass it on!', 'القنبلة اشتعلت! الهدايا تمررها!')); }
+      if (S.phaseT <= 0) { S.phase = 'playing'; S.players.forEach((p) => (p.out = false)); S.holder = pickHolder(-1); S.fuse = fuseLen(); api.announce(t('The bomb is lit! Gifts pass it on!', 'القنبلة اشتعلت! الهدايا تمررها!', 'Bomba yandı! Hediyeler onu başkasına geçirir!')); }
     }
     if (S.phase === 'playing') {
       S.fuse -= dt;
@@ -70,7 +70,7 @@ export default function create(api) {
       S.phaseT -= dt;
       if (S.phaseT <= 0) { S.phase = 'waiting'; S.players.forEach((p) => (p.out = false)); S.winner = null; api.resetRound(); }
     }
-    api.setHud(`<div class="sub">${t('Players', 'اللاعبون')}</div><div class="big">${api.icon('users')}${alive().length}${S.phase === 'waiting' ? ` / ${minPlayers()}` : ''}</div><div class="sub">${t('Rounds', 'الجولات')} ${S.rounds}</div>`);
+    api.setHud(`<div class="sub">${t('Players', 'اللاعبون', 'Oyuncular')}</div><div class="big">${api.icon('users')}${alive().length}${S.phase === 'waiting' ? ` / ${minPlayers()}` : ''}</div><div class="sub">${t('Rounds', 'الجولات', 'Turlar')} ${S.rounds}</div>`);
   }
 
   function draw(ctx) {
@@ -93,12 +93,12 @@ export default function create(api) {
       ctx.fillStyle = Math.floor(api.now * 10) % 2 ? '#fde047' : '#fb923c'; ctx.beginPath(); ctx.arc(x + 40, y - 64, 5, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#f87171'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y, 31, 0, Math.PI * 2); ctx.stroke();
       text(ctx, Math.ceil(S.fuse), CX, CY - 6, { size: 72, color: S.fuse < 5 ? '#f87171' : '#fde68a', weight: 900 });
-      text(ctx, t('seconds', 'ثانية'), CX, CY + 40, { size: 18, color: '#fcd34d', weight: 700 });
+      text(ctx, t('seconds', 'ثانية', 'saniye'), CX, CY + 40, { size: 18, color: '#fcd34d', weight: 700 });
     } else if (S.phase === 'countdown') {
       text(ctx, Math.ceil(S.phaseT), CX, CY, { size: 80, color: GOLD, weight: 900 });
     } else if (S.phase === 'waiting') {
-      text(ctx, t('Type !join to play', 'اكتب !join للعب'), CX, CY - 10, { size: 26, color: '#fde68a' });
-      text(ctx, t(`${S.players.length} / ${minPlayers()} players`, `${S.players.length} / ${minPlayers()} لاعبين`), CX, CY + 24, { size: 18, color: '#fdba74', weight: 700 });
+      text(ctx, t('Type !join to play', 'اكتب !join للعب', 'Oynamak için !join yaz'), CX, CY - 10, { size: 26, color: '#fde68a' });
+      text(ctx, t(`${S.players.length} / ${minPlayers()} players`, `${S.players.length} / ${minPlayers()} لاعبين`, `${S.players.length} / ${minPlayers()} oyuncu`), CX, CY + 24, { size: 18, color: '#fdba74', weight: 700 });
     } else if (S.phase === 'won' && S.winner) {
       const i = S.players.findIndex((p) => p.user === S.winner);
       if (i >= 0) { const [x, y] = pos(i); ctx.strokeStyle = GOLD; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(x, y, 34, 0, Math.PI * 2); ctx.stroke(); }

@@ -20,10 +20,10 @@ export default function create(api) {
     S.sinking = 4.5;
     S.best = Math.max(S.best, Math.floor(S.dist));
     const mvp = api.mvp();
-    api.banner(t('THE BOAT SANK', 'غرق القارب'), t(`${Math.floor(S.dist)} m${mvp ? ` · MVP @${mvp.user}` : ''}`, `${Math.floor(S.dist)} م${mvp ? ` · الأفضل @${mvp.user}` : ''}`), '#38bdf8', 4000);
+    api.banner(t('THE BOAT SANK', 'غرق القارب', 'TEKNE BATTI'), t(`${Math.floor(S.dist)} m${mvp ? ` · MVP @${mvp.user}` : ''}`, `${Math.floor(S.dist)} م${mvp ? ` · الأفضل @${mvp.user}` : ''}`, `${Math.floor(S.dist)} m${mvp ? ` · MVP @${mvp.user}` : ''}`), '#38bdf8', 4000);
     api.sfx('boom');
     api.reportScore(S.dist);
-    api.announce(t(`The boat sank after ${Math.floor(S.dist)} meters!${mvp ? ` Thanks ${mvp.user}!` : ''} New boat, set sail!`, `غرق القارب بعد ${Math.floor(S.dist)} متر!${mvp ? ` شكراً ${mvp.user}!` : ''} قارب جديد، أبحروا!`));
+    api.announce(t(`The boat sank after ${Math.floor(S.dist)} meters!${mvp ? ` Thanks ${mvp.user}!` : ''} New boat, set sail!`, `غرق القارب بعد ${Math.floor(S.dist)} متر!${mvp ? ` شكراً ${mvp.user}!` : ''} قارب جديد، أبحروا!`, `Tekne ${Math.floor(S.dist)} metre sonra battı!${mvp ? ` Teşekkürler ${mvp.user}!` : ''} Yeni tekne, yelken açın!`));
   }
   const waveAt = (x) => Math.sin(x / 60 + api.now * 2) * (10 + S.swell * 20) + Math.sin(x / 23 - api.now * 3) * 4;
   const boatY = () => SEA_Y + waveAt(BOAT_X) - 10 + (S.sinking > 0 ? (4.5 - S.sinking) * 40 : 0);
@@ -31,7 +31,7 @@ export default function create(api) {
   const actions = {
     WAVE: (ev) => { const size = clamp(Number(ev.value) || 1, 1, 10); S.waves.push({ x: W + 60, size, by: ev.user, hit: false }); },
     LIGHTNING: (ev) => { for (let i = 0; i < clamp(Math.round(ev.value) || 1, 1, 8); i++) S.bolts.push({ in: i * 0.45, by: ev.user }); },
-    WHALE: (ev) => { S.whale = { t: 0, by: ev.user }; api.banner(t('WHALE!', 'حوت!'), t(`sent by @${ev.user}`, `من @${ev.user}`), '#818cf8', 1800); },
+    WHALE: (ev) => { S.whale = { t: 0, by: ev.user }; api.banner(t('WHALE!', 'حوت!', 'BALİNA!'), t(`sent by @${ev.user}`, `من @${ev.user}`, `gönderen @${ev.user}`), '#818cf8', 1800); },
     SAIL_BOOST: (ev) => { S.boost = Math.max(S.boost, api.now) + clamp(ev.value || 3, 1, 60); },
     REPAIR: (ev) => { if (S.sinking <= 0) { S.hp = clamp(S.hp + (Number(ev.value) || 10), 0, 100); fxp.burst(BOAT_X, boatY(), '#6ee7b7', 20, 150); } },
     CALM_SEA: (ev) => { S.calm = Math.max(S.calm, api.now) + clamp(ev.value || 10, 1, 120); },
@@ -48,7 +48,7 @@ export default function create(api) {
     for (const r of rain) { r.y += r.s * dt * (calm() ? 0.2 : 1); r.x -= 120 * dt; if (r.y > H) { r.y = -10; r.x = rand(0, W + 100); } }
     if (S.sinking > 0) {
       S.sinking -= dt;
-      if (S.sinking <= 0) { Object.assign(S, { hp: 100, dist: 0, waves: [], bolts: [], whale: null }); api.resetRound(); api.banner(t('SET SAIL!', 'أبحروا!'), '', GOLD, 1500); }
+      if (S.sinking <= 0) { Object.assign(S, { hp: 100, dist: 0, waves: [], bolts: [], whale: null }); api.resetRound(); api.banner(t('SET SAIL!', 'أبحروا!', 'YELKEN AÇ!'), '', GOLD, 1500); }
     } else {
       S.dist += (S.boost > api.now ? 16 : 7) * dt;
       if (!calm() && Math.random() < dt * 0.25) S.waves.push({ x: W + 60, size: 1, by: null, hit: false }); // small ambient waves
@@ -72,12 +72,12 @@ export default function create(api) {
     S.tilt *= Math.pow(0.15, dt);
     const hpColor = S.hp > 50 ? '#22c55e' : S.hp > 25 ? '#f59e0b' : '#ef4444';
     api.setHud(
-      `<div class="sub">${t('Sailed', 'المسافة')}</div><div class="big">${api.icon('sailboat')}${Math.floor(S.dist).toLocaleString()} m</div><div class="sub">${t('Best', 'الأفضل')} ${Math.max(S.best, Math.floor(S.dist)).toLocaleString()} m</div>`,
-      `<div class="sub" style="display:flex;justify-content:space-between"><span>${t('Hull', 'الهيكل')}</span><span>${Math.ceil(S.hp)}</span></div><div class="bar"><i style="width:${S.hp}%;background:${hpColor}"></i></div>`,
+      `<div class="sub">${t('Sailed', 'المسافة', 'Yol')}</div><div class="big">${api.icon('sailboat')}${Math.floor(S.dist).toLocaleString()} m</div><div class="sub">${t('Best', 'الأفضل', 'En iyi')} ${Math.max(S.best, Math.floor(S.dist)).toLocaleString()} m</div>`,
+      `<div class="sub" style="display:flex;justify-content:space-between"><span>${t('Hull', 'الهيكل', 'Gövde')}</span><span>${Math.ceil(S.hp)}</span></div><div class="bar"><i style="width:${S.hp}%;background:${hpColor}"></i></div>`,
     );
     const eff = [];
-    if (S.boost > api.now) eff.push({ icon: 'wind', color: '#fcd34d', label: t('Sail boost', 'دفع الشراع'), secs: S.boost - api.now });
-    if (calm()) eff.push({ icon: 'sun', color: '#fdba74', label: t('Calm sea', 'بحر هادئ'), secs: S.calm - api.now });
+    if (S.boost > api.now) eff.push({ icon: 'wind', color: '#fcd34d', label: t('Sail boost', 'دفع الشراع', 'Yelken gücü'), secs: S.boost - api.now });
+    if (calm()) eff.push({ icon: 'sun', color: '#fdba74', label: t('Calm sea', 'بحر هادئ', 'Sakin deniz'), secs: S.calm - api.now });
     api.setEffects(eff);
   }
 

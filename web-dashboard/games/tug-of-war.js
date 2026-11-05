@@ -28,10 +28,10 @@ export default function create(api) {
     S.rounds[team]++;
     S.phase = 'win'; S.phaseT = 6;
     const mvp = board.mvp(team);
-    api.banner(t(`${names[team]} WINS!`, `فاز ${names[team]}!`), mvp ? t(`MVP @${mvp}`, `الأفضل @${mvp}`) : '', team === 'red' ? RED : BLUE, 5500);
+    api.banner(t(`${names[team]} WINS!`, `فاز ${names[team]}!`, `${names[team]} KAZANDI!`), mvp ? t(`MVP @${mvp}`, `الأفضل @${mvp}`, `MVP @${mvp}`) : '', team === 'red' ? RED : BLUE, 5500);
     api.sfx('win');
     fxp.burst(W / 2 + (team === 'red' ? -SPAN : SPAN), ROPE_Y - 40, GOLD, 60, 320);
-    api.announce(t(`${names[team]} team wins the round!${mvp ? ` Biggest puller: ${mvp}.` : ''} Next round starts now, pick your side!`, `فاز الفريق ${names[team]} بالجولة!${mvp ? ` أقوى ساحب: ${mvp}.` : ''} جولة جديدة، اختر فريقك!`));
+    api.announce(t(`${names[team]} team wins the round!${mvp ? ` Biggest puller: ${mvp}.` : ''} Next round starts now, pick your side!`, `فاز الفريق ${names[team]} بالجولة!${mvp ? ` أقوى ساحب: ${mvp}.` : ''} جولة جديدة، اختر فريقك!`, `${names[team]} takımı turu kazandı!${mvp ? ` En güçlü çeken: ${mvp}.` : ''} Yeni tur başlıyor, tarafını seç!`));
     api.reportScore(S.rounds.red + S.rounds.blue);
   }
 
@@ -56,7 +56,7 @@ export default function create(api) {
     fxp.update(dt);
     if (S.phase === 'win') {
       S.phaseT -= dt;
-      if (S.phaseT <= 0) { S.phase = 'play'; S.pos = 0; board.reset(); api.resetRound(); S.recent = { red: [], blue: [] }; api.banner(t('PULL!', 'اسحب!'), '', GOLD, 1200); }
+      if (S.phaseT <= 0) { S.phase = 'play'; S.pos = 0; board.reset(); api.resetRound(); S.recent = { red: [], blue: [] }; api.banner(t('PULL!', 'اسحب!', 'ÇEK!'), '', GOLD, 1200); }
     }
     const names = teamNames(api);
     const fr = (team) => (S.frozen[team] > api.now ? `<div class="sub" style="color:#bae6fd">${api.icon('snowflake')} ${Math.ceil(S.frozen[team] - api.now)}s</div>` : '');

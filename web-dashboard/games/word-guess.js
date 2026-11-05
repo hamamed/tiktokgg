@@ -7,7 +7,16 @@ export default function create(api) {
   const S = { word: '', hint: '', shown: new Set(), nextLetter: 0, double: 0, scores: {}, phase: 'play', phaseT: 0, solvedBy: null, used: [] };
   const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ًͯ-ٟـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/[^\p{L}\p{N}]/gu, '');
   const letterEvery = () => clamp(Number(api.options.letterEvery) || 12, 3, 120);
-  const list = () => (Array.isArray(api.options.words) && api.options.words.length ? api.options.words : ['rainbow|weather']);
+  // Built-in word lists per stream language; used while the list in Settings is still the default English one.
+  const DEFAULT_WORDS = {
+    en: ['rainbow|weather', 'giraffe|animal', 'pizza|food', 'guitar|music', 'rocket|space', 'dolphin|animal', 'volcano|nature', 'football|sport', 'castle|place', 'diamond|treasure', 'penguin|animal', 'chocolate|food'],
+    ar: ['قوس قزح|طقس', 'زرافة|حيوان', 'بيتزا|طعام', 'جيتار|موسيقى', 'صاروخ|فضاء', 'دلفين|حيوان', 'بركان|طبيعة', 'كرة القدم|رياضة', 'قلعة|مكان', 'ألماس|كنز', 'بطريق|حيوان', 'شوكولاتة|طعام'],
+    tr: ['gökkuşağı|hava', 'zürafa|hayvan', 'pizza|yemek', 'gitar|müzik', 'roket|uzay', 'yunus|hayvan', 'yanardağ|doğa', 'futbol|spor', 'kale|yer', 'elmas|hazine', 'penguen|hayvan', 'çikolata|yemek'],
+  };
+  const list = () => {
+    const w = Array.isArray(api.options.words) && api.options.words.length ? api.options.words : DEFAULT_WORDS.en;
+    return JSON.stringify(w) === JSON.stringify(DEFAULT_WORDS.en) ? DEFAULT_WORDS[api.lang] || w : w;
+  };
   const isRtl = () => /[֐-ࣿ]/.test(S.word);
 
   function newWord() {
@@ -23,7 +32,7 @@ export default function create(api) {
   function reveal(n = 1) {
     const hidden = [...S.word].map((ch, i) => i).filter((i) => !S.shown.has(i) && /\S/.test(S.word[i]));
     for (let k = 0; k < n && hidden.length; k++) S.shown.add(hidden.splice(Math.floor(Math.random() * hidden.length), 1)[0]);
-    if (!hidden.length && S.phase === 'play') { S.phase = 'solved'; S.phaseT = 4; api.banner(S.word.toUpperCase(), t('Nobody got it!', 'لم يعرفها أحد!'), '#94a3b8', 3500); api.sfx('bad'); }
+    if (!hidden.length && S.phase === 'play') { S.phase = 'solved'; S.phaseT = 4; api.banner(S.word.toUpperCase(), t('Nobody got it!', 'لم يعرفها أحد!', 'Kimse bilemedi!'), '#94a3b8', 3500); api.sfx('bad'); }
   }
   function solved(user) {
     const hiddenCount = [...S.word].filter((ch, i) => !S.shown.has(i) && /\S/.test(ch)).length;
@@ -31,10 +40,10 @@ export default function create(api) {
     S.scores[user] = (S.scores[user] || 0) + pts;
     S.phase = 'solved'; S.phaseT = 4.5; S.solvedBy = user;
     S.shown = new Set([...S.word].map((_, i) => i));
-    api.banner(S.word.toUpperCase(), t(`@${user} got it! +${pts}`, `@${user} عرفها! +${pts}`), GOLD, 4000);
+    api.banner(S.word.toUpperCase(), t(`@${user} got it! +${pts}`, `@${user} عرفها! +${pts}`, `@${user} bildi! +${pts}`), GOLD, 4000);
     api.sfx('win');
     fxp.burst(W / 2, 600, GOLD, 50, 300);
-    api.announce(t(`${user} guessed it! The word was ${S.word}. Plus ${pts} points!`, `${user} عرف الكلمة! الكلمة هي ${S.word}. ${pts} نقاط!`));
+    api.announce(t(`${user} guessed it! The word was ${S.word}. Plus ${pts} points!`, `${user} عرف الكلمة! الكلمة هي ${S.word}. ${pts} نقاط!`, `${user} bildi! Kelime ${S.word} idi. ${pts} puan!`));
     api.reportScore(pts);
   }
   newWord();
@@ -42,7 +51,7 @@ export default function create(api) {
   const actions = {
     REVEAL_LETTER: (ev) => { if (S.phase === 'play') reveal(clamp(Math.round(ev.value) || 1, 1, 10)); },
     DOUBLE_POINTS: (ev) => { S.double = Math.max(S.double, api.now) + clamp(Number(ev.value) || 30, 5, 600); },
-    SKIP_WORD: () => { api.banner(S.word.toUpperCase(), t('skipped', 'تم التخطي'), '#c4b5fd', 2000); newWord(); },
+    SKIP_WORD: () => { api.banner(S.word.toUpperCase(), t('skipped', 'تم التخطي', 'geçildi'), '#c4b5fd', 2000); newWord(); },
   };
   const sounds = { REVEAL_LETTER: 'blip', DOUBLE_POINTS: 'good', SKIP_WORD: 'whoosh' };
 
@@ -52,8 +61,8 @@ export default function create(api) {
     if (S.phase === 'solved') { S.phaseT -= dt; if (S.phaseT <= 0) newWord(); }
     const top = Object.entries(S.scores).sort((a, b) => b[1] - a[1]).slice(0, 3)
       .map(([u, p], i) => `<div class="sub" style="text-transform:none;font-size:.62em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:14em">${i + 1}. @${api.esc(u)} · <b style="color:#fde68a">${p}</b></div>`).join('');
-    api.setHud(`<div class="sub">${t('Leaderboard', 'المتصدرون')}</div><div class="big">${api.icon('spell-check')}${Object.keys(S.scores).length}</div>${top}`);
-    api.setEffects(S.double > api.now ? [{ icon: 'badge-plus', color: '#6ee7b7', label: t('Double points', 'نقاط مضاعفة'), secs: S.double - api.now }] : []);
+    api.setHud(`<div class="sub">${t('Leaderboard', 'المتصدرون', 'Sıralama')}</div><div class="big">${api.icon('spell-check')}${Object.keys(S.scores).length}</div>${top}`);
+    api.setEffects(S.double > api.now ? [{ icon: 'badge-plus', color: '#6ee7b7', label: t('Double points', 'نقاط مضاعفة', 'Çift puan'), secs: S.double - api.now }] : []);
   }
 
   function draw(ctx) {
@@ -72,13 +81,13 @@ export default function create(api) {
       ctx.fillStyle = S.shown.has(i) ? (S.phase === 'solved' && S.solvedBy ? '#facc15' : '#e2e8f0') : 'rgba(255,255,255,.12)'; ctx.fill();
       if (S.shown.has(i)) text(ctx, ch.toUpperCase(), x + size / 2, y + size * 0.62, { size: size * 0.62, color: '#0b1026', weight: 900, shadow: false });
     });
-    if (S.hint) text(ctx, t(`Hint: ${S.hint}`, `تلميح: ${S.hint}`), W / 2, y - 34, { size: 22, color: '#93c5fd' });
-    text(ctx, t('Type your guess in chat!', 'اكتب تخمينك في الشات!'), W / 2, y + size * 1.2 + 40, { size: 22, color: '#fde68a' });
+    if (S.hint) text(ctx, t(`Hint: ${S.hint}`, `تلميح: ${S.hint}`, `İpucu: ${S.hint}`), W / 2, y - 34, { size: 22, color: '#93c5fd' });
+    text(ctx, t('Type your guess in chat!', 'اكتب تخمينك في الشات!', 'Tahminini sohbete yaz!'), W / 2, y + size * 1.2 + 40, { size: 22, color: '#fde68a' });
     if (S.phase === 'play') {
       const k = clamp((S.nextLetter - api.now) / letterEvery(), 0, 1);
       api.roundRect(ctx, 80, y + size * 1.2 + 70, W - 160, 10, 5); ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fill();
       ctx.fillStyle = '#38bdf8'; ctx.fillRect(80, y + size * 1.2 + 70, (W - 160) * k, 10);
-      text(ctx, t(`next letter in ${Math.ceil(S.nextLetter - api.now)}s`, `الحرف التالي بعد ${Math.ceil(S.nextLetter - api.now)} ث`), W / 2, y + size * 1.2 + 98, { size: 14, color: '#94a3b8', weight: 600 });
+      text(ctx, t(`next letter in ${Math.ceil(S.nextLetter - api.now)}s`, `الحرف التالي بعد ${Math.ceil(S.nextLetter - api.now)} ث`, `sonraki harf ${Math.ceil(S.nextLetter - api.now)} sn`), W / 2, y + size * 1.2 + 98, { size: 14, color: '#94a3b8', weight: 600 });
     }
     fxp.draw(ctx);
   }

@@ -6,11 +6,11 @@ export default function create(api) {
   const { W, H, clamp, rand, t } = api;
   const BOX = { x: 50, y: 440, w: W - 100, h: 410 }, RAIL_Y = BOX.y + 40, FLOOR = BOX.y + BOX.h - 20, CHUTE_X = BOX.x + 60;
   const TYPES = [
-    { id: 'bear', color: '#d97706', name: ['Teddy bear', 'دبدوب'], rare: false },
-    { id: 'star', color: '#facc15', name: ['Star', 'نجمة'], rare: false },
-    { id: 'heart', color: '#fb7185', name: ['Heart', 'قلب'], rare: false },
-    { id: 'gem', color: '#22d3ee', name: ['Gem', 'جوهرة'], rare: false },
-    { id: 'crown', color: '#fbbf24', name: ['Golden crown', 'تاج ذهبي'], rare: true },
+    { id: 'bear', color: '#d97706', name: ['Teddy bear', 'دبدوب', 'oyuncak ayı'], rare: false },
+    { id: 'star', color: '#facc15', name: ['Star', 'نجمة', 'yıldız'], rare: false },
+    { id: 'heart', color: '#fb7185', name: ['Heart', 'قلب', 'kalp'], rare: false },
+    { id: 'gem', color: '#22d3ee', name: ['Gem', 'جوهرة', 'mücevher'], rare: false },
+    { id: 'crown', color: '#fbbf24', name: ['Golden crown', 'تاج ذهبي', 'altın taç'], rare: true },
   ];
   const fxp = particles();
   const S = { prizes: [], queue: [], claw: { x: BOX.x + BOX.w / 2, y: RAIL_Y, open: 1, state: 'idle', target: null, held: null, user: null, strength: 1, t: 0 }, winners: [], drops: 0 };
@@ -61,13 +61,13 @@ export default function create(api) {
       if (Math.abs(CHUTE_X - c.x) < 2) {
         c.open = 1;
         if (c.held) {
-          const name = c.held.type.name[api.lang === 'ar' ? 1 : 0];
+          const name = api.t(...c.held.type.name);
           S.winners.unshift({ user: c.user, prize: name, color: c.held.type.color });
           S.winners.length = Math.min(S.winners.length, 4);
           fxp.burst(CHUTE_X, BOX.y + BOX.h, c.held.type.color, 40, 300);
-          api.banner(t('WINNER!', 'فاز!'), t(`@${c.user} grabbed a ${name}`, `@${c.user} فاز بـ ${name}`), c.held.type.rare ? GOLD : '#f472b6', 2800);
+          api.banner(t('WINNER!', 'فاز!', 'KAZANAN!'), t(`@${c.user} grabbed a ${name}`, `@${c.user} فاز بـ ${name}`, `@${c.user} bir ${name} kazandı`), c.held.type.rare ? GOLD : '#f472b6', 2800);
           api.sfx('win');
-          if (c.held.type.rare || Math.random() < 0.5) api.announce(t(`${c.user} grabbed a ${name}!`, `${c.user} فاز بـ ${name}!`));
+          if (c.held.type.rare || Math.random() < 0.5) api.announce(t(`${c.user} grabbed a ${name}!`, `${c.user} فاز بـ ${name}!`, `${c.user} bir ${name} kazandı!`));
           c.held = null;
           addPrize();
         } else api.sfx('bad');
@@ -76,7 +76,7 @@ export default function create(api) {
     } else if (c.state === 'pause') { c.t -= dt; if (c.t <= 0) c.state = 'idle'; }
     if (c.state === 'move' || c.state === 'down') c.open = Math.min(1, c.open + dt * 3);
     const wins = S.winners.map((w) => `<div class="sub" style="text-transform:none;font-size:.62em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:14em">@${api.esc(w.user)} · <b style="color:${w.color}">${api.esc(w.prize)}</b></div>`).join('');
-    api.setHud(`<div class="sub">${t('Claws waiting', 'بانتظار المخلب')}</div><div class="big">${api.icon('magnet')}${S.queue.length + (c.state === 'idle' ? 0 : 1)}</div>${wins}`);
+    api.setHud(`<div class="sub">${t('Claws waiting', 'بانتظار المخلب', 'Bekleyen pençe')}</div><div class="big">${api.icon('magnet')}${S.queue.length + (c.state === 'idle' ? 0 : 1)}</div>${wins}`);
   }
 
   function drawPrize(ctx, p, x = p.x, y = p.y) {
@@ -107,7 +107,7 @@ export default function create(api) {
     ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(BOX.x + 10, BOX.y + 10, 40, BOX.h - 20);
     ctx.fillStyle = '#334155'; ctx.fillRect(BOX.x, RAIL_Y - 6, BOX.w, 6);
     ctx.fillStyle = '#020617'; ctx.fillRect(CHUTE_X - 36, FLOOR - 30, 72, 50);
-    text(ctx, t('PRIZES', 'جوائز'), CHUTE_X, FLOOR - 4, { size: 11, color: '#94a3b8', weight: 700 });
+    text(ctx, t('PRIZES', 'جوائز', 'ÖDÜLLER'), CHUTE_X, FLOOR - 4, { size: 11, color: '#94a3b8', weight: 700 });
     for (const p of S.prizes) drawPrize(ctx, p);
     // claw
     const c = S.claw;
@@ -117,7 +117,7 @@ export default function create(api) {
     for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(c.x + s * 12, c.y + 4); ctx.lineTo(c.x + s * (12 + 14 * c.open), c.y + 26); ctx.lineTo(c.x + s * (4 + 10 * c.open), c.y + 40); ctx.stroke(); }
     if (c.held) drawPrize(ctx, c.held, c.x, c.y + 38);
     if (c.user && c.state !== 'idle') text(ctx, '@' + c.user, c.x, RAIL_Y - 22, { size: 14, color: '#fde68a', max: 200 });
-    if (!S.queue.length && c.state === 'idle') text(ctx, t('Send a gift to drop the claw!', 'أرسل هدية لإنزال المخلب!'), W / 2, BOX.y + 120, { size: 20, color: '#f9a8d4' });
+    if (!S.queue.length && c.state === 'idle') text(ctx, t('Send a gift to drop the claw!', 'أرسل هدية لإنزال المخلب!', 'Pençeyi indirmek için hediye gönder!'), W / 2, BOX.y + 120, { size: 20, color: '#f9a8d4' });
     fxp.draw(ctx);
   }
 
