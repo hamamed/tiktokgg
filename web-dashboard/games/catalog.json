@@ -420,6 +420,14 @@
      "common": true
     },
     {
+     "key": "showGiftPrice",
+     "label": "Diamond price next to each gift",
+     "type": "bool",
+     "group": "show",
+     "default": false,
+     "common": true
+    },
+    {
      "key": "showGoals",
      "label": "Like goals",
      "type": "bool",
@@ -812,6 +820,14 @@
      "common": true
     },
     {
+     "key": "showGiftPrice",
+     "label": "Diamond price next to each gift",
+     "type": "bool",
+     "group": "show",
+     "default": false,
+     "common": true
+    },
+    {
      "key": "showGoals",
      "label": "Like goals",
      "type": "bool",
@@ -1191,6 +1207,14 @@
      "type": "bool",
      "group": "show",
      "default": true,
+     "common": true
+    },
+    {
+     "key": "showGiftPrice",
+     "label": "Diamond price next to each gift",
+     "type": "bool",
+     "group": "show",
+     "default": false,
      "common": true
     },
     {
@@ -1590,6 +1614,14 @@
      "type": "bool",
      "group": "show",
      "default": true,
+     "common": true
+    },
+    {
+     "key": "showGiftPrice",
+     "label": "Diamond price next to each gift",
+     "type": "bool",
+     "group": "show",
+     "default": false,
      "common": true
     },
     {
@@ -2004,6 +2036,14 @@
      "common": true
     },
     {
+     "key": "showGiftPrice",
+     "label": "Diamond price next to each gift",
+     "type": "bool",
+     "group": "show",
+     "default": false,
+     "common": true
+    },
+    {
      "key": "showGoals",
      "label": "Like goals",
      "type": "bool",
@@ -2256,6 +2296,14 @@
      "type": "bool",
      "group": "show",
      "default": true,
+     "common": true
+    },
+    {
+     "key": "showGiftPrice",
+     "label": "Diamond price next to each gift",
+     "type": "bool",
+     "group": "show",
+     "default": false,
      "common": true
     },
     {
@@ -2557,6 +2605,14 @@
      "common": true
     },
     {
+     "key": "showGiftPrice",
+     "label": "Diamond price next to each gift",
+     "type": "bool",
+     "group": "show",
+     "default": false,
+     "common": true
+    },
+    {
      "key": "showGoals",
      "label": "Like goals",
      "type": "bool",
@@ -2804,6 +2860,14 @@
      "common": true
     },
     {
+     "key": "showGiftPrice",
+     "label": "Diamond price next to each gift",
+     "type": "bool",
+     "group": "show",
+     "default": false,
+     "common": true
+    },
+    {
      "key": "showGoals",
      "label": "Like goals",
      "type": "bool",
@@ -3048,6 +3112,14 @@
      "type": "bool",
      "group": "show",
      "default": true,
+     "common": true
+    },
+    {
+     "key": "showGiftPrice",
+     "label": "Diamond price next to each gift",
+     "type": "bool",
+     "group": "show",
+     "default": false,
      "common": true
     },
     {
@@ -3354,6 +3426,14 @@
      "common": true
     },
     {
+     "key": "showGiftPrice",
+     "label": "Diamond price next to each gift",
+     "type": "bool",
+     "group": "show",
+     "default": false,
+     "common": true
+    },
+    {
      "key": "showGoals",
      "label": "Like goals",
      "type": "bool",
@@ -3632,6 +3712,14 @@
      "type": "bool",
      "group": "show",
      "default": true,
+     "common": true
+    },
+    {
+     "key": "showGiftPrice",
+     "label": "Diamond price next to each gift",
+     "type": "bool",
+     "group": "show",
+     "default": false,
      "common": true
     },
     {

@@ -497,7 +497,8 @@ function renderLegend() {
   $('legendList').innerHTML = rows.slice(LEG.page * perPage(), LEG.page * perPage() + perPage()).map((r) => {
     const look = actionLook(r.rule.action);
     const pic = r.command ? `<span class="cmd">${icon('message-square')}</span>` : r.image ? `<img src="${esc(imgSrc(r.image))}" alt="">` : icon(GIFT_ICON[r.key] ?? 'gift');
-    const price = Number.isFinite(r.diamonds) ? `<small>${icon('gem')}${r.diamonds.toLocaleString()}</small>` : r.command ? `<small>${tx('free')}</small>` : '';
+    // Diamond price / "free": off by default (Game settings → On screen → "Diamond price next to each gift").
+    const price = !flag('showGiftPrice', false) ? '' : Number.isFinite(r.diamonds) ? `<small>${icon('gem')}${r.diamonds.toLocaleString()}</small>` : r.command ? `<small>${tx('free')}</small>` : '';
     return `<li data-key="${esc(r.key)}"><span class="gimg">${pic}</span><span style="min-width:0">${r.command || flag('showGiftNames') || price ? `<span class="gname">${r.command || flag('showGiftNames') ? `<span style="overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>` : ''}${price}</span>` : ''}<span class="gact" style="color:${look.color}">${icon(look.icon)}${esc(look.label)}</span></span></li>`;
   }).join('');
   $('legendDots').innerHTML = LEG.pages > 1 ? Array.from({ length: LEG.pages }, (_, i) => `<i class="${i === LEG.page ? 'on' : ''}"></i>`).join('') : '';
