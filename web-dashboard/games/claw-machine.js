@@ -101,7 +101,7 @@ export default function create(api) {
   }
 
   function draw(ctx) {
-    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1e1b4b'); g.addColorStop(1, '#0f0a24'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    if (!api.drawBackground(ctx)) { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1e1b4b'); g.addColorStop(1, '#0f0a24'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
     // cabinet
     api.roundRect(ctx, BOX.x - 14, BOX.y - 60, BOX.w + 28, BOX.h + 90, 22); ctx.fillStyle = '#db2777'; ctx.fill();
     text(ctx, 'CLAW', W / 2, BOX.y - 30, { size: 30, color: '#fff', weight: 900 });

@@ -113,7 +113,7 @@ export default function create(api) {
   }
 
   function draw(ctx) {
-    sky(ctx, W, H, '#1a1033', '#2b1838');
+    if (!api.drawBackground(ctx)) { sky(ctx, W, H, '#1a1033', '#2b1838'); }
     // hills
     ctx.fillStyle = '#1f2937';
     ctx.beginPath(); ctx.moveTo(0, 420); for (let x = 0; x <= W; x += 30) ctx.lineTo(x, 400 + Math.sin(x / 70) * 20); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill();

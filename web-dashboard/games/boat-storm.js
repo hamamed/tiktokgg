@@ -85,9 +85,11 @@ export default function create(api) {
   }
 
   function draw(ctx) {
-    const g = ctx.createLinearGradient(0, 0, 0, SEA_Y);
-    if (calm()) { g.addColorStop(0, '#1e3a8a'); g.addColorStop(1, '#f59e0b'); } else { g.addColorStop(0, '#0f172a'); g.addColorStop(1, '#334155'); }
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    if (!api.drawBackground(ctx)) {
+      const g = ctx.createLinearGradient(0, 0, 0, SEA_Y);
+      if (calm()) { g.addColorStop(0, '#1e3a8a'); g.addColorStop(1, '#f59e0b'); } else { g.addColorStop(0, '#0f172a'); g.addColorStop(1, '#334155'); }
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
     if (calm()) { ctx.fillStyle = 'rgba(253,224,71,.85)'; ctx.beginPath(); ctx.arc(W / 2, SEA_Y - 40, 60, Math.PI, 0); ctx.fill(); }
     if (S.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${S.flash * 2})`; ctx.fillRect(0, 0, W, H); }
     for (const b of S.bolts.filter((x) => x.show > 0)) {

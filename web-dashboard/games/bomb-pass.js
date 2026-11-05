@@ -74,7 +74,7 @@ export default function create(api) {
   }
 
   function draw(ctx) {
-    sky(ctx, W, H, '#1c0f0a', '#2a1410');
+    if (!api.drawBackground(ctx)) { sky(ctx, W, H, '#1c0f0a', '#2a1410'); }
     ctx.strokeStyle = 'rgba(251,146,60,.18)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(CX, CY, RING, 0, Math.PI * 2); ctx.stroke();
     S.players.forEach((p, i) => {

@@ -66,8 +66,7 @@ export default function create(api) {
   }
 
   function draw(ctx) {
-    sky(ctx, W, H, '#0b1a2e', '#102a43');
-    stars(ctx, W, H, api.now, 50, 450);
+    if (!api.drawBackground(ctx)) { sky(ctx, W, H, '#0b1a2e', '#102a43'); stars(ctx, W, H, api.now, 50, 450); }
     const chars = [...S.word];
     const n = chars.length, gap = 6;
     const size = clamp(Math.floor((W - 60 - gap * (n - 1)) / n), 26, 54);

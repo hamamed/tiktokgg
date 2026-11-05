@@ -675,6 +675,21 @@
                     <input type="range" :min="o.min" :max="o.max" :step="o.step || 1" v-model.number="gameOptionsDraft[o.key]" @input="optChanged()" class="accent-tt-red" />
                     <span v-if="o.help" class="text-[11px] text-slate-500">{{ o.help }}</span>
                   </label>
+                  <!-- background picker: thumbnails of every background -->
+                  <div v-else-if="o.ui === 'backgrounds'" class="flex flex-col gap-2 px-1 sm:col-span-2">
+                    <span class="flex items-center justify-between gap-2 text-sm"><span>{{ o.label }}</span><b class="text-amber-300">{{ o.choices.find((c) => c[0] === gameOptionsDraft[o.key])?.[1] }}</b></span>
+                    <div class="grid max-h-[340px] grid-cols-4 gap-2 overflow-y-auto pr-1 sm:grid-cols-6 xl:grid-cols-8">
+                      <button v-for="c in o.choices" :key="c[0]" type="button" @click="gameOptionsDraft[o.key] = c[0]; optChanged(true)" :title="c[1]"
+                              class="group flex flex-col items-center gap-1 rounded-lg border p-1 transition" :class="gameOptionsDraft[o.key] === c[0] ? 'border-tt-red bg-tt-red/15' : 'border-white/10 hover:border-white/30'">
+                        <span class="relative block aspect-[9/16] w-full overflow-hidden rounded-md bg-slate-800">
+                          <span v-if="c[0] === 'game'" class="absolute inset-0 grid place-items-center text-slate-300"><lc-icon :name="activeGame?.icon || 'gamepad-2'" :size="22"></lc-icon></span>
+                          <canvas v-else :data-bg="c[0]" width="72" height="128" class="absolute inset-0 h-full w-full"></canvas>
+                          <lc-icon v-if="gameOptionsDraft[o.key] === c[0]" name="circle-check" :size="16" class="absolute right-1 top-1 rounded-full bg-black/60 text-emerald-400"></lc-icon>
+                        </span>
+                        <span class="w-full truncate text-center text-[10px] leading-tight text-slate-300">{{ c[1] }}</span>
+                      </button>
+                    </div>
+                  </div>
                   <!-- choice -->
                   <div v-else-if="o.type === 'select'" class="flex flex-col gap-1 px-1">
                     <span class="text-sm">{{ o.label }}</span>
@@ -1892,6 +1907,25 @@ const app = createApp({
       optionsDirty.value = false;
     }
     const gamePane = ref('gifts');
+    // Background thumbnails: drawn with the same code the stream page uses (games/_backgrounds.js).
+    let BGS = null;
+    async function drawBgThumbs() {
+      try {
+        if (!BGS) {
+          const base = /^https?:$/.test(location.protocol) ? new URL('games/_backgrounds.js', location.href).href : `${httpBase.value}/games/_backgrounds.js`;
+          BGS = (await import(base)).BACKGROUND_BY_ID;
+        }
+        await nextTick();
+        for (const cv of document.querySelectorAll('canvas[data-bg]')) {
+          const bg = BGS[cv.dataset.bg]; if (!bg) continue;
+          const c = cv.getContext('2d');
+          c.setTransform(cv.width / 540, 0, 0, cv.height / 960, 0, 0);
+          if (bg.id === 'transparent') { c.clearRect(0, 0, 540, 960); for (let y = 0; y < 960; y += 60) for (let x = 0; x < 540; x += 60) { c.fillStyle = (x + y) % 120 ? '#475569' : '#94a3b8'; c.fillRect(x, y, 60, 60); } }
+          else bg.draw(c, 540, 960, 4);
+        }
+      } catch (err) { console.warn('background thumbnails', err); }
+    }
+    watch(() => [gamePane.value, activeGameId.value, CAT.loaded], () => { if (gamePane.value === 'settings') drawBgThumbs(); });
     watch(gamePane, (p) => { if (p === 'layout') previewOn.value = true; }); // the editor is the preview
     // Screen layout of the active game: { legend: { x, y, w, s, dir } }
     const layout = reactive({});

@@ -331,6 +331,170 @@
      "unit": "s"
     },
     {
+     "key": "background",
+     "label": "Background",
+     "type": "select",
+     "group": "look",
+     "default": "game",
+     "choices": [
+      [
+       "game",
+       "Game's own"
+      ],
+      [
+       "transparent",
+       "Transparent (camera behind)"
+      ],
+      [
+       "green",
+       "Green screen"
+      ],
+      [
+       "midnight",
+       "Midnight"
+      ],
+      [
+       "sunset",
+       "Sunset"
+      ],
+      [
+       "ocean",
+       "Deep ocean"
+      ],
+      [
+       "neon",
+       "Neon glow"
+      ],
+      [
+       "forest",
+       "Forest night"
+      ],
+      [
+       "desert",
+       "Desert dusk"
+      ],
+      [
+       "starfield",
+       "Starfield"
+      ],
+      [
+       "warp",
+       "Hyperspace"
+      ],
+      [
+       "nebula",
+       "Nebula"
+      ],
+      [
+       "galaxy",
+       "Spiral galaxy"
+      ],
+      [
+       "aurora",
+       "Aurora"
+      ],
+      [
+       "synthwave",
+       "Synthwave"
+      ],
+      [
+       "city",
+       "City at night"
+      ],
+      [
+       "hexagons",
+       "Hex grid"
+      ],
+      [
+       "matrix",
+       "Digital rain"
+      ],
+      [
+       "disco",
+       "Disco lights"
+      ],
+      [
+       "gold",
+       "Gold luxury"
+      ],
+      [
+       "bokeh",
+       "Bokeh lights"
+      ],
+      [
+       "fireflies",
+       "Fireflies"
+      ],
+      [
+       "snow",
+       "Snowfall"
+      ],
+      [
+       "rain",
+       "Rainy night"
+      ],
+      [
+       "bubbles",
+       "Bubbles"
+      ],
+      [
+       "hearts",
+       "Floating hearts"
+      ],
+      [
+       "confetti",
+       "Confetti party"
+      ],
+      [
+       "lava",
+       "Lava lamp"
+      ],
+      [
+       "waves",
+       "Ocean waves"
+      ],
+      [
+       "clouds",
+       "Blue sky"
+      ],
+      [
+       "mountains",
+       "Mountain dawn"
+      ],
+      [
+       "candy",
+       "Candy stripes"
+      ],
+      [
+       "plasma",
+       "Color flow"
+      ],
+      [
+       "carbon",
+       "Dark carbon"
+      ],
+      [
+       "tiktok",
+       "Red & cyan"
+      ]
+     ],
+     "common": true,
+     "ui": "backgrounds"
+    },
+    {
+     "key": "bgDim",
+     "label": "Darken the background",
+     "type": "range",
+     "group": "look",
+     "default": 0,
+     "min": 0,
+     "max": 90,
+     "step": 5,
+     "unit": "%",
+     "common": true,
+     "help": "Makes the game easier to read on bright backgrounds."
+    },
+    {
      "key": "speed",
      "label": "Game speed",
      "type": "range",
@@ -731,6 +895,170 @@
      "default": true
     },
     {
+     "key": "background",
+     "label": "Background",
+     "type": "select",
+     "group": "look",
+     "default": "game",
+     "choices": [
+      [
+       "game",
+       "Game's own"
+      ],
+      [
+       "transparent",
+       "Transparent (camera behind)"
+      ],
+      [
+       "green",
+       "Green screen"
+      ],
+      [
+       "midnight",
+       "Midnight"
+      ],
+      [
+       "sunset",
+       "Sunset"
+      ],
+      [
+       "ocean",
+       "Deep ocean"
+      ],
+      [
+       "neon",
+       "Neon glow"
+      ],
+      [
+       "forest",
+       "Forest night"
+      ],
+      [
+       "desert",
+       "Desert dusk"
+      ],
+      [
+       "starfield",
+       "Starfield"
+      ],
+      [
+       "warp",
+       "Hyperspace"
+      ],
+      [
+       "nebula",
+       "Nebula"
+      ],
+      [
+       "galaxy",
+       "Spiral galaxy"
+      ],
+      [
+       "aurora",
+       "Aurora"
+      ],
+      [
+       "synthwave",
+       "Synthwave"
+      ],
+      [
+       "city",
+       "City at night"
+      ],
+      [
+       "hexagons",
+       "Hex grid"
+      ],
+      [
+       "matrix",
+       "Digital rain"
+      ],
+      [
+       "disco",
+       "Disco lights"
+      ],
+      [
+       "gold",
+       "Gold luxury"
+      ],
+      [
+       "bokeh",
+       "Bokeh lights"
+      ],
+      [
+       "fireflies",
+       "Fireflies"
+      ],
+      [
+       "snow",
+       "Snowfall"
+      ],
+      [
+       "rain",
+       "Rainy night"
+      ],
+      [
+       "bubbles",
+       "Bubbles"
+      ],
+      [
+       "hearts",
+       "Floating hearts"
+      ],
+      [
+       "confetti",
+       "Confetti party"
+      ],
+      [
+       "lava",
+       "Lava lamp"
+      ],
+      [
+       "waves",
+       "Ocean waves"
+      ],
+      [
+       "clouds",
+       "Blue sky"
+      ],
+      [
+       "mountains",
+       "Mountain dawn"
+      ],
+      [
+       "candy",
+       "Candy stripes"
+      ],
+      [
+       "plasma",
+       "Color flow"
+      ],
+      [
+       "carbon",
+       "Dark carbon"
+      ],
+      [
+       "tiktok",
+       "Red & cyan"
+      ]
+     ],
+     "common": true,
+     "ui": "backgrounds"
+    },
+    {
+     "key": "bgDim",
+     "label": "Darken the background",
+     "type": "range",
+     "group": "look",
+     "default": 0,
+     "min": 0,
+     "max": 90,
+     "step": 5,
+     "unit": "%",
+     "common": true,
+     "help": "Makes the game easier to read on bright backgrounds."
+    },
+    {
      "key": "speed",
      "label": "Game speed",
      "type": "range",
@@ -1119,6 +1447,170 @@
      "type": "bool",
      "group": "show",
      "default": true
+    },
+    {
+     "key": "background",
+     "label": "Background",
+     "type": "select",
+     "group": "look",
+     "default": "game",
+     "choices": [
+      [
+       "game",
+       "Game's own"
+      ],
+      [
+       "transparent",
+       "Transparent (camera behind)"
+      ],
+      [
+       "green",
+       "Green screen"
+      ],
+      [
+       "midnight",
+       "Midnight"
+      ],
+      [
+       "sunset",
+       "Sunset"
+      ],
+      [
+       "ocean",
+       "Deep ocean"
+      ],
+      [
+       "neon",
+       "Neon glow"
+      ],
+      [
+       "forest",
+       "Forest night"
+      ],
+      [
+       "desert",
+       "Desert dusk"
+      ],
+      [
+       "starfield",
+       "Starfield"
+      ],
+      [
+       "warp",
+       "Hyperspace"
+      ],
+      [
+       "nebula",
+       "Nebula"
+      ],
+      [
+       "galaxy",
+       "Spiral galaxy"
+      ],
+      [
+       "aurora",
+       "Aurora"
+      ],
+      [
+       "synthwave",
+       "Synthwave"
+      ],
+      [
+       "city",
+       "City at night"
+      ],
+      [
+       "hexagons",
+       "Hex grid"
+      ],
+      [
+       "matrix",
+       "Digital rain"
+      ],
+      [
+       "disco",
+       "Disco lights"
+      ],
+      [
+       "gold",
+       "Gold luxury"
+      ],
+      [
+       "bokeh",
+       "Bokeh lights"
+      ],
+      [
+       "fireflies",
+       "Fireflies"
+      ],
+      [
+       "snow",
+       "Snowfall"
+      ],
+      [
+       "rain",
+       "Rainy night"
+      ],
+      [
+       "bubbles",
+       "Bubbles"
+      ],
+      [
+       "hearts",
+       "Floating hearts"
+      ],
+      [
+       "confetti",
+       "Confetti party"
+      ],
+      [
+       "lava",
+       "Lava lamp"
+      ],
+      [
+       "waves",
+       "Ocean waves"
+      ],
+      [
+       "clouds",
+       "Blue sky"
+      ],
+      [
+       "mountains",
+       "Mountain dawn"
+      ],
+      [
+       "candy",
+       "Candy stripes"
+      ],
+      [
+       "plasma",
+       "Color flow"
+      ],
+      [
+       "carbon",
+       "Dark carbon"
+      ],
+      [
+       "tiktok",
+       "Red & cyan"
+      ]
+     ],
+     "common": true,
+     "ui": "backgrounds"
+    },
+    {
+     "key": "bgDim",
+     "label": "Darken the background",
+     "type": "range",
+     "group": "look",
+     "default": 0,
+     "min": 0,
+     "max": 90,
+     "step": 5,
+     "unit": "%",
+     "common": true,
+     "help": "Makes the game easier to read on bright backgrounds."
     },
     {
      "key": "speed",
@@ -1526,6 +2018,170 @@
      "max": 30,
      "step": 1,
      "unit": "s"
+    },
+    {
+     "key": "background",
+     "label": "Background",
+     "type": "select",
+     "group": "look",
+     "default": "game",
+     "choices": [
+      [
+       "game",
+       "Game's own"
+      ],
+      [
+       "transparent",
+       "Transparent (camera behind)"
+      ],
+      [
+       "green",
+       "Green screen"
+      ],
+      [
+       "midnight",
+       "Midnight"
+      ],
+      [
+       "sunset",
+       "Sunset"
+      ],
+      [
+       "ocean",
+       "Deep ocean"
+      ],
+      [
+       "neon",
+       "Neon glow"
+      ],
+      [
+       "forest",
+       "Forest night"
+      ],
+      [
+       "desert",
+       "Desert dusk"
+      ],
+      [
+       "starfield",
+       "Starfield"
+      ],
+      [
+       "warp",
+       "Hyperspace"
+      ],
+      [
+       "nebula",
+       "Nebula"
+      ],
+      [
+       "galaxy",
+       "Spiral galaxy"
+      ],
+      [
+       "aurora",
+       "Aurora"
+      ],
+      [
+       "synthwave",
+       "Synthwave"
+      ],
+      [
+       "city",
+       "City at night"
+      ],
+      [
+       "hexagons",
+       "Hex grid"
+      ],
+      [
+       "matrix",
+       "Digital rain"
+      ],
+      [
+       "disco",
+       "Disco lights"
+      ],
+      [
+       "gold",
+       "Gold luxury"
+      ],
+      [
+       "bokeh",
+       "Bokeh lights"
+      ],
+      [
+       "fireflies",
+       "Fireflies"
+      ],
+      [
+       "snow",
+       "Snowfall"
+      ],
+      [
+       "rain",
+       "Rainy night"
+      ],
+      [
+       "bubbles",
+       "Bubbles"
+      ],
+      [
+       "hearts",
+       "Floating hearts"
+      ],
+      [
+       "confetti",
+       "Confetti party"
+      ],
+      [
+       "lava",
+       "Lava lamp"
+      ],
+      [
+       "waves",
+       "Ocean waves"
+      ],
+      [
+       "clouds",
+       "Blue sky"
+      ],
+      [
+       "mountains",
+       "Mountain dawn"
+      ],
+      [
+       "candy",
+       "Candy stripes"
+      ],
+      [
+       "plasma",
+       "Color flow"
+      ],
+      [
+       "carbon",
+       "Dark carbon"
+      ],
+      [
+       "tiktok",
+       "Red & cyan"
+      ]
+     ],
+     "common": true,
+     "ui": "backgrounds"
+    },
+    {
+     "key": "bgDim",
+     "label": "Darken the background",
+     "type": "range",
+     "group": "look",
+     "default": 0,
+     "min": 0,
+     "max": 90,
+     "step": 5,
+     "unit": "%",
+     "common": true,
+     "help": "Makes the game easier to read on bright backgrounds."
     },
     {
      "key": "speed",
@@ -1947,6 +2603,170 @@
      "default": true
     },
     {
+     "key": "background",
+     "label": "Background",
+     "type": "select",
+     "group": "look",
+     "default": "game",
+     "choices": [
+      [
+       "game",
+       "Game's own"
+      ],
+      [
+       "transparent",
+       "Transparent (camera behind)"
+      ],
+      [
+       "green",
+       "Green screen"
+      ],
+      [
+       "midnight",
+       "Midnight"
+      ],
+      [
+       "sunset",
+       "Sunset"
+      ],
+      [
+       "ocean",
+       "Deep ocean"
+      ],
+      [
+       "neon",
+       "Neon glow"
+      ],
+      [
+       "forest",
+       "Forest night"
+      ],
+      [
+       "desert",
+       "Desert dusk"
+      ],
+      [
+       "starfield",
+       "Starfield"
+      ],
+      [
+       "warp",
+       "Hyperspace"
+      ],
+      [
+       "nebula",
+       "Nebula"
+      ],
+      [
+       "galaxy",
+       "Spiral galaxy"
+      ],
+      [
+       "aurora",
+       "Aurora"
+      ],
+      [
+       "synthwave",
+       "Synthwave"
+      ],
+      [
+       "city",
+       "City at night"
+      ],
+      [
+       "hexagons",
+       "Hex grid"
+      ],
+      [
+       "matrix",
+       "Digital rain"
+      ],
+      [
+       "disco",
+       "Disco lights"
+      ],
+      [
+       "gold",
+       "Gold luxury"
+      ],
+      [
+       "bokeh",
+       "Bokeh lights"
+      ],
+      [
+       "fireflies",
+       "Fireflies"
+      ],
+      [
+       "snow",
+       "Snowfall"
+      ],
+      [
+       "rain",
+       "Rainy night"
+      ],
+      [
+       "bubbles",
+       "Bubbles"
+      ],
+      [
+       "hearts",
+       "Floating hearts"
+      ],
+      [
+       "confetti",
+       "Confetti party"
+      ],
+      [
+       "lava",
+       "Lava lamp"
+      ],
+      [
+       "waves",
+       "Ocean waves"
+      ],
+      [
+       "clouds",
+       "Blue sky"
+      ],
+      [
+       "mountains",
+       "Mountain dawn"
+      ],
+      [
+       "candy",
+       "Candy stripes"
+      ],
+      [
+       "plasma",
+       "Color flow"
+      ],
+      [
+       "carbon",
+       "Dark carbon"
+      ],
+      [
+       "tiktok",
+       "Red & cyan"
+      ]
+     ],
+     "common": true,
+     "ui": "backgrounds"
+    },
+    {
+     "key": "bgDim",
+     "label": "Darken the background",
+     "type": "range",
+     "group": "look",
+     "default": 0,
+     "min": 0,
+     "max": 90,
+     "step": 5,
+     "unit": "%",
+     "common": true,
+     "help": "Makes the game easier to read on bright backgrounds."
+    },
+    {
      "key": "speed",
      "label": "Game speed",
      "type": "range",
@@ -2208,6 +3028,170 @@
      "type": "bool",
      "group": "show",
      "default": true
+    },
+    {
+     "key": "background",
+     "label": "Background",
+     "type": "select",
+     "group": "look",
+     "default": "game",
+     "choices": [
+      [
+       "game",
+       "Game's own"
+      ],
+      [
+       "transparent",
+       "Transparent (camera behind)"
+      ],
+      [
+       "green",
+       "Green screen"
+      ],
+      [
+       "midnight",
+       "Midnight"
+      ],
+      [
+       "sunset",
+       "Sunset"
+      ],
+      [
+       "ocean",
+       "Deep ocean"
+      ],
+      [
+       "neon",
+       "Neon glow"
+      ],
+      [
+       "forest",
+       "Forest night"
+      ],
+      [
+       "desert",
+       "Desert dusk"
+      ],
+      [
+       "starfield",
+       "Starfield"
+      ],
+      [
+       "warp",
+       "Hyperspace"
+      ],
+      [
+       "nebula",
+       "Nebula"
+      ],
+      [
+       "galaxy",
+       "Spiral galaxy"
+      ],
+      [
+       "aurora",
+       "Aurora"
+      ],
+      [
+       "synthwave",
+       "Synthwave"
+      ],
+      [
+       "city",
+       "City at night"
+      ],
+      [
+       "hexagons",
+       "Hex grid"
+      ],
+      [
+       "matrix",
+       "Digital rain"
+      ],
+      [
+       "disco",
+       "Disco lights"
+      ],
+      [
+       "gold",
+       "Gold luxury"
+      ],
+      [
+       "bokeh",
+       "Bokeh lights"
+      ],
+      [
+       "fireflies",
+       "Fireflies"
+      ],
+      [
+       "snow",
+       "Snowfall"
+      ],
+      [
+       "rain",
+       "Rainy night"
+      ],
+      [
+       "bubbles",
+       "Bubbles"
+      ],
+      [
+       "hearts",
+       "Floating hearts"
+      ],
+      [
+       "confetti",
+       "Confetti party"
+      ],
+      [
+       "lava",
+       "Lava lamp"
+      ],
+      [
+       "waves",
+       "Ocean waves"
+      ],
+      [
+       "clouds",
+       "Blue sky"
+      ],
+      [
+       "mountains",
+       "Mountain dawn"
+      ],
+      [
+       "candy",
+       "Candy stripes"
+      ],
+      [
+       "plasma",
+       "Color flow"
+      ],
+      [
+       "carbon",
+       "Dark carbon"
+      ],
+      [
+       "tiktok",
+       "Red & cyan"
+      ]
+     ],
+     "common": true,
+     "ui": "backgrounds"
+    },
+    {
+     "key": "bgDim",
+     "label": "Darken the background",
+     "type": "range",
+     "group": "look",
+     "default": 0,
+     "min": 0,
+     "max": 90,
+     "step": 5,
+     "unit": "%",
+     "common": true,
+     "help": "Makes the game easier to read on bright backgrounds."
     },
     {
      "key": "speed",
@@ -2516,6 +3500,170 @@
      "unit": "s"
     },
     {
+     "key": "background",
+     "label": "Background",
+     "type": "select",
+     "group": "look",
+     "default": "game",
+     "choices": [
+      [
+       "game",
+       "Game's own"
+      ],
+      [
+       "transparent",
+       "Transparent (camera behind)"
+      ],
+      [
+       "green",
+       "Green screen"
+      ],
+      [
+       "midnight",
+       "Midnight"
+      ],
+      [
+       "sunset",
+       "Sunset"
+      ],
+      [
+       "ocean",
+       "Deep ocean"
+      ],
+      [
+       "neon",
+       "Neon glow"
+      ],
+      [
+       "forest",
+       "Forest night"
+      ],
+      [
+       "desert",
+       "Desert dusk"
+      ],
+      [
+       "starfield",
+       "Starfield"
+      ],
+      [
+       "warp",
+       "Hyperspace"
+      ],
+      [
+       "nebula",
+       "Nebula"
+      ],
+      [
+       "galaxy",
+       "Spiral galaxy"
+      ],
+      [
+       "aurora",
+       "Aurora"
+      ],
+      [
+       "synthwave",
+       "Synthwave"
+      ],
+      [
+       "city",
+       "City at night"
+      ],
+      [
+       "hexagons",
+       "Hex grid"
+      ],
+      [
+       "matrix",
+       "Digital rain"
+      ],
+      [
+       "disco",
+       "Disco lights"
+      ],
+      [
+       "gold",
+       "Gold luxury"
+      ],
+      [
+       "bokeh",
+       "Bokeh lights"
+      ],
+      [
+       "fireflies",
+       "Fireflies"
+      ],
+      [
+       "snow",
+       "Snowfall"
+      ],
+      [
+       "rain",
+       "Rainy night"
+      ],
+      [
+       "bubbles",
+       "Bubbles"
+      ],
+      [
+       "hearts",
+       "Floating hearts"
+      ],
+      [
+       "confetti",
+       "Confetti party"
+      ],
+      [
+       "lava",
+       "Lava lamp"
+      ],
+      [
+       "waves",
+       "Ocean waves"
+      ],
+      [
+       "clouds",
+       "Blue sky"
+      ],
+      [
+       "mountains",
+       "Mountain dawn"
+      ],
+      [
+       "candy",
+       "Candy stripes"
+      ],
+      [
+       "plasma",
+       "Color flow"
+      ],
+      [
+       "carbon",
+       "Dark carbon"
+      ],
+      [
+       "tiktok",
+       "Red & cyan"
+      ]
+     ],
+     "common": true,
+     "ui": "backgrounds"
+    },
+    {
+     "key": "bgDim",
+     "label": "Darken the background",
+     "type": "range",
+     "group": "look",
+     "default": 0,
+     "min": 0,
+     "max": 90,
+     "step": 5,
+     "unit": "%",
+     "common": true,
+     "help": "Makes the game easier to read on bright backgrounds."
+    },
+    {
      "key": "speed",
      "label": "Game speed",
      "type": "range",
@@ -2771,6 +3919,170 @@
      "unit": "%"
     },
     {
+     "key": "background",
+     "label": "Background",
+     "type": "select",
+     "group": "look",
+     "default": "game",
+     "choices": [
+      [
+       "game",
+       "Game's own"
+      ],
+      [
+       "transparent",
+       "Transparent (camera behind)"
+      ],
+      [
+       "green",
+       "Green screen"
+      ],
+      [
+       "midnight",
+       "Midnight"
+      ],
+      [
+       "sunset",
+       "Sunset"
+      ],
+      [
+       "ocean",
+       "Deep ocean"
+      ],
+      [
+       "neon",
+       "Neon glow"
+      ],
+      [
+       "forest",
+       "Forest night"
+      ],
+      [
+       "desert",
+       "Desert dusk"
+      ],
+      [
+       "starfield",
+       "Starfield"
+      ],
+      [
+       "warp",
+       "Hyperspace"
+      ],
+      [
+       "nebula",
+       "Nebula"
+      ],
+      [
+       "galaxy",
+       "Spiral galaxy"
+      ],
+      [
+       "aurora",
+       "Aurora"
+      ],
+      [
+       "synthwave",
+       "Synthwave"
+      ],
+      [
+       "city",
+       "City at night"
+      ],
+      [
+       "hexagons",
+       "Hex grid"
+      ],
+      [
+       "matrix",
+       "Digital rain"
+      ],
+      [
+       "disco",
+       "Disco lights"
+      ],
+      [
+       "gold",
+       "Gold luxury"
+      ],
+      [
+       "bokeh",
+       "Bokeh lights"
+      ],
+      [
+       "fireflies",
+       "Fireflies"
+      ],
+      [
+       "snow",
+       "Snowfall"
+      ],
+      [
+       "rain",
+       "Rainy night"
+      ],
+      [
+       "bubbles",
+       "Bubbles"
+      ],
+      [
+       "hearts",
+       "Floating hearts"
+      ],
+      [
+       "confetti",
+       "Confetti party"
+      ],
+      [
+       "lava",
+       "Lava lamp"
+      ],
+      [
+       "waves",
+       "Ocean waves"
+      ],
+      [
+       "clouds",
+       "Blue sky"
+      ],
+      [
+       "mountains",
+       "Mountain dawn"
+      ],
+      [
+       "candy",
+       "Candy stripes"
+      ],
+      [
+       "plasma",
+       "Color flow"
+      ],
+      [
+       "carbon",
+       "Dark carbon"
+      ],
+      [
+       "tiktok",
+       "Red & cyan"
+      ]
+     ],
+     "common": true,
+     "ui": "backgrounds"
+    },
+    {
+     "key": "bgDim",
+     "label": "Darken the background",
+     "type": "range",
+     "group": "look",
+     "default": 0,
+     "min": 0,
+     "max": 90,
+     "step": 5,
+     "unit": "%",
+     "common": true,
+     "help": "Makes the game easier to read on bright backgrounds."
+    },
+    {
      "key": "speed",
      "label": "Game speed",
      "type": "range",
@@ -3024,6 +4336,170 @@
      "type": "bool",
      "group": "show",
      "default": true
+    },
+    {
+     "key": "background",
+     "label": "Background",
+     "type": "select",
+     "group": "look",
+     "default": "game",
+     "choices": [
+      [
+       "game",
+       "Game's own"
+      ],
+      [
+       "transparent",
+       "Transparent (camera behind)"
+      ],
+      [
+       "green",
+       "Green screen"
+      ],
+      [
+       "midnight",
+       "Midnight"
+      ],
+      [
+       "sunset",
+       "Sunset"
+      ],
+      [
+       "ocean",
+       "Deep ocean"
+      ],
+      [
+       "neon",
+       "Neon glow"
+      ],
+      [
+       "forest",
+       "Forest night"
+      ],
+      [
+       "desert",
+       "Desert dusk"
+      ],
+      [
+       "starfield",
+       "Starfield"
+      ],
+      [
+       "warp",
+       "Hyperspace"
+      ],
+      [
+       "nebula",
+       "Nebula"
+      ],
+      [
+       "galaxy",
+       "Spiral galaxy"
+      ],
+      [
+       "aurora",
+       "Aurora"
+      ],
+      [
+       "synthwave",
+       "Synthwave"
+      ],
+      [
+       "city",
+       "City at night"
+      ],
+      [
+       "hexagons",
+       "Hex grid"
+      ],
+      [
+       "matrix",
+       "Digital rain"
+      ],
+      [
+       "disco",
+       "Disco lights"
+      ],
+      [
+       "gold",
+       "Gold luxury"
+      ],
+      [
+       "bokeh",
+       "Bokeh lights"
+      ],
+      [
+       "fireflies",
+       "Fireflies"
+      ],
+      [
+       "snow",
+       "Snowfall"
+      ],
+      [
+       "rain",
+       "Rainy night"
+      ],
+      [
+       "bubbles",
+       "Bubbles"
+      ],
+      [
+       "hearts",
+       "Floating hearts"
+      ],
+      [
+       "confetti",
+       "Confetti party"
+      ],
+      [
+       "lava",
+       "Lava lamp"
+      ],
+      [
+       "waves",
+       "Ocean waves"
+      ],
+      [
+       "clouds",
+       "Blue sky"
+      ],
+      [
+       "mountains",
+       "Mountain dawn"
+      ],
+      [
+       "candy",
+       "Candy stripes"
+      ],
+      [
+       "plasma",
+       "Color flow"
+      ],
+      [
+       "carbon",
+       "Dark carbon"
+      ],
+      [
+       "tiktok",
+       "Red & cyan"
+      ]
+     ],
+     "common": true,
+     "ui": "backgrounds"
+    },
+    {
+     "key": "bgDim",
+     "label": "Darken the background",
+     "type": "range",
+     "group": "look",
+     "default": 0,
+     "min": 0,
+     "max": 90,
+     "step": 5,
+     "unit": "%",
+     "common": true,
+     "help": "Makes the game easier to read on bright backgrounds."
     },
     {
      "key": "speed",
@@ -3337,6 +4813,170 @@
      "default": true
     },
     {
+     "key": "background",
+     "label": "Background",
+     "type": "select",
+     "group": "look",
+     "default": "game",
+     "choices": [
+      [
+       "game",
+       "Game's own"
+      ],
+      [
+       "transparent",
+       "Transparent (camera behind)"
+      ],
+      [
+       "green",
+       "Green screen"
+      ],
+      [
+       "midnight",
+       "Midnight"
+      ],
+      [
+       "sunset",
+       "Sunset"
+      ],
+      [
+       "ocean",
+       "Deep ocean"
+      ],
+      [
+       "neon",
+       "Neon glow"
+      ],
+      [
+       "forest",
+       "Forest night"
+      ],
+      [
+       "desert",
+       "Desert dusk"
+      ],
+      [
+       "starfield",
+       "Starfield"
+      ],
+      [
+       "warp",
+       "Hyperspace"
+      ],
+      [
+       "nebula",
+       "Nebula"
+      ],
+      [
+       "galaxy",
+       "Spiral galaxy"
+      ],
+      [
+       "aurora",
+       "Aurora"
+      ],
+      [
+       "synthwave",
+       "Synthwave"
+      ],
+      [
+       "city",
+       "City at night"
+      ],
+      [
+       "hexagons",
+       "Hex grid"
+      ],
+      [
+       "matrix",
+       "Digital rain"
+      ],
+      [
+       "disco",
+       "Disco lights"
+      ],
+      [
+       "gold",
+       "Gold luxury"
+      ],
+      [
+       "bokeh",
+       "Bokeh lights"
+      ],
+      [
+       "fireflies",
+       "Fireflies"
+      ],
+      [
+       "snow",
+       "Snowfall"
+      ],
+      [
+       "rain",
+       "Rainy night"
+      ],
+      [
+       "bubbles",
+       "Bubbles"
+      ],
+      [
+       "hearts",
+       "Floating hearts"
+      ],
+      [
+       "confetti",
+       "Confetti party"
+      ],
+      [
+       "lava",
+       "Lava lamp"
+      ],
+      [
+       "waves",
+       "Ocean waves"
+      ],
+      [
+       "clouds",
+       "Blue sky"
+      ],
+      [
+       "mountains",
+       "Mountain dawn"
+      ],
+      [
+       "candy",
+       "Candy stripes"
+      ],
+      [
+       "plasma",
+       "Color flow"
+      ],
+      [
+       "carbon",
+       "Dark carbon"
+      ],
+      [
+       "tiktok",
+       "Red & cyan"
+      ]
+     ],
+     "common": true,
+     "ui": "backgrounds"
+    },
+    {
+     "key": "bgDim",
+     "label": "Darken the background",
+     "type": "range",
+     "group": "look",
+     "default": 0,
+     "min": 0,
+     "max": 90,
+     "step": 5,
+     "unit": "%",
+     "common": true,
+     "help": "Makes the game easier to read on bright backgrounds."
+    },
+    {
      "key": "speed",
      "label": "Game speed",
      "type": "range",
@@ -3626,6 +5266,170 @@
      "default": true
     },
     {
+     "key": "background",
+     "label": "Background",
+     "type": "select",
+     "group": "look",
+     "default": "game",
+     "choices": [
+      [
+       "game",
+       "Game's own"
+      ],
+      [
+       "transparent",
+       "Transparent (camera behind)"
+      ],
+      [
+       "green",
+       "Green screen"
+      ],
+      [
+       "midnight",
+       "Midnight"
+      ],
+      [
+       "sunset",
+       "Sunset"
+      ],
+      [
+       "ocean",
+       "Deep ocean"
+      ],
+      [
+       "neon",
+       "Neon glow"
+      ],
+      [
+       "forest",
+       "Forest night"
+      ],
+      [
+       "desert",
+       "Desert dusk"
+      ],
+      [
+       "starfield",
+       "Starfield"
+      ],
+      [
+       "warp",
+       "Hyperspace"
+      ],
+      [
+       "nebula",
+       "Nebula"
+      ],
+      [
+       "galaxy",
+       "Spiral galaxy"
+      ],
+      [
+       "aurora",
+       "Aurora"
+      ],
+      [
+       "synthwave",
+       "Synthwave"
+      ],
+      [
+       "city",
+       "City at night"
+      ],
+      [
+       "hexagons",
+       "Hex grid"
+      ],
+      [
+       "matrix",
+       "Digital rain"
+      ],
+      [
+       "disco",
+       "Disco lights"
+      ],
+      [
+       "gold",
+       "Gold luxury"
+      ],
+      [
+       "bokeh",
+       "Bokeh lights"
+      ],
+      [
+       "fireflies",
+       "Fireflies"
+      ],
+      [
+       "snow",
+       "Snowfall"
+      ],
+      [
+       "rain",
+       "Rainy night"
+      ],
+      [
+       "bubbles",
+       "Bubbles"
+      ],
+      [
+       "hearts",
+       "Floating hearts"
+      ],
+      [
+       "confetti",
+       "Confetti party"
+      ],
+      [
+       "lava",
+       "Lava lamp"
+      ],
+      [
+       "waves",
+       "Ocean waves"
+      ],
+      [
+       "clouds",
+       "Blue sky"
+      ],
+      [
+       "mountains",
+       "Mountain dawn"
+      ],
+      [
+       "candy",
+       "Candy stripes"
+      ],
+      [
+       "plasma",
+       "Color flow"
+      ],
+      [
+       "carbon",
+       "Dark carbon"
+      ],
+      [
+       "tiktok",
+       "Red & cyan"
+      ]
+     ],
+     "common": true,
+     "ui": "backgrounds"
+    },
+    {
+     "key": "bgDim",
+     "label": "Darken the background",
+     "type": "range",
+     "group": "look",
+     "default": 0,
+     "min": 0,
+     "max": 90,
+     "step": 5,
+     "unit": "%",
+     "common": true,
+     "help": "Makes the game easier to read on bright backgrounds."
+    },
+    {
      "key": "speed",
      "label": "Game speed",
      "type": "range",
@@ -3774,6 +5578,11 @@
    "id": "play",
    "label": "Gameplay",
    "icon": "sliders-horizontal"
+  },
+  {
+   "id": "look",
+   "label": "Background",
+   "icon": "image"
   },
   {
    "id": "text",

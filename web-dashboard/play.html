@@ -164,6 +164,7 @@
     #edtray button { font: inherit; color: #fff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); border-radius: 99px; padding: 2px 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
     #edtray button:hover { background: rgba(34,197,94,.3); }
     #edbar button[data-a=delete]:hover { background: #dc2626; border-color: #dc2626; }
+    html.clear, html.clear body { background: transparent !important; } /* "Transparent" background: OBS shows what's behind */
     .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-weight: 700; }
     .loading[hidden] { display: none; }
   </style>
@@ -223,6 +224,8 @@
  * URL options: ?token=…   ?server=wss://…/ws   ?game=<id> (stick to one game)
  *              ?obs=1 (hide buttons)   ?preview=1 (dashboard preview: muted)   ?sound=0  ?voice=0
  * ======================================================================== */
+
+import { BACKGROUND_BY_ID } from './games/_backgrounds.js';
 
 // ---------- small helpers ----------
 const qs = new URLSearchParams(location.search);
@@ -564,7 +567,9 @@ function renderTicker(reset = false) {
     setTimeout(() => { const l = tickerLines(); tickIdx = (tickIdx + 1) % Math.max(1, l.length); span.textContent = l[tickIdx] || ''; span.style.opacity = 1; }, 400);
   }, 7000);
 }
+function applyBackground() { document.documentElement.classList.toggle('clear', S.options.background === 'transparent'); }
 function applyOverlay() {
+  applyBackground();
   for (const k of ['legend', 'goals', 'supporters', 'ticker', 'welcome']) document.body.classList.toggle('no' + k, !ov(k));
   renderLegend(); renderGoals(); renderSupporters(); renderTicker();
 }
@@ -802,6 +807,20 @@ const api = {
     c.restore();
   },
   roundRect(c, x, y, w, h, r) { c.beginPath(); c.roundRect(x, y, w, h, r); },
+  /**
+   * Paints the background picked in Game settings → Background. Returns false for "Game's own",
+   * so a game does: if (!api.drawBackground(ctx)) { …its own sky… }
+   */
+  drawBackground(c) {
+    const bg = BACKGROUND_BY_ID[S.options.background];
+    if (!bg) return false;
+    c.save();
+    try { bg.draw(c, W, H, S.now); } catch (err) { console.error(err); }
+    const dim = num('bgDim', 0, 0, 90);
+    if (dim > 0 && bg.id !== 'transparent' && bg.id !== 'green') { c.fillStyle = `rgba(0,0,0,${dim / 100})`; c.fillRect(0, 0, W, H); }
+    c.restore();
+    return true;
+  },
 };
 
 // ---------- game loading ----------

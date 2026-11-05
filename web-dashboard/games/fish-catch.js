@@ -75,8 +75,10 @@ export default function create(api) {
   }
 
   function draw(ctx) {
-    const g = ctx.createLinearGradient(0, 0, 0, WATER_Y); g.addColorStop(0, '#0c4a6e'); g.addColorStop(1, '#fdba74'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, WATER_Y);
-    ctx.fillStyle = 'rgba(253,224,71,.8)'; ctx.beginPath(); ctx.arc(W - 120, WATER_Y - 10, 50, Math.PI, 0); ctx.fill();
+    if (!api.drawBackground(ctx)) {
+      const g = ctx.createLinearGradient(0, 0, 0, WATER_Y); g.addColorStop(0, '#0c4a6e'); g.addColorStop(1, '#fdba74'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, WATER_Y);
+      ctx.fillStyle = 'rgba(253,224,71,.8)'; ctx.beginPath(); ctx.arc(W - 120, WATER_Y - 10, 50, Math.PI, 0); ctx.fill();
+    }
     const wg = ctx.createLinearGradient(0, WATER_Y, 0, H); wg.addColorStop(0, '#0e7490'); wg.addColorStop(1, '#082f49'); ctx.fillStyle = wg; ctx.fillRect(0, WATER_Y, W, H - WATER_Y);
     ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 2;
     for (let i = 0; i < 6; i++) { const y = WATER_Y + 14 + i * 30; ctx.beginPath(); for (let x = 0; x <= W; x += 20) ctx.lineTo(x, y + Math.sin(x / 40 + api.now * 2 + i) * 3); ctx.stroke(); }

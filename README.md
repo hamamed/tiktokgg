@@ -181,6 +181,19 @@ Several rules can match the same event (for example, Rose → `spawn_train` at t
 
 Use Export/Import in the rules panel to save a rule set per game or per show as JSON.
 
+## Backgrounds
+
+Dashboard → **Games** → **Game settings** → **Background**: 32 backgrounds plus *Transparent* and *Green screen*, each game separately. Pick one from the thumbnails; it goes live at once.
+
+- Calm: Midnight, Sunset, Deep ocean, Neon glow, Forest night, Desert dusk, Dark carbon, Mountain dawn, Blue sky
+- Space: Starfield, Hyperspace, Nebula, Spiral galaxy, Aurora
+- Party & retro: Synthwave, City at night, Hex grid, Digital rain, Disco lights, Gold luxury, Red & cyan, Color flow, Candy stripes
+- Moving: Bokeh lights, Fireflies, Snowfall, Rainy night, Bubbles, Floating hearts, Confetti party, Lava lamp, Ocean waves
+- **Transparent**: the stream page has no background, so your camera or OBS scene shows behind the game. **Green screen**: a chroma-key green.
+- *Darken the background* (0–90 %) keeps the game readable on bright backgrounds. *Game's own* keeps each game's original scenery.
+
+Backgrounds are drawn in code in `games/_backgrounds.js` (no image files), and games call `api.drawBackground(ctx)`.
+
 ## Screen layout (move any window)
 
 Dashboard → **Games** → **Screen layout**. The preview turns into an editor:

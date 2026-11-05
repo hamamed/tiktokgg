@@ -83,9 +83,10 @@ export default function create(api) {
   }
 
   function draw(ctx) {
-    sky(ctx, W, H, '#0b1026', '#111a33');
+    const own = !api.drawBackground(ctx);
+    if (own) sky(ctx, W, H, '#0b1026', '#111a33');
     // stadium lights
-    for (let i = 0; i < 5; i++) { const x = 60 + i * 105; const g = ctx.createRadialGradient(x, 430, 2, x, 430, 120); g.addColorStop(0, 'rgba(255,255,255,.12)'); g.addColorStop(1, 'transparent'); ctx.fillStyle = g; ctx.fillRect(x - 120, 310, 240, 240); }
+    if (own) for (let i = 0; i < 5; i++) { const x = 60 + i * 105; const g = ctx.createRadialGradient(x, 430, 2, x, 430, 120); g.addColorStop(0, 'rgba(255,255,255,.12)'); g.addColorStop(1, 'transparent'); ctx.fillStyle = g; ctx.fillRect(x - 120, 310, 240, 240); }
     // ground halves
     ctx.fillStyle = 'rgba(254,44,85,.14)'; ctx.fillRect(0, 700, W / 2, 160);
     ctx.fillStyle = 'rgba(37,244,238,.12)'; ctx.fillRect(W / 2, 700, W / 2, 160);

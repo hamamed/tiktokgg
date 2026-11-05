@@ -67,8 +67,7 @@ export default function create(api) {
   }
 
   function draw(ctx) {
-    sky(ctx, W, H, '#0f1f17', '#14281d');
-    stars(ctx, W, H, api.now, 40, 420);
+    if (!api.drawBackground(ctx)) { sky(ctx, W, H, '#0f1f17', '#14281d'); stars(ctx, W, H, api.now, 40, 420); }
     // trees
     for (let i = 0; i < 10; i++) { const x = (i * 61) % W, y = 470 + (i % 3) * 20; ctx.fillStyle = '#14532d'; ctx.beginPath(); ctx.moveTo(x, y - 60); ctx.lineTo(x - 26, y); ctx.lineTo(x + 26, y); ctx.fill(); }
     // path: trunk + two branches

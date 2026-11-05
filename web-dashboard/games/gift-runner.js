@@ -156,9 +156,11 @@ export default function create(api) {
   function draw(ctx, fx) {
     ctx.save();
     if (S.shake > 0) ctx.translate(rand(-8, 8) * S.shake * 3, rand(-8, 8) * S.shake * 3);
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#0b1026'); g.addColorStop(1, '#05060d');
-    ctx.fillStyle = g; ctx.fillRect(-20, -20, W + 40, H + 40);
+    if (!api.drawBackground(ctx)) {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#0b1026'); g.addColorStop(1, '#05060d');
+      ctx.fillStyle = g; ctx.fillRect(-20, -20, W + 40, H + 40);
+    }
     ctx.fillStyle = '#0d1224'; ctx.fillRect(ROAD_X, -20, ROAD_W, H + 40);
     ctx.shadowColor = '#25f4ee'; ctx.shadowBlur = 18; ctx.fillStyle = '#25f4ee'; ctx.fillRect(ROAD_X - 4, -20, 4, H + 40);
     ctx.shadowColor = '#fe2c55'; ctx.fillStyle = '#fe2c55'; ctx.fillRect(ROAD_X + ROAD_W, -20, 4, H + 40);

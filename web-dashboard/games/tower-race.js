@@ -78,8 +78,7 @@ export default function create(api) {
   }
 
   function draw(ctx) {
-    sky(ctx, W, H, '#0c1430', '#1c2547');
-    stars(ctx, W, H, api.now, 60, 420);
+    if (!api.drawBackground(ctx)) { sky(ctx, W, H, '#0c1430', '#1c2547'); stars(ctx, W, H, api.now, 60, 420); }
     // cloud line = goal
     if (api.flag('showGoal')) {
     for (let i = 0; i < 9; i++) { ctx.fillStyle = 'rgba(226,232,240,.18)'; ctx.beginPath(); ctx.ellipse(30 + i * 62, TOP - 6 + Math.sin(api.now + i) * 4, 48, 18, 0, 0, Math.PI * 2); ctx.fill(); }

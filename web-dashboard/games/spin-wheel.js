@@ -68,8 +68,7 @@ export default function create(api) {
   }
 
   function draw(ctx) {
-    sky(ctx, W, H, '#1a0b2e', '#2d1048');
-    stars(ctx, W, H, api.now, 80, H);
+    if (!api.drawBackground(ctx)) { sky(ctx, W, H, '#1a0b2e', '#2d1048'); stars(ctx, W, H, api.now, 80, H); }
     const list = prizes(), n = list.length, seg = (Math.PI * 2) / n;
     // lights ring
     if (api.flag('showLights')) for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; ctx.fillStyle = (Math.floor(api.now * 6) + i) % 2 ? GOLD : '#fff7'; ctx.beginPath(); ctx.arc(CX + Math.cos(a) * (R + 16), CY + Math.sin(a) * (R + 16), 4, 0, Math.PI * 2); ctx.fill(); }
