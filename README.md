@@ -187,7 +187,9 @@ Dashboard → **Games** → **Screen layout**. The preview turns into an editor:
 
 - Drag any window to put it anywhere: gift list, score panel, top supporters, like goals, gift alerts, effect timers, tips bar, big banners, join messages or the team battle bar.
 - Click a window to pick it. Drag its red handle to make it wider or narrower. Its bar has **H / V** (horizontal or vertical) for the gift list, score panel, supporters, like goals, alerts and effect timers, plus size − / + and reset.
-- The list next to the preview does the same with buttons: show/hide, H / V, size and reset, plus *Use this layout in all games* and *Reset all windows*.
+- **Delete a window**: pick it and press the trash button in its bar (or the Delete key), or press the trash button next to it in the list. Removed windows show in a *Removed* strip on the editor and in the list with **Restore**.
+- The list next to the preview does the same with buttons: remove / restore, H / V, size and reset, plus *Use this layout in all games* and *Reset all windows* (which also brings back removed windows).
+- Every change saves by itself. **My saved layouts** stores the whole screen (window places, sizes, H / V and removed windows) under a name, so you can load it again in any game (`SAVE_LAYOUT` / `LOAD_LAYOUT` / `DELETE_LAYOUT`, kept in `layouts.json`).
 - Each game keeps its own layout, and presets save it. OBS updates live. For a bigger editor, open `play.html?edit=1&token=…`.
 
 ## Game settings (per game)

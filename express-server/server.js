@@ -131,6 +131,9 @@ const MSG = Object.freeze({
   ANNOUNCE: 'ANNOUNCE',
   UPDATE_TEAMS: 'UPDATE_TEAMS',
   UPDATE_LAYOUT: 'UPDATE_LAYOUT',
+  SAVE_LAYOUT: 'SAVE_LAYOUT',
+  LOAD_LAYOUT: 'LOAD_LAYOUT',
+  DELETE_LAYOUT: 'DELETE_LAYOUT',
   TEAM_CONTROL: 'TEAM_CONTROL',
   // outbound
   STATE: 'STATE',
@@ -155,6 +158,7 @@ const MSG = Object.freeze({
   CLIENTS: 'CLIENTS',
   TEAMS: 'TEAMS',
   LAYOUT: 'LAYOUT',
+  LAYOUTS: 'LAYOUTS',
   TEAM_JOIN: 'TEAM_JOIN',
   TEAM_ROUND: 'TEAM_ROUND',
   RULES_UPDATED: 'RULES_UPDATED',
@@ -1555,6 +1559,45 @@ const Teams = (() => {
   };
 })();
 
+/**
+ * Saved screen layouts: { name: { layout, show: { showLegend: false, … }, from, savedAt } }.
+ * A saved layout holds where every window sits AND which windows are removed; it can be loaded into any game.
+ */
+const SavedLayouts = (() => {
+  const f = jsonFile('layouts.json');
+  let saved = {};
+  const SHOW_KEYS = ['showHud', 'showTeambar', 'showEffects', 'showAlerts', 'showLegend', 'showGoals', 'showSupporters', 'showTicker', 'showToasts', 'showBanners'];
+  const list = () => Object.entries(saved).map(([name, l]) => ({ name, from: l.from, savedAt: l.savedAt, moved: Object.keys(l.layout || {}).length, removed: Object.values(l.show || {}).filter((v) => v === false).length }))
+    .sort((a, b) => b.savedAt - a.savedAt);
+  const cleanName = (n) => { const v = String(n ?? '').trim().slice(0, 40); if (!v) throw new Error('Give the layout a name'); return v; };
+  const broadcast = () => Hub.broadcast(MSG.LAYOUTS, { layouts: list() });
+  return {
+    load() { const d = f.read({}); saved = d && typeof d === 'object' && !Array.isArray(d) ? d : {}; },
+    list,
+    save(name) {
+      const n = cleanName(name);
+      if (!saved[n] && Object.keys(saved).length >= 50) throw new Error('At most 50 saved layouts');
+      const opts = GameConfig.options();
+      saved[n] = { layout: GameConfig.layout(), show: Object.fromEntries(SHOW_KEYS.map((k) => [k, opts[k] !== false])), from: GameConfig.active(), savedAt: Date.now() };
+      f.write(saved); broadcast();
+      return { name: n, layouts: list() };
+    },
+    apply(name) {
+      const l = saved[cleanName(name)];
+      if (!l) throw new Error(`No layout called "${name}"`);
+      GameConfig.setLayout({ layout: l.layout || {}, replace: true });
+      if (l.show) GameConfig.setOptions(l.show);
+      return { name, game: GameConfig.active() };
+    },
+    remove(name) {
+      const n = cleanName(name);
+      if (!saved[n]) throw new Error(`No layout called "${n}"`);
+      delete saved[n]; f.write(saved); broadcast();
+      return { name: n, layouts: list() };
+    },
+  };
+})();
+
 /** Saved setups: { name: { game, rules, commands, goals, options, savedAt } }. */
 const Presets = (() => {
   const f = jsonFile('presets.json');
@@ -1994,6 +2037,9 @@ const handlers = {
   [MSG.UPDATE_SETTINGS](p) { return StreamSettings.update(p); },
   [MSG.UPDATE_TEAMS](p) { return Teams.update(p); },
   [MSG.UPDATE_LAYOUT](p) { return GameConfig.setLayout(p); },
+  [MSG.SAVE_LAYOUT]({ name }) { return SavedLayouts.save(name); },
+  [MSG.LOAD_LAYOUT]({ name }) { return SavedLayouts.apply(name); },
+  [MSG.DELETE_LAYOUT]({ name }) { return SavedLayouts.remove(name); },
   [MSG.TEAM_CONTROL]({ op }) { return Teams.control(String(op ?? '')); },
   async [MSG.TEST_VOICE]({ text } = {}) {
     const line = String(text || '').trim() || L(`Voice test. ${Engage.tip()}`, `اختبار الصوت. ${Engage.tip()}`, `Ses testi. ${Engage.tip()}`);
@@ -2108,7 +2154,7 @@ function snapshot() {
     status: TikTok.status(), rules: RuleStore.all(), likes: Likes.toJSON(), viewerCount: Viewers.viewerCount, clients: Hub.clients.size, gifts: GiftCatalog.list(),
     commands: CommandStore.all(), goals: GoalStore.all(), paused: Control.paused, presets: Presets.list(),
     supporters: Session.topGifters(3), session: Session.summary(),
-    game: GameConfig.active(), gameOptions: GameConfig.options(), layout: GameConfig.layout(), settings: StreamSettings.all(),
+    game: GameConfig.active(), gameOptions: GameConfig.options(), layout: GameConfig.layout(), layouts: SavedLayouts.list(), settings: StreamSettings.all(),
     voices: VOICES, voiceEngine: Voice.status(), clientsInfo: Hub.clientCounts(), teams: Teams.state(),
   };
 }
@@ -2174,6 +2220,7 @@ GameConfig.load();
 Teams.load();
 Session.recordGame(GameConfig.active());
 Presets.load();
+SavedLayouts.load();
 GiftCatalog.load();
 GiftCatalog.onChange((gifts) => Hub.broadcast(MSG.GIFTS, { gifts }));
 

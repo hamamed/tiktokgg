@@ -434,6 +434,22 @@
      "group": "show",
      "default": true,
      "common": true
+    },
+    {
+     "key": "showToasts",
+     "label": "Join messages (welcome, new team member)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTeambar",
+     "label": "Team battle bar (when teams are on)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
     }
    ],
    "n": {
@@ -802,6 +818,22 @@
      "group": "show",
      "default": true,
      "common": true
+    },
+    {
+     "key": "showToasts",
+     "label": "Join messages (welcome, new team member)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTeambar",
+     "label": "Team battle bar (when teams are on)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
     }
    ],
    "n": {
@@ -1156,6 +1188,22 @@
     {
      "key": "showTicker",
      "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showToasts",
+     "label": "Join messages (welcome, new team member)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTeambar",
+     "label": "Team battle bar (when teams are on)",
      "type": "bool",
      "group": "show",
      "default": true,
@@ -1531,6 +1579,22 @@
     {
      "key": "showTicker",
      "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showToasts",
+     "label": "Join messages (welcome, new team member)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTeambar",
+     "label": "Team battle bar (when teams are on)",
      "type": "bool",
      "group": "show",
      "default": true,
@@ -1922,6 +1986,22 @@
      "group": "show",
      "default": true,
      "common": true
+    },
+    {
+     "key": "showToasts",
+     "label": "Join messages (welcome, new team member)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTeambar",
+     "label": "Team battle bar (when teams are on)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
     }
    ],
    "n": {
@@ -2149,6 +2229,22 @@
     {
      "key": "showTicker",
      "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showToasts",
+     "label": "Join messages (welcome, new team member)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTeambar",
+     "label": "Team battle bar (when teams are on)",
      "type": "bool",
      "group": "show",
      "default": true,
@@ -2427,6 +2523,22 @@
      "group": "show",
      "default": true,
      "common": true
+    },
+    {
+     "key": "showToasts",
+     "label": "Join messages (welcome, new team member)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTeambar",
+     "label": "Team battle bar (when teams are on)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
     }
    ],
    "n": {
@@ -2650,6 +2762,22 @@
      "group": "show",
      "default": true,
      "common": true
+    },
+    {
+     "key": "showToasts",
+     "label": "Join messages (welcome, new team member)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTeambar",
+     "label": "Team battle bar (when teams are on)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
     }
    ],
    "n": {
@@ -2869,6 +2997,22 @@
     {
      "key": "showTicker",
      "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showToasts",
+     "label": "Join messages (welcome, new team member)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTeambar",
+     "label": "Team battle bar (when teams are on)",
      "type": "bool",
      "group": "show",
      "default": true,
@@ -3152,6 +3296,22 @@
      "group": "show",
      "default": true,
      "common": true
+    },
+    {
+     "key": "showToasts",
+     "label": "Join messages (welcome, new team member)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTeambar",
+     "label": "Team battle bar (when teams are on)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
     }
    ],
    "n": {
@@ -3405,6 +3565,22 @@
     {
      "key": "showTicker",
      "label": "Tips bar at the bottom",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showToasts",
+     "label": "Join messages (welcome, new team member)",
+     "type": "bool",
+     "group": "show",
+     "default": true,
+     "common": true
+    },
+    {
+     "key": "showTeambar",
+     "label": "Team battle bar (when teams are on)",
      "type": "bool",
      "group": "show",
      "default": true,

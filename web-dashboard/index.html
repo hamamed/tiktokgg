@@ -588,18 +588,17 @@
               <a class="ml-1 font-semibold text-tt-cyan hover:underline" :href="gameUrl(false) + '&edit=1'" target="_blank" rel="noopener">Open the big editor ↗</a>
             </div>
             <div class="flex flex-col gap-1.5">
-              <div v-for="w in LAYOUT_WINDOWS" :key="w.key" class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-white/5 bg-slate-950/50 px-3 py-2">
+              <div v-for="w in LAYOUT_WINDOWS" :key="w.key" class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-3 py-2 transition"
+                   :class="gameOptionsDraft[w.show] === false ? 'border-red-500/20 bg-red-500/[.04] opacity-70' : 'border-white/5 bg-slate-950/50'">
                 <lc-icon :name="w.icon" :size="16" class="text-tt-cyan"></lc-icon>
                 <span class="min-w-[120px] flex-1 text-sm font-semibold">{{ w.label }}
-                  <span class="block text-[11px] font-normal" :class="layout[w.key]?.x != null ? 'text-amber-300' : 'text-slate-500'">{{ layout[w.key]?.x != null ? `moved · ${Math.round(layout[w.key].x)}%, ${Math.round(layout[w.key].y)}%` : 'default place' }}</span>
+                  <span v-if="gameOptionsDraft[w.show] === false" class="block text-[11px] font-normal text-red-300">removed from the stream</span>
+                  <span v-else class="block text-[11px] font-normal" :class="layout[w.key]?.x != null ? 'text-amber-300' : 'text-slate-500'">{{ layout[w.key]?.x != null ? `moved · ${Math.round(layout[w.key].x)}%, ${Math.round(layout[w.key].y)}%` : 'default place' }}</span>
                 </span>
-                <label v-if="w.show" class="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400" :title="'Show ' + w.label">
-                  <span class="relative inline-flex items-center">
-                    <input type="checkbox" class="peer sr-only" :checked="gameOptionsDraft[w.show] !== false" @change="gameOptionsDraft[w.show] = $event.target.checked; optChanged(true)" />
-                    <span class="h-4 w-7 rounded-full bg-slate-700 transition peer-checked:bg-emerald-500"></span>
-                    <span class="absolute left-0.5 h-3 w-3 rounded-full bg-white transition peer-checked:translate-x-3"></span>
-                  </span>show
-                </label>
+                <template v-if="gameOptionsDraft[w.show] === false">
+                  <button class="btn btn-ghost !px-2.5 !py-1 text-xs text-emerald-300" @click="gameOptionsDraft[w.show] = true; optChanged(true)"><lc-icon name="undo-2" :size="13"></lc-icon> Restore</button>
+                </template>
+                <template v-else>
                 <div v-if="w.dir" class="flex overflow-hidden rounded-lg border border-white/10 text-xs font-bold">
                   <button v-for="d in ['h', 'v']" :key="d" class="px-2 py-1 transition" :class="(layout[w.key]?.dir || w.dir) === d ? 'bg-tt-red text-white' : 'text-slate-400 hover:text-white'" @click="setWin(w.key, { dir: d })" :title="d === 'h' ? 'Horizontal' : 'Vertical'">{{ d.toUpperCase() }}</button>
                 </div>
@@ -608,11 +607,34 @@
                   <b class="w-9 tabular-nums text-slate-300">{{ Math.round((layout[w.key]?.s || 1) * 100) }}%</b>
                 </label>
                 <button class="btn btn-ghost !px-2 !py-1 text-xs" :disabled="!layout[w.key]" @click="setWin(w.key, null)" title="Back to the default place, size and direction"><lc-icon name="rotate-ccw" :size="13"></lc-icon></button>
+                <button class="btn btn-ghost !px-2 !py-1 text-xs hover:!bg-red-500/20 hover:!text-red-300" @click="gameOptionsDraft[w.show] = false; optChanged(true)" :title="'Remove ' + w.label + ' from the stream'"><lc-icon name="trash-2" :size="13"></lc-icon></button>
+                </template>
               </div>
             </div>
             <div class="flex flex-wrap gap-2">
               <button class="btn btn-ghost !py-1.5 text-xs" :class="fx.layoutAll" :disabled="socketState !== 'open'" @click="copyLayoutToAll()"><lc-icon name="copy" :size="14"></lc-icon> Use this layout in all games</button>
-              <button class="btn btn-ghost !py-1.5 text-xs text-red-300" :class="fx.layoutReset" :disabled="socketState !== 'open' || !Object.keys(layout).length" @click="resetLayout()"><lc-icon name="rotate-ccw" :size="14"></lc-icon> Reset all windows</button>
+              <button class="btn btn-ghost !py-1.5 text-xs text-red-300" :class="fx.layoutReset" :disabled="socketState !== 'open'" @click="resetLayout()"><lc-icon name="rotate-ccw" :size="14"></lc-icon> Reset all windows</button>
+              <span class="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold" :class="optSaving ? 'text-amber-300' : 'text-emerald-300'"><lc-icon :name="optSaving ? 'loader' : 'circle-check'" :size="12"></lc-icon>{{ optSaving ? 'saving…' : 'every change is saved' }}</span>
+            </div>
+
+            <!-- saved layouts -->
+            <div class="flex flex-col gap-2 rounded-xl border border-white/10 bg-slate-950/60 p-3">
+              <div class="flex items-center gap-2 text-sm font-bold"><lc-icon name="bookmark" :size="15" class="text-amber-300"></lc-icon> My saved layouts</div>
+              <p class="-mt-1 text-[11px] text-slate-400">Save this screen (window places, sizes, H / V and removed windows) under a name, and load it again later in any game.</p>
+              <form class="flex gap-2" @submit.prevent="saveLayoutAs()">
+                <input v-model.trim="layoutName" maxlength="40" placeholder="Name, e.g. Gifts at the bottom" class="field min-w-0 flex-1 !py-1.5 text-sm" />
+                <button class="btn btn-primary !py-1.5 text-sm" :class="fx.saveLayout" :disabled="socketState !== 'open' || !layoutName || busy.saveLayout"><lc-icon name="save" :size="15"></lc-icon> Save layout</button>
+              </form>
+              <div v-if="savedLayouts.length" class="flex flex-col gap-1">
+                <div v-for="l in savedLayouts" :key="l.name" class="flex flex-wrap items-center gap-2 rounded-lg bg-white/[.03] px-2.5 py-1.5">
+                  <span class="min-w-0 flex-1 truncate text-sm font-semibold">{{ l.name }}
+                    <span class="text-[11px] font-normal text-slate-500"> · {{ l.moved }} moved · {{ l.removed }} removed · from {{ GAMES.find((g) => g.id === l.from)?.name || l.from }} · {{ fmtDate(l.savedAt) }}</span>
+                  </span>
+                  <button class="btn btn-ghost !px-2.5 !py-1 text-xs" :class="fx['ll' + l.name]" :disabled="socketState !== 'open'" @click="loadLayout(l.name)"><lc-icon name="download" :size="13"></lc-icon> Load</button>
+                  <button class="btn btn-ghost !px-2 !py-1 text-xs text-red-300" :disabled="socketState !== 'open'" @click="deleteLayout(l.name)" :title="'Delete ' + l.name"><lc-icon name="trash-2" :size="13"></lc-icon></button>
+                </div>
+              </div>
+              <p v-else class="text-[11px] text-slate-500">No saved layouts yet.</p>
             </div>
           </div>
 
@@ -1501,6 +1523,7 @@ const app = createApp({
           if (!ACTIONS.value.some((a) => a.id === custom.action)) custom.action = ACTIONS.value[0]?.id || custom.action;
           loadOptionsDraft(p.gameOptions || {});
           applyLayoutMsg(p.layout);
+          savedLayouts.value = p.layouts || [];
           if (p.settings) applySettings(p.settings);
           if (p.teams) applyTeams(p.teams);
           voices.value = p.voices || [];
@@ -1535,6 +1558,7 @@ const app = createApp({
         case 'SETTINGS': applySettings(p); break;
         case 'TEAMS': applyTeams(p); break;
         case 'LAYOUT': applyLayoutMsg(p.layout); break;
+        case 'LAYOUTS': savedLayouts.value = p.layouts || []; break;
         case 'TEAM_JOIN': addLog('CHAT', `<span class="text-emerald-300">@${esc(p.user)}</span> joined <b class="${p.team === 'red' ? 'text-tt-red' : 'text-tt-cyan'}">${esc(teams.names?.[p.team] || p.team)}</b>${p.how === 'auto' ? ' <span class="text-slate-500">(auto)</span>' : ''}`, true); break;
         case 'TEAM_ROUND':
           if (p.kind === 'end') addLog('SYS', p.winner ? `team round: <b class="${p.winner === 'red' ? 'text-tt-red' : 'text-tt-cyan'}">${esc(p.names?.[p.winner])}</b> won ${p.score.red} – ${p.score.blue}${p.mvp ? ` · MVP @${esc(p.mvp.user)}` : ''}` : `team round: draw ${p.score.red} – ${p.score.blue}`);
@@ -1873,13 +1897,26 @@ const app = createApp({
       { key: 'effects', label: 'Effect timers', icon: 'timer', dir: 'h', show: 'showEffects' },
       { key: 'ticker', label: 'Tips bar', icon: 'lightbulb', show: 'showTicker' },
       { key: 'banner', label: 'Big banners', icon: 'megaphone', show: 'showBanners' },
-      { key: 'toasts', label: 'Join messages', icon: 'hand' },
-      { key: 'teambar', label: 'Team battle bar', icon: 'swords' },
+      { key: 'toasts', label: 'Join messages', icon: 'hand', show: 'showToasts' },
+      { key: 'teambar', label: 'Team battle bar', icon: 'swords', show: 'showTeambar' },
     ];
     function applyLayoutMsg(l) { for (const k of Object.keys(layout)) delete layout[k]; Object.assign(layout, l || {}); }
     const sendLayout = (payload, key, ok) => act(key, 'UPDATE_LAYOUT', payload, ok).then((r) => applyLayoutMsg(r.layout)).catch(() => {});
     const setWin = (k, patch) => sendLayout({ layout: { [k]: patch === null ? null : { ...(layout[k] || {}), ...patch } } }, 'layoutWin');
-    const resetLayout = () => { if (confirm('Put every window back in its default place for this game?')) sendLayout({ layout: {}, replace: true }, 'layoutReset', 'Layout reset'); };
+    const resetLayout = () => {
+      if (!confirm('Put every window back in its default place, and bring back removed windows, for this game?')) return;
+      sendLayout({ layout: {}, replace: true }, 'layoutReset', 'Layout reset');
+      if (LAYOUT_WINDOWS.some((w) => gameOptionsDraft[w.show] === false)) { for (const w of LAYOUT_WINDOWS) gameOptionsDraft[w.show] = true; optChanged(true); }
+    };
+    const savedLayouts = ref([]);
+    const layoutName = ref('');
+    const saveLayoutAs = () => {
+      const n = layoutName.value;
+      if (savedLayouts.value.some((l) => l.name === n) && !confirm(`Replace the saved layout "${n}"?`)) return;
+      act('saveLayout', 'SAVE_LAYOUT', { name: n }, `Layout "${n}" saved`).then((r) => { savedLayouts.value = r.layouts || savedLayouts.value; layoutName.value = ''; }).catch(() => {});
+    };
+    const loadLayout = (n) => act('ll' + n, 'LOAD_LAYOUT', { name: n }, `Layout "${n}" loaded into ${activeGame.value?.name || 'this game'}`).catch(() => {});
+    const deleteLayout = (n) => { if (confirm(`Delete the saved layout "${n}"?`)) act('dl', 'DELETE_LAYOUT', { name: n }, 'Layout deleted').then((r) => (savedLayouts.value = r.layouts || [])).catch(() => {}); };
     const copyLayoutToAll = () => { if (confirm('Use this game\'s window layout in every game?')) sendLayout({ layout: { ...layout }, replace: true, copyToAll: true }, 'layoutAll', 'Layout copied to every game'); };
     const DEFAULT_GROUPS = [{ id: 'play', label: 'Gameplay', icon: 'sliders-horizontal' }, { id: 'text', label: 'Names, words & lists', icon: 'list' }, { id: 'show', label: 'On screen', icon: 'eye' }, { id: 'sound', label: 'Sound', icon: 'volume-2' }];
     const optionGroups = computed(() => {
@@ -2140,7 +2177,7 @@ const app = createApp({
       teams, teamDraft, teamDirty, teamPct, fmtClock, saveTeams, toggleTeams, teamControl, testTeam, TEAM_ROUNDS,
       ACTIONS, TESTS, GAMES, TABS, VOICE_TOGGLES, TEMPLATE_KEYS, STREAM_LANGS, LOG_FILTERS, TAG_COLOR, TAG_STYLE, giftLook, actionLook,
       tab, setTab, activeGameId, activeGame, setGame, gameOptionsDraft, optionsDirty, saveGameOptions, resetGame,
-      gamePane, optionGroups, layout, LAYOUT_WINDOWS, setWin, resetLayout, copyLayoutToAll, fmtOpt, optSaving, optChanged, defaultOptions,
+      gamePane, optionGroups, layout, LAYOUT_WINDOWS, setWin, resetLayout, copyLayoutToAll, savedLayouts, layoutName, saveLayoutAs, loadLayout, deleteLayout, fmtOpt, optSaving, optChanged, defaultOptions,
       voices, voiceEngine, voiceDraft, voiceDirty, loadVoiceDraft, saveVoice, setVoiceLang, testVoice, testSocial,
       overlaySettings, toggleOverlay, clientsInfo, steps, setupSteps, setupDone, firstRuleGift, tryGift,
       serverUrl, serverUrlDraft, tokenDraft, showServer, saveServerUrl,

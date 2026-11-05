@@ -154,8 +154,14 @@
     #edbar button { font: inherit; color: #fff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 7px; padding: 3px 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
     #edbar button.on { background: #fe2c55; border-color: #fe2c55; }
     #edbar button:hover { background: rgba(255,255,255,.18); }
-    #edhint { position: absolute; left: 50%; bottom: 1%; transform: translateX(-50%); z-index: 59; font: 600 11px system-ui, sans-serif; color: #e2e8f0; background: rgba(8,10,20,.85); padding: 4px 10px; border-radius: 99px; white-space: nowrap; display: none; }
+    #edhint { position: absolute; left: 50%; bottom: 1%; transform: translateX(-50%); z-index: 59; font: 600 11px system-ui, sans-serif; color: #e2e8f0; background: rgba(8,10,20,.85); padding: 4px 10px; border-radius: 10px; width: max-content; max-width: 94%; text-align: center; display: none; }
     body.editing #edhint { display: block; }
+    .win.gone { display: none !important; }
+    #edtray { position: absolute; left: 3%; right: 3%; bottom: 4.2%; z-index: 59; display: none; flex-wrap: wrap; align-items: center; gap: 4px; padding: 5px 7px; border-radius: 10px; background: rgba(8,10,20,.92); border: 1px dashed rgba(254,44,85,.7); font: 600 11px system-ui, sans-serif; color: #cbd5e1; }
+    body.editing #edtray.on { display: flex; }
+    #edtray button { font: inherit; color: #fff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); border-radius: 99px; padding: 2px 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
+    #edtray button:hover { background: rgba(34,197,94,.3); }
+    #edbar button[data-a=delete]:hover { background: #dc2626; border-color: #dc2626; }
     .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-weight: 700; }
     .loading[hidden] { display: none; }
   </style>
@@ -194,7 +200,8 @@
 
     <div id="edbar"></div>
     <div id="edrs" title="Drag to resize"></div>
-    <div id="edhint">Drag a window to move it · drag its red handle to resize · use the bar for H / V and size</div>
+    <div id="edtray"></div>
+    <div id="edhint">Drag to move · red handle = width · bar: H / V, size, delete</div>
     <div class="conn"><span class="dot" id="dot"></span><span id="connText">connecting…</span></div>
     <div class="tools" id="tools">
       <button id="soundBtn" type="button"><span></span><span></span></button>
@@ -430,7 +437,7 @@ function banner(title, sub = '', color = '#fff', ms = 2600) {
   bannerTimer = setTimeout(() => (b.innerHTML = ''), ms);
 }
 function toast(html, color = '#25f4ee') {
-  if (!S.overlay.welcome) return;
+  if (!S.overlay.welcome || !flag('showToasts')) return;
   const box = $('toasts');
   const el = document.createElement('div');
   el.className = 'toast';
@@ -563,7 +570,7 @@ const teamName = (k) => S.teams?.names?.[k] || (k === 'red' ? t('Red', 'الأح
 const joinHint = () => t(`Type 1 → ${teamName('red')} · 2 → ${teamName('blue')}`, `اكتب 1 ← ${teamName('red')} · 2 ← ${teamName('blue')}`, `${teamName('red')} için 1 · ${teamName('blue')} için 2 yaz`);
 let clockSkew = 0;
 function renderTeams() {
-  const box = $('teambar'), on = teamsOn();
+  const box = $('teambar'), on = teamsOn() && flag('showTeambar');
   document.body.classList.toggle('teams', on);
   box.hidden = !on;
   if (!on) return;
@@ -614,16 +621,16 @@ function onTeamRound(p) {
 // ---------- screen layout: every overlay window can be moved, resized, sized and turned H / V ----------
 // S.layout = { legend: { x, y, w, s, dir } } (x / y / w in % of the screen). Without x / y a window stays in its default place.
 const WIN = {
-  hud: { id: 'hud', dir: 'h', label: ['Score panel', 'لوحة النقاط', 'Skor paneli'] },
-  teambar: { id: 'teambar', label: ['Team battle bar', 'شريط الفرق', 'Takım çubuğu'] },
-  effects: { id: 'effects', dir: 'h', label: ['Effect timers', 'المؤثرات', 'Efektler'] },
-  alerts: { id: 'alerts', dir: 'v', label: ['Gift alerts', 'تنبيهات الهدايا', 'Hediye uyarıları'] },
-  legend: { id: 'legend', dir: 'v', label: ['Gift list', 'قائمة الهدايا', 'Hediye listesi'] },
-  goals: { id: 'goalsBox', dir: 'v', label: ['Like goals', 'أهداف اللايكات', 'Beğeni hedefleri'] },
-  supporters: { id: 'supBox', dir: 'v', label: ['Top supporters', 'أكبر الداعمين', 'En çok destekleyenler'] },
-  ticker: { id: 'ticker', label: ['Tips bar', 'شريط النصائح', 'İpucu çubuğu'] },
-  toasts: { id: 'toasts', label: ['Join messages', 'رسائل الانضمام', 'Katılım mesajları'] },
-  banner: { id: 'banner', label: ['Big banners', 'اللافتات الكبيرة', 'Büyük afişler'] },
+  hud: { id: 'hud', dir: 'h', show: 'showHud', label: ['Score panel', 'لوحة النقاط', 'Skor paneli'] },
+  teambar: { id: 'teambar', show: 'showTeambar', label: ['Team battle bar', 'شريط الفرق', 'Takım çubuğu'] },
+  effects: { id: 'effects', dir: 'h', show: 'showEffects', label: ['Effect timers', 'المؤثرات', 'Efektler'] },
+  alerts: { id: 'alerts', dir: 'v', show: 'showAlerts', label: ['Gift alerts', 'تنبيهات الهدايا', 'Hediye uyarıları'] },
+  legend: { id: 'legend', dir: 'v', show: 'showLegend', label: ['Gift list', 'قائمة الهدايا', 'Hediye listesi'] },
+  goals: { id: 'goalsBox', dir: 'v', show: 'showGoals', label: ['Like goals', 'أهداف اللايكات', 'Beğeni hedefleri'] },
+  supporters: { id: 'supBox', dir: 'v', show: 'showSupporters', label: ['Top supporters', 'أكبر الداعمين', 'En çok destekleyenler'] },
+  ticker: { id: 'ticker', show: 'showTicker', label: ['Tips bar', 'شريط النصائح', 'İpucu çubuğu'] },
+  toasts: { id: 'toasts', show: 'showToasts', label: ['Join messages', 'رسائل الانضمام', 'Katılım mesajları'] },
+  banner: { id: 'banner', show: 'showBanners', label: ['Big banners', 'اللافتات الكبيرة', 'Büyük afişler'] },
 };
 const frameEl = $('frame');
 const HOME = {}; // default parent + order, to put a window back
@@ -640,6 +647,7 @@ function putBack(k) {
 function applyLayout() {
   for (const [k, w] of Object.entries(WIN)) {
     const el = $(w.id), L = S.layout[k] || {};
+    el.classList.toggle('gone', !flag(w.show)); // removed (dashboard or the editor's delete button)
     el.style.setProperty('--s', L.s || 1);
     if (w.dir) { el.classList.toggle('dir-h', dirOf(k) === 'h'); el.classList.toggle('dir-v', dirOf(k) === 'v'); }
     if (L.x != null && L.y != null) {
@@ -649,7 +657,21 @@ function applyLayout() {
     } else if (el.classList.contains('free') || el.parentElement !== HOME[k].parent) putBack(k);
   }
   renderLegend();
-  if (EDIT) placeBar();
+  if (EDIT) { placeBar(); renderTray(); }
+}
+/** Editor: the windows you removed, each with a button to bring it back. */
+function renderTray() {
+  const tray = $('edtray'), gone = Object.entries(WIN).filter(([, w]) => !flag(w.show));
+  tray.classList.toggle('on', gone.length > 0);
+  const html = gone.length ? `<span>${esc(t('Removed:', 'محذوف:', 'Kaldırılan:'))}</span>` + gone.map(([k, w]) => `<button data-k="${k}" title="Bring it back">${icon('undo-2')}${esc(w.label[LANG_IDX[S.lang] ?? 0])}</button>`).join('') : '';
+  if (tray.dataset.html !== html) { tray.innerHTML = html; tray.dataset.html = html; }
+}
+function setShown(k, on) {
+  S.options = { ...S.options, [WIN[k].show]: on }; // show the change at once; the server confirms it
+  if (!on && selWin === k) select(null);
+  hudKey = ''; effKey = '';
+  applyOverlay(); applyLayout(); renderTeams();
+  send('UPDATE_GAME_OPTIONS', { options: { [WIN[k].show]: on } });
 }
 
 // ---- editor (?edit=1): drag to move, red handle to resize, bar for H / V, size and reset ----
@@ -658,13 +680,13 @@ function saveWin(k) { send('UPDATE_LAYOUT', { layout: { [k]: S.layout[k] ?? null
 function placeBar() {
   const bar = $('edbar');
   const rs = $('edrs');
-  if (!selWin || $(WIN[selWin].id).hidden) { bar.classList.remove('on'); rs.classList.remove('on'); return; }
+  if (!selWin || $(WIN[selWin].id).hidden || $(WIN[selWin].id).classList.contains('gone')) { bar.classList.remove('on'); rs.classList.remove('on'); return; }
   const w = WIN[selWin], el = $(w.id), L = S.layout[selWin] || {};
   const lab = w.label[LANG_IDX[S.lang] ?? 0];
   const html = `<b>${esc(lab)}</b>`
     + (w.dir ? `<button data-a="h" class="${dirOf(selWin) === 'h' ? 'on' : ''}" title="Horizontal">${icon('rectangle-horizontal')}H</button><button data-a="v" class="${dirOf(selWin) === 'v' ? 'on' : ''}" title="Vertical">${icon('rectangle-vertical')}V</button>` : '')
     + `<button data-a="smaller" title="Smaller">${icon('minus')}</button><span style="min-width:2.6em;text-align:center">${Math.round((L.s || 1) * 100)}%</span><button data-a="bigger" title="Bigger">${icon('plus')}</button>`
-    + `<button data-a="reset" title="Back to the default place">${icon('rotate-ccw')}</button><button data-a="close" title="Done">${icon('check')}</button>`;
+    + `<button data-a="reset" title="Back to the default place">${icon('rotate-ccw')}</button><button data-a="delete" title="Remove this window from the stream">${icon('trash-2')}</button><button data-a="close" title="Done">${icon('check')}</button>`;
   if (bar.dataset.html !== html) { bar.innerHTML = html; bar.dataset.html = html; } // rebuild only on change, so clicks aren't lost
   bar.classList.add('on');
   const fr = frameEl.getBoundingClientRect(), r = el.getBoundingClientRect(), bw = bar.offsetWidth, bh = bar.offsetHeight;
@@ -683,6 +705,9 @@ function select(k) {
 if (EDIT) {
   document.body.classList.add('editing');
   $('edbar').addEventListener('pointerdown', (e) => e.stopPropagation());
+  $('edtray').addEventListener('pointerdown', (e) => e.stopPropagation());
+  $('edtray').addEventListener('click', (e) => { const k = e.target.closest('button')?.dataset.k; if (k) setShown(k, true); });
+  addEventListener('keydown', (e) => { if (selWin && (e.key === 'Delete' || e.key === 'Backspace')) setShown(selWin, false); });
   $('edbar').addEventListener('click', (e) => {
     const a = e.target.closest('button')?.dataset.a; if (!a || !selWin) return;
     const L = { ...(S.layout[selWin] || {}) };
@@ -690,6 +715,7 @@ if (EDIT) {
     else if (a === 'smaller' || a === 'bigger') L.s = Math.round(clamp((L.s || 1) + (a === 'bigger' ? 0.1 : -0.1), 0.5, 2.5) * 10) / 10;
     else if (a === 'reset') { delete S.layout[selWin]; applyLayout(); saveWin(selWin); return; }
     else if (a === 'close') { select(null); return; }
+    else if (a === 'delete') { setShown(selWin, false); return; }
     S.layout[selWin] = L; applyLayout(); saveWin(selWin);
   });
   frameEl.addEventListener('pointerdown', (e) => {
@@ -841,7 +867,7 @@ function connect() {
           const before = S.options;
           S.options = p.options || {};
           SFX.setVolume(num('volume', 100, 0, 150));
-          hudKey = ''; effKey = ''; applyOverlay();
+          hudKey = ''; effKey = ''; applyOverlay(); applyLayout(); renderTeams();
           // A few settings are only read when the game starts (e.g. prizes in the claw machine): restart it for those.
           const restart = (S.gameDef?.options || []).some((o) => o.reload && JSON.stringify(before[o.key]) !== JSON.stringify(S.options[o.key]));
           if (restart) { const id = S.gameId; S.gameId = null; loadGame(id); } else S.game?.onOptions?.(S.options);
